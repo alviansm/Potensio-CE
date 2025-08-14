@@ -1,0 +1,10 @@
+^C:\USERS\ALVIANS\REPOSITORY\POTENSIOAPP\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Alvians/Repository/PotensioApp -BC:/Users/Alvians/Repository/PotensioApp/build --check-stamp-file C:/Users/Alvians/Repository/PotensioApp/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
