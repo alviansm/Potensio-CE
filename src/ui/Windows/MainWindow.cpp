@@ -378,69 +378,166 @@ void MainWindow::RenderKanbanHeader()
     auto currentProject = m_kanbanManager->GetCurrentProject();
     auto currentBoard = m_kanbanManager->GetCurrentBoard();
     
-    // Project and board selector
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    float buttonAreaWidth = 280.0f; // Reserve space for buttons
+    float infoAreaWidth = availableWidth - buttonAreaWidth - 20.0f; // 20px for spacing
+    
+    // Start horizontal layout
+    ImGui::BeginGroup();
+    
+    // Info area with horizontal scrolling if needed
+    ImGui::BeginChild("##KanbanHeaderInfo", ImVec2(infoAreaWidth, 30.0f), false, 
+                     ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    
+    // All information on ONE line with separators
+    bool needsSeparator = false;
+    
+    // Project info
     ImGui::Text("Project:");
     ImGui::SameLine();
-    
     if (currentProject)
     {
-        ImGui::Text("%s", currentProject->name.c_str());
+        ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%s", currentProject->name.c_str());
     }
     else
     {
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No project");
     }
+    needsSeparator = true;
     
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 20);
+    // Board info
+    if (needsSeparator) { ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine(); }
     ImGui::Text("Board:");
     ImGui::SameLine();
-    
     if (currentBoard)
     {
-        ImGui::Text("%s", currentBoard->name.c_str());
+        ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%s", currentBoard->name.c_str());
     }
     else
     {
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No board");
     }
     
-    // Action buttons
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - 200);
+    // Board statistics (only if board exists)
+    if (currentBoard)
+    {
+        // Cards count
+        ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+        ImGui::Text("Cards:");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%d", currentBoard->GetTotalCardCount());
+        
+        // Completed count
+        ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+        ImGui::Text("Completed:");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), "%d", currentBoard->GetCompletedCardCount());
+        
+        // Columns count
+        ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+        ImGui::Text("Columns:");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%zu", currentBoard->columns.size());
+        
+        // Progress percentage
+        int totalCards = currentBoard->GetTotalCardCount();
+        int completedCards = currentBoard->GetCompletedCardCount();
+        if (totalCards > 0)
+        {
+            float completionRate = (static_cast<float>(completedCards) / totalCards) * 100.0f;
+            
+            ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+            ImGui::Text("Progress:");
+            ImGui::SameLine();
+            
+            // Color code the percentage
+            ImVec4 progressColor;
+            if (completionRate >= 80.0f)
+                progressColor = ImVec4(0.2f, 0.8f, 0.2f, 1.0f); // Green
+            else if (completionRate >= 50.0f)
+                progressColor = ImVec4(0.8f, 0.8f, 0.2f, 1.0f); // Yellow
+            else
+                progressColor = ImVec4(0.8f, 0.4f, 0.2f, 1.0f); // Orange
+            
+            ImGui::TextColored(progressColor, "%.1f%%", completionRate);
+        }
+    }
+    else if (currentProject)
+    {
+        // Project-level stats when no board selected
+        ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+        ImGui::Text("Boards:");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%d", currentProject->GetTotalBoardCount());
+        
+        ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+        ImGui::Text("Total Cards:");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%d", currentProject->GetTotalCardCount());
+    }
     
-    if (ImGui::Button("New Project"))
+    ImGui::EndChild(); // End scrollable info area
+    
+    // Action buttons on the same line, fixed position on the right
+    ImGui::SameLine();
+    
+    float buttonSpacing = 8.0f;
+    float buttonWidth = 85.0f;
+    
+    // Action buttons with consistent sizing
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+    
+    // New Project button
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.3f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.5f, 0.1f, 1.0f));
+    
+    if (ImGui::Button("+ Project", ImVec2(buttonWidth, 28.0f)))
     {
         // Quick create project
         static int projectCounter = 1;
         std::string projectName = "Project " + std::to_string(projectCounter++);
         m_kanbanManager->CreateProject(projectName);
     }
+    ImGui::PopStyleColor(3);
     
-    ImGui::SameLine();
-    if (currentProject && ImGui::Button("New Board"))
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // New Board button (disabled if no project)
+    bool hasProject = currentProject != nullptr;
+    if (!hasProject) ImGui::BeginDisabled();
+    
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.4f, 0.8f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.5f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.3f, 0.7f, 1.0f));
+    
+    if (ImGui::Button("+ Board", ImVec2(buttonWidth, 28.0f)))
     {
         // Quick create board
         static int boardCounter = 1;
         std::string boardName = "Board " + std::to_string(boardCounter++);
         m_kanbanManager->CreateBoard(boardName);
     }
+    ImGui::PopStyleColor(3);
     
-    ImGui::SameLine();
-    if (ImGui::Button("Settings"))
+    if (!hasProject) ImGui::EndDisabled();
+    
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // Settings button
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.6f, 0.6f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+    
+    if (ImGui::Button("Settings", ImVec2(buttonWidth, 28.0f)))
     {
         m_showKanbanSettings = true;
     }
+    ImGui::PopStyleColor(3);
     
-    // Project/Board info
-    if (currentProject && currentBoard)
-    {
-        ImGui::Spacing();
-        ImGui::Text("Cards: %d | Completed: %d | Columns: %zu", 
-                   currentBoard->GetTotalCardCount(),
-                   currentBoard->GetCompletedCardCount(),
-                   currentBoard->columns.size());
-    }
+    ImGui::PopStyleVar(); // FrameRounding
+    
+    ImGui::EndGroup();
 }
 
 void MainWindow::RenderKanbanBoard()
@@ -448,30 +545,46 @@ void MainWindow::RenderKanbanBoard()
     auto currentBoard = m_kanbanManager->GetCurrentBoard();
     if (!currentBoard)
     {
-        ImGui::SetCursorPos(ImVec2(ImGui::GetContentRegionAvail().x * 0.5f - 100, 100));
+        ImVec2 centerPos = ImVec2(ImGui::GetContentRegionAvail().x * 0.5f - 100, 100);
+        ImGui::SetCursorPos(centerPos);
         ImGui::Text("No board selected");
+        ImGui::SetCursorPos(ImVec2(centerPos.x - 20, centerPos.y + 20));
         ImGui::Text("Create a project and board to get started.");
         return;
     }
     
     if (currentBoard->columns.empty())
     {
-        ImGui::SetCursorPos(ImVec2(ImGui::GetContentRegionAvail().x * 0.5f - 100, 100));
+        ImVec2 centerPos = ImVec2(ImGui::GetContentRegionAvail().x * 0.5f - 100, 100);
+        ImGui::SetCursorPos(centerPos);
         ImGui::Text("No columns in this board");
+        ImGui::SetCursorPos(ImVec2(centerPos.x - 20, centerPos.y + 20));
         ImGui::Text("Add columns in the settings to get started.");
         return;
     }
     
-    // Horizontal scrolling area for columns
-    float columnWidth = 280.0f;
-    float columnSpacing = 16.0f;
+    // Calculate fully responsive column dimensions
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    float availableHeight = ImGui::GetContentRegionAvail().y;
+    float columnSpacing = 8.0f; // Reduced spacing for better fit
+    size_t columnCount = currentBoard->columns.size();
     
-    ImGui::BeginChild("##KanbanScrollArea", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+    // Always calculate column width to fit ALL columns in available space
+    // No minimum width - columns will shrink to fit the window
+    float totalSpacing = (columnCount - 1) * columnSpacing + 16.0f; // Include margins
+    float columnWidth = (availableWidth - totalSpacing) / columnCount;
     
-    // Set cursor to start of content area
+    // Ensure we don't get negative or zero width
+    if (columnWidth < 50.0f) columnWidth = 50.0f;
+    
+    // Calculate column height to fill available vertical space
+    float columnHeight = availableHeight - 16.0f; // Leave some margin
+    
+    // Always use no-scroll container - columns must fit in window
+    ImGui::BeginChild("##KanbanScrollArea", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar);
     ImGui::SetCursorPos(ImVec2(8, 8));
     
-    // Render columns side by side
+    // Render columns side by side - all will fit in window
     for (size_t i = 0; i < currentBoard->columns.size(); ++i)
     {
         if (i > 0)
@@ -480,19 +593,26 @@ void MainWindow::RenderKanbanBoard()
         }
         
         ImGui::BeginGroup();
-        RenderKanbanColumn(currentBoard->columns[i].get(), static_cast<int>(i));
+        RenderKanbanColumn(currentBoard->columns[i].get(), static_cast<int>(i), columnWidth, columnHeight);
         ImGui::EndGroup();
     }
     
     ImGui::EndChild();
 }
 
-void MainWindow::RenderKanbanColumn(Kanban::Column* column, int columnIndex)
+void MainWindow::RenderKanbanColumn(Kanban::Column* column, int columnIndex, float columnWidth, float columnHeight)
 {
     if (!column) return;
     
-    float columnWidth = 280.0f;
-    float columnHeight = ImGui::GetContentRegionAvail().y - 50;
+    float headerHeight = 60.0f;
+    float padding = 6.0f; // Reduced padding for narrow columns
+    
+    // Adjust header height for very narrow columns
+    if (columnWidth < 150.0f)
+    {
+        headerHeight = 75.0f; // More height needed for wrapped text
+        padding = 4.0f;
+    }
     
     // Column background and border
     ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -502,91 +622,238 @@ void MainWindow::RenderKanbanColumn(Kanban::Column* column, int columnIndex)
     ImVec2 columnMin = ImVec2(windowPos.x + cursorPos.x, windowPos.y + cursorPos.y);
     ImVec2 columnMax = ImVec2(columnMin.x + columnWidth, columnMin.y + columnHeight);
     
-    // Column background
-    ImU32 columnBgColor = IM_COL32(45, 45, 45, 255);
-    ImU32 columnBorderColor = IM_COL32(80, 80, 80, 255);
+    // Column background with subtle gradient
+    ImU32 columnBgColor = IM_COL32(40, 42, 46, 255);
+    ImU32 columnBorderColor = IM_COL32(70, 75, 82, 255);
     
-    drawList->AddRectFilled(columnMin, columnMax, columnBgColor, 8.0f);
-    drawList->AddRect(columnMin, columnMax, columnBorderColor, 8.0f, 0, 2.0f);
+    drawList->AddRectFilled(columnMin, columnMax, columnBgColor, 6.0f);
+    drawList->AddRect(columnMin, columnMax, columnBorderColor, 6.0f, 0, 1.5f);
     
-    // Column header
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 12);
+    // Begin column content with proper positioning
+    ImGui::SetCursorPos(cursorPos);
+    ImGui::BeginChild(("##Column" + column->id).c_str(), ImVec2(columnWidth, columnHeight), false, ImGuiWindowFlags_NoScrollbar);
     
-    // Column title and card count
-    ImGui::Text("  %s (%zu)", column->name.c_str(), column->cards.size());
+    // Column header area with text wrapping for narrow columns
+    ImGui::SetCursorPos(ImVec2(padding, padding));
     
-    // Card limit indicator
+    // Column title with wrapping for narrow columns
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    if (columnWidth < 120.0f)
+    {
+        // For very narrow columns, wrap text
+        ImGui::PushTextWrapPos(columnWidth - 2 * padding);
+        ImGui::Text("%s", column->name.c_str());
+        ImGui::PopTextWrapPos();
+    }
+    else
+    {
+        ImGui::Text("%s", column->name.c_str());
+    }
+    ImGui::PopStyleColor();
+    
+    // Card count - adjust format based on width
+    float countYPos = columnWidth < 120.0f ? ImGui::GetCursorPosY() + 2 : padding + 18;
+    ImGui::SetCursorPos(ImVec2(padding, countYPos));
+    
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
     if (column->cardLimit > 0)
     {
-        ImGui::SameLine();
         if (static_cast<int>(column->cards.size()) >= column->cardLimit)
         {
-            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), " [FULL]");
+            ImGui::PopStyleColor();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
+        }
+        
+        // Shorter format for narrow columns
+        if (columnWidth < 100.0f)
+        {
+            ImGui::Text("(%zu/%d)", column->cards.size(), column->cardLimit);
         }
         else
         {
-            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), " [%d/%d]", 
-                             static_cast<int>(column->cards.size()), column->cardLimit);
+            ImGui::Text("(%zu/%d cards)", column->cards.size(), column->cardLimit);
         }
     }
-    
+    else
+    {
+        if (columnWidth < 100.0f)
+        {
+            ImGui::Text("(%zu)", column->cards.size());
+        }
+        else
+        {
+            ImGui::Text("(%zu cards)", column->cards.size());
+        }
+    }
     ImGui::PopStyleColor();
     
-    // Quick add card button
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8);
-    RenderQuickAddCard(column->id);
+    // Quick add card button - position adjusted for narrow columns
+    float buttonYPos = columnWidth < 120.0f ? ImGui::GetCursorPosY() + 4 : padding + 35;
+    ImGui::SetCursorPos(ImVec2(padding, buttonYPos));
+    RenderQuickAddCard(column->id, columnWidth - 2 * padding);
     
-    ImGui::Spacing();
+    // Separator line
+    ImGui::SetCursorPos(ImVec2(padding, headerHeight - 5));
+    ImGui::Separator();
     
-    // Cards area
-    std::string cardsAreaId = "##CardsArea" + column->id;
-    ImVec2 cardsAreaSize = ImVec2(columnWidth - 16, columnHeight - 100);
+    // Cards area with proper sizing to fill remaining space
+    ImVec2 cardsAreaPos = ImVec2(padding, headerHeight);
+    ImVec2 cardsAreaSize = ImVec2(columnWidth - 2 * padding, columnHeight - headerHeight - padding);
     
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8);
-    ImGui::BeginChild(cardsAreaId.c_str(), cardsAreaSize, false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    ImGui::SetCursorPos(cardsAreaPos);
+    ImGui::BeginChild(("##CardsArea" + column->id).c_str(), cardsAreaSize, false, 
+                     ImGuiWindowFlags_AlwaysVerticalScrollbar);
     
-    // Render cards
+    // Render cards with proper spacing
     for (size_t cardIndex = 0; cardIndex < column->cards.size(); ++cardIndex)
     {
         auto card = column->cards[cardIndex];
         if (card)
         {
-            RenderKanbanCard(card, static_cast<int>(cardIndex), column->id);
-            
-            // Add spacing between cards
-            if (cardIndex < column->cards.size() - 1)
+            if (cardIndex > 0)
             {
                 ImGui::Spacing();
             }
+            
+            RenderKanbanCard(card, static_cast<int>(cardIndex), column->id);
         }
     }
+    
+    // Add some padding at the bottom for better UX
+    ImGui::Spacing();
+    ImGui::Spacing();
     
     // Drop target at the end of the column
     RenderDropTarget(column->id, static_cast<int>(column->cards.size()));
     
-    ImGui::EndChild();
+    ImGui::EndChild(); // End cards area
+    ImGui::EndChild(); // End column
+}
+
+void MainWindow::RenderQuickAddCard(const std::string& columnId, float maxWidth)
+{
+    std::string inputId = "##quickadd" + columnId;
+    
+    static std::unordered_map<std::string, std::string> quickAddTexts;
+    static std::unordered_map<std::string, bool> quickAddActive;
+    
+    bool isActive = quickAddActive[columnId];
+    
+    // Use provided max width or calculate from available space
+    float buttonWidth = maxWidth > 0 ? maxWidth : (ImGui::GetContentRegionAvail().x - 16.0f);
+    
+    // Determine button text based on width
+    std::string buttonText;
+    if (buttonWidth < 80.0f)
+    {
+        buttonText = "+ Card##" + columnId;
+    }
+    else if (buttonWidth < 120.0f)
+    {
+        buttonText = "+ Add##" + columnId;
+    }
+    else
+    {
+        buttonText = "Add Card##" + columnId;
+    }
+    
+    if (!isActive)
+    {
+        // Properly sized button that fits the column
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.5f, 0.8f, 0.6f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.6f, 0.9f, 0.8f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.4f, 0.7f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        
+        if (ImGui::Button(buttonText.c_str(), ImVec2(buttonWidth, 24.0f)))
+        {
+            quickAddActive[columnId] = true;
+            quickAddTexts[columnId] = "";
+        }
+        
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(3);
+    }
+    else
+    {
+        // Quick add input with proper styling
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3)); // Smaller padding for narrow columns
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
+        
+        char buffer[256];
+        strncpy_s(buffer, quickAddTexts[columnId].c_str(), sizeof(buffer) - 1);
+        buffer[sizeof(buffer) - 1] = '\0';
+        
+        ImGui::SetKeyboardFocusHere();
+        ImGui::SetNextItemWidth(buttonWidth);
+        bool enterPressed = ImGui::InputText(inputId.c_str(), buffer, sizeof(buffer), 
+                                           ImGuiInputTextFlags_EnterReturnsTrue | 
+                                           ImGuiInputTextFlags_AutoSelectAll);
+        quickAddTexts[columnId] = buffer;
+        
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(2);
+        
+        if (enterPressed && strlen(buffer) > 0)
+        {
+            // Create the card
+            m_kanbanManager->CreateCard(columnId, buffer);
+            quickAddActive[columnId] = false;
+            quickAddTexts[columnId] = "";
+        }
+        
+        // Cancel on escape or click outside
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape) || 
+            (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsItemHovered()))
+        {
+            quickAddActive[columnId] = false;
+            quickAddTexts[columnId] = "";
+        }
+        
+        // Small instruction text - only show if there's enough width
+        if (buttonWidth > 100.0f)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1);
+            ImGui::Text("Enter to add, Esc to cancel");
+            ImGui::PopStyleColor();
+        }
+        else if (buttonWidth > 60.0f)
+        {
+            // Shorter instruction for narrow columns
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1);
+            ImGui::Text("Enter/Esc");
+            ImGui::PopStyleColor();
+        }
+        // No instruction text for very narrow columns
+    }
 }
 
 void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIndex, const std::string& columnId)
 {
     if (!card) return;
     
-    ImVec2 cardSize = ImVec2(ImGui::GetContentRegionAvail().x - 16, 0); // Height auto-calculated
+    float cardWidth = ImGui::GetContentRegionAvail().x;
+    float cardPadding = cardWidth < 100.0f ? 4.0f : 6.0f; // Smaller padding for narrow columns
+    float minCardHeight = cardWidth < 100.0f ? 50.0f : 60.0f; // Smaller min height for narrow columns
     
-    // Card background color based on priority
+    // Card background color based on priority with better contrast
     auto priorityColor = card->GetPriorityColor();
     ImU32 cardBgColor = IM_COL32(
-        static_cast<int>(priorityColor.r * 150 + 50),
-        static_cast<int>(priorityColor.g * 150 + 50),
-        static_cast<int>(priorityColor.b * 150 + 50),
+        static_cast<int>(priorityColor.r * 120 + 35),
+        static_cast<int>(priorityColor.g * 120 + 35),
+        static_cast<int>(priorityColor.b * 120 + 35),
         255
     );
     
     ImU32 cardBorderColor = IM_COL32(
-        static_cast<int>(priorityColor.r * 255),
-        static_cast<int>(priorityColor.g * 255),
-        static_cast<int>(priorityColor.b * 255),
+        static_cast<int>(priorityColor.r * 180 + 75),
+        static_cast<int>(priorityColor.g * 180 + 75),
+        static_cast<int>(priorityColor.b * 180 + 75),
         255
     );
     
@@ -597,9 +864,37 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
     
     if (isDragging)
     {
-        // Make dragged card slightly transparent
-        cardBgColor = IM_COL32(100, 100, 100, 180);
-        cardBorderColor = IM_COL32(150, 150, 150, 180);
+        cardBgColor = IM_COL32(80, 80, 80, 200);
+        cardBorderColor = IM_COL32(120, 120, 120, 200);
+    }
+    
+    // Calculate card content height dynamically
+    float lineHeight = ImGui::GetTextLineHeight();
+    float cardContentHeight = cardPadding * 2 + lineHeight; // Title
+    
+    // Add height for description if present
+    if (!card->description.empty())
+    {
+        // Calculate wrapped text height for responsive truncation
+        std::string displayDesc = card->description;
+        size_t maxLength = cardWidth < 100.0f ? 30 : (cardWidth < 150.0f ? 60 : 100);
+        
+        if (displayDesc.length() > maxLength)
+        {
+            displayDesc = displayDesc.substr(0, maxLength - 3) + "...";
+        }
+        
+        ImVec2 textSize = ImGui::CalcTextSize(displayDesc.c_str(), nullptr, true, cardWidth - 2 * cardPadding);
+        cardContentHeight += textSize.y + 4; 
+    }
+    
+    // Add height for metadata
+    cardContentHeight += lineHeight + 4;
+    
+    // Use simple conditional instead of std::max to avoid Windows macro conflicts
+    if (cardContentHeight < minCardHeight)
+    {
+        cardContentHeight = minCardHeight;
     }
     
     // Draw card background
@@ -608,77 +903,134 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
     ImVec2 cursorPos = ImGui::GetCursorPos();
     
     ImVec2 cardMin = ImVec2(windowPos.x + cursorPos.x, windowPos.y + cursorPos.y);
+    ImVec2 cardMax = ImVec2(cardMin.x + cardWidth, cardMin.y + cardContentHeight);
     
-    // Begin card rendering
+    // Card shadow effect
+    ImVec2 shadowOffset = ImVec2(2, 2);
+    drawList->AddRectFilled(
+        ImVec2(cardMin.x + shadowOffset.x, cardMin.y + shadowOffset.y),
+        ImVec2(cardMax.x + shadowOffset.x, cardMax.y + shadowOffset.y),
+        IM_COL32(0, 0, 0, 40), 6.0f
+    );
+    
+    // Card background and border
+    drawList->AddRectFilled(cardMin, cardMax, cardBgColor, 6.0f);
+    drawList->AddRect(cardMin, cardMax, cardBorderColor, 6.0f, 0, 1.5f);
+    
+    // Begin card content
     ImGui::PushID(card->id.c_str());
     
-    // Calculate card content height
-    float cardPadding = 8.0f;
-    float lineHeight = ImGui::GetTextLineHeight();
-    float cardContentHeight = cardPadding * 2 + lineHeight; // Title
+    // Position cursor for content
+    ImGui::SetCursorPos(ImVec2(cursorPos.x + cardPadding, cursorPos.y + cardPadding));
     
-    // Add height for description if present
-    if (!card->description.empty())
-    {
-        cardContentHeight += lineHeight + 4; // Description with spacing
-    }
+    // Card title - always wrap text for responsive cards
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.95f, 0.95f, 1.0f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Could use bold font if available
     
-    // Add height for metadata (priority, due date)
-    cardContentHeight += lineHeight + 4; // Metadata line
-    
-    ImVec2 cardMax = ImVec2(cardMin.x + cardSize.x, cardMin.y + cardContentHeight);
-    
-    // Draw card
-    drawList->AddRectFilled(cardMin, cardMax, cardBgColor, 5.0f);
-    drawList->AddRect(cardMin, cardMax, cardBorderColor, 5.0f, 0, 2.0f);
-    
-    // Card content
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cardPadding);
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + cardPadding);
-    
-    // Card title
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    ImGui::PushTextWrapPos(cursorPos.x + cardWidth - cardPadding);
     ImGui::Text("%s", card->title.c_str());
+    ImGui::PopTextWrapPos();
+    
+    ImGui::PopFont();
     ImGui::PopStyleColor();
     
-    // Card description (truncated)
+    // Card description - responsive truncation and wrapping
     if (!card->description.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
-        std::string truncatedDesc = card->description;
-        if (truncatedDesc.length() > 50)
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.75f, 0.75f, 1.0f));
+        ImGui::PushTextWrapPos(cursorPos.x + cardWidth - cardPadding);
+        
+        // Adjust truncation based on card width
+        std::string displayDesc = card->description;
+        size_t maxLength = cardWidth < 100.0f ? 30 : (cardWidth < 150.0f ? 60 : 100);
+        
+        if (displayDesc.length() > maxLength)
         {
-            truncatedDesc = truncatedDesc.substr(0, 47) + "...";
+            displayDesc = displayDesc.substr(0, maxLength - 3) + "...";
         }
-        ImGui::Text("%s", truncatedDesc.c_str());
+        
+        ImGui::Text("%s", displayDesc.c_str());
+        ImGui::PopTextWrapPos();
         ImGui::PopStyleColor();
     }
     
-    // Priority and metadata
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(priorityColor.r, priorityColor.g, priorityColor.b, 1.0f));
-    ImGui::Text("%s", GetPriorityName(static_cast<int>(card->priority)));
+    // Priority and metadata on the bottom - responsive format
+    ImGui::SetCursorPos(ImVec2(cursorPos.x + cardPadding, cardMin.y + cardContentHeight - windowPos.y - lineHeight - cardPadding));
     
-    if (!card->dueDate.empty())
+    // Priority and metadata - adjust format for narrow cards
+    if (cardWidth < 80.0f)
     {
-        ImGui::SameLine();
-        ImGui::Text(" | Due: %s", card->dueDate.c_str());
+        // Use priority symbols for very narrow cards
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(priorityColor.r, priorityColor.g, priorityColor.b, 1.0f));
+        ImGui::Text("●");
+        ImGui::PopStyleColor();
+        
+        // Due date as just an icon for narrow cards
+        if (!card->dueDate.empty())
+        {
+            ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
+            ImGui::Text("📅");
+            ImGui::PopStyleColor();
+        }
     }
-    ImGui::PopStyleColor();
+    else
+    {
+        // Normal priority display for wider cards
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(priorityColor.r, priorityColor.g, priorityColor.b, 1.0f));
+        if (cardWidth < 120.0f)
+        {
+            // Shorter priority names for medium-narrow cards
+            const char* shortPriorityNames[] = {"Low", "Med", "High", "Urg"};
+            int priorityIndex = static_cast<int>(card->priority);
+            if (priorityIndex >= 0 && priorityIndex < 4)
+            {
+                ImGui::Text("● %s", shortPriorityNames[priorityIndex]);
+            }
+            else
+            {
+                ImGui::Text("● Med"); // Fallback
+            }
+        }
+        else
+        {
+            // Full priority names for wider cards
+            ImGui::Text("● %s", GetPriorityName(static_cast<int>(card->priority)));
+        }
+        ImGui::PopStyleColor();
+        
+        // Due date handling
+        if (!card->dueDate.empty())
+        {
+            ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
+            if (cardWidth < 120.0f)
+            {
+                ImGui::Text("📅");
+            }
+            else
+            {
+                ImGui::Text("📅 %s", card->dueDate.c_str());
+            }
+            ImGui::PopStyleColor();
+        }
+    }
     
     // Position cursor after card
-    ImGui::SetCursorPosY(cardMin.y + cardContentHeight - windowPos.y + 4);
+    ImGui::SetCursorPos(ImVec2(cursorPos.x, cursorPos.y + cardContentHeight + 4));
     
-    // Handle interactions
-    ImVec2 cardRegionMin = cardMin;
-    ImVec2 cardRegionMax = cardMax;
-    cardRegionMin.x -= windowPos.x;
-    cardRegionMin.y -= windowPos.y;
-    cardRegionMax.x -= windowPos.x;
-    cardRegionMax.y -= windowPos.y;
+    // Invisible button for interaction (covering the entire card)
+    ImVec2 cardRegionMin = ImVec2(cursorPos.x, cursorPos.y);
+    ImVec2 cardRegionMax = ImVec2(cursorPos.x + cardWidth, cursorPos.y + cardContentHeight);
     
-    // Invisible button for interaction
-    ImGui::SetCursorPos(ImVec2(cardRegionMin.x, cardRegionMin.y));
-    bool cardClicked = ImGui::InvisibleButton("##cardbutton", ImVec2(cardRegionMax.x - cardRegionMin.x, cardRegionMax.y - cardRegionMin.y));
+    ImGui::SetCursorPos(cardRegionMin);
+    bool cardClicked = ImGui::InvisibleButton("##cardbutton", ImVec2(cardWidth, cardContentHeight));
+    
+    // Hover effect
+    if (ImGui::IsItemHovered())
+    {
+        drawList->AddRect(cardMin, cardMax, IM_COL32(255, 255, 255, 100), 6.0f, 0, 2.0f);
+    }
     
     // Double-click to edit
     if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
@@ -691,21 +1043,32 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
     {
         m_kanbanManager->StartDrag(card, columnId);
         ImGui::SetDragDropPayload("KANBAN_CARD", card.get(), sizeof(Kanban::Card*));
+        
+        // Custom drag preview
+        ImGui::BeginTooltip();
         ImGui::Text("Moving: %s", card->title.c_str());
+        if (!card->description.empty())
+        {
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%.50s%s", 
+                             card->description.c_str(), 
+                             card->description.length() > 50 ? "..." : "");
+        }
+        ImGui::EndTooltip();
+        
         ImGui::EndDragDropSource();
     }
     
     // Context menu
     if (ImGui::BeginPopupContextItem())
     {
-        if (ImGui::MenuItem("Edit"))
+        if (ImGui::MenuItem("✏️ Edit"))
         {
             StartEditingCard(card);
         }
         
         ImGui::Separator();
         
-        if (ImGui::MenuItem("Delete"))
+        if (ImGui::MenuItem("🗑️ Delete", nullptr, false, true))
         {
             m_kanbanManager->DeleteCard(card->id);
         }
@@ -713,11 +1076,14 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
         ImGui::EndPopup();
     }
     
-    // Drop target between cards
+    // Drop target between cards (only if not the first card)
     if (cardIndex > 0)
     {
         RenderDropTarget(columnId, cardIndex);
     }
+    
+    // Suppress unused parameter warning for cardIndex since it's used in the condition above
+    (void)cardIndex;
     
     ImGui::PopID();
 }
@@ -756,53 +1122,6 @@ void MainWindow::RenderDropTarget(const std::string& columnId, int insertIndex)
         drawList->AddRect(itemMin, itemMax, IM_COL32(100, 150, 255, 255), 3.0f, 0, 2.0f);
         
         ImGui::EndDragDropTarget();
-    }
-}
-
-void MainWindow::RenderQuickAddCard(const std::string& columnId)
-{
-    std::string buttonId = "Add Card##" + columnId;
-    std::string inputId = "##quickadd" + columnId;
-    
-    static std::unordered_map<std::string, std::string> quickAddTexts;
-    static std::unordered_map<std::string, bool> quickAddActive;
-    
-    bool isActive = quickAddActive[columnId];
-    
-    if (!isActive)
-    {
-        if (ImGui::Button(buttonId.c_str(), ImVec2(-1, 0)))
-        {
-            quickAddActive[columnId] = true;
-            quickAddTexts[columnId] = "";
-        }
-    }
-    else
-    {
-        // Quick add input
-        char buffer[256];
-        strncpy_s(buffer, quickAddTexts[columnId].c_str(), sizeof(buffer) - 1);
-        buffer[sizeof(buffer) - 1] = '\0';
-        
-        ImGui::SetKeyboardFocusHere();
-        bool enterPressed = ImGui::InputText(inputId.c_str(), buffer, sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue);
-        quickAddTexts[columnId] = buffer;
-        
-        if (enterPressed && strlen(buffer) > 0)
-        {
-            // Create the card
-            m_kanbanManager->CreateCard(columnId, buffer);
-            quickAddActive[columnId] = false;
-            quickAddTexts[columnId] = "";
-        }
-        
-        // Cancel on escape or click outside
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape) || 
-            (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsItemHovered()))
-        {
-            quickAddActive[columnId] = false;
-            quickAddTexts[columnId] = "";
-        }
     }
 }
 

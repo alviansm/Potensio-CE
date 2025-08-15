@@ -114,10 +114,10 @@ private:
     void RenderKanbanModule();
     void RenderKanbanHeader();
     void RenderKanbanBoard();
-    void RenderKanbanColumn(class Kanban::Column* column, int columnIndex);
+    void RenderKanbanColumn(class Kanban::Column* column, int columnIndex, float columnWidth, float columnHeight);
+    void RenderQuickAddCard(const std::string& columnId, float maxWidth = 0.0f);
     void RenderKanbanCard(std::shared_ptr<class Kanban::Card> card, int cardIndex, const std::string& columnId);
     void RenderCardEditDialog();
-    void RenderQuickAddCard(const std::string& columnId);
     
     // Kanban helpers
     void StartEditingCard(std::shared_ptr<class Kanban::Card> card);
