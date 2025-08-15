@@ -5,8 +5,11 @@
 #include <string>
 
 #include "imgui.h"
+
+// Modules
 #include "core/Kanban/KanbanManager.h"
 #include "core/Todo/TodoManager.h"
+#include "core/Clipboard/ClipboardManager.h"
 
 // Forward declarations
 class Sidebar;
@@ -15,6 +18,8 @@ class PomodoroWindow;
 class KanbanManager;
 class KanbanWindow;
 class TodoManager;
+class ClipboardManager;
+class ClipboardWindow;
 class AppConfig;
 
 enum class ModulePage
@@ -73,6 +78,11 @@ private:
     // Todo integration
     std::unique_ptr<TodoManager> m_todoManager;
     bool m_showTodoSettings = false;
+
+    // Clipboard integration
+    std::unique_ptr<ClipboardManager> m_clipboardManager;
+    std::unique_ptr<ClipboardWindow> m_clipboardSettingsWindow;
+    bool m_showClipboardSettings = false;
     
     // Card editing state (for Kanban)
     struct CardEditState
@@ -100,6 +110,17 @@ private:
         bool isAllDay = true;
         char categoryBuffer[128] = "";
     } m_taskEditState;
+
+    // Clipboard UI state
+    struct ClipboardUIState
+    {
+        std::string searchQuery;
+        bool showFavorites = false;
+        bool showPinned = false;
+        Clipboard::ClipboardFormat filterFormat = Clipboard::ClipboardFormat::Text; // "All" filter
+        int selectedItemIndex = -1;
+        bool showPreview = true;
+    } m_clipboardUIState;
     
     // Content area rendering
     void RenderMenuBar();
@@ -174,11 +195,55 @@ private:
     
     // Todo drag and drop
     void RenderTodoDropTarget(const std::string& date, int insertIndex = -1);
+
+    // Todo date picker state
+    struct DatePickerState
+    {
+        bool isOpen = false;
+        int selectedYear = 2025;
+        int selectedMonth = 8;  // 0-based (0=January, 7=August)
+        int selectedDay = 15;
+        int displayYear = 2025;
+        int displayMonth = 8;
+    } m_datePickerState;
+    
+    // Date picker helper methods
+    void GetCurrentDateComponents(int& year, int& month, int& day) const;
+    std::string FormatDateComponents(int year, int month, int day) const;
+    int GetDaysInMonth(int year, int month) const;
+    int GetFirstDayOfWeek(int year, int month) const;
+    void RenderDatePicker();
+
+    /**
+     * @note Clipboard - Main Interface
+     */
+    void RenderClipboardModule();
+    void RenderClipboardHeader();
+    void RenderClipboardToolbar();
+    void RenderClipboardList();
+    void RenderClipboardItem(std::shared_ptr<Clipboard::ClipboardItem> item, int index, bool isSelected);
+    void RenderClipboardPreview();
+    void RenderClipboardSearch();
+
+    // Clipboard helpers
+    void OnClipboardItemAdded(std::shared_ptr<Clipboard::ClipboardItem> item);
+    void OnClipboardItemDeleted(const std::string& id);
+    void OnClipboardHistoryCleared();
+
+    // Clipboard operations
+    void CopyClipboardItem(std::shared_ptr<Clipboard::ClipboardItem> item);
+    void DeleteClipboardItem(const std::string& id);
+    void ToggleClipboardFavorite(const std::string& id);
+    void ClearClipboardHistory();
+
+    // Clipboard utility methods
+    const char* GetClipboardFormatName(Clipboard::ClipboardFormat format) const;
+    ImVec4 GetClipboardFormatColor(Clipboard::ClipboardFormat format) const;
+    std::string FormatClipboardTimestamp(const std::chrono::system_clock::time_point& timestamp) const;
     
     /**
      * @note Other modules
      */
-    void RenderClipboardPlaceholder();
     void RenderBulkRenamePlaceholder();
     void RenderFileConverterPlaceholder();
     void renderSettingPlaceholder();

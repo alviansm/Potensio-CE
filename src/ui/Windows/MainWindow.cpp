@@ -192,7 +192,43 @@ bool MainWindow::Initialize(AppConfig* config)
         
         m_pomodoroTimer->SetConfig(pomodoroConfig);
     }
+
+    /**
+     * @note Clipboard Module
+     */
+    m_clipboardManager = std::make_unique<ClipboardManager>();
+    m_clipboardSettingsWindow = std::make_unique<ClipboardWindow>();
     
+    // Initialize Clipboard components
+    if (!m_clipboardManager->Initialize(config))
+    {
+        Logger::Warning("Failed to initialize Clipboard manager");
+    }
+
+    if (!m_clipboardSettingsWindow->Initialize(config))
+    {
+        Logger::Warning("Failed to initialize Clipboard settings window");
+    }
+
+    // Set up Clipboard callbacks
+    m_clipboardManager->SetOnItemAdded([this](std::shared_ptr<Clipboard::ClipboardItem> item) {
+        OnClipboardItemAdded(item);
+    });
+
+    m_clipboardManager->SetOnItemDeleted([this](const std::string& id) {
+        OnClipboardItemDeleted(id);
+    });
+
+    m_clipboardManager->SetOnHistoryCleared([this]() {
+        OnClipboardHistoryCleared();
+    });
+
+    // Connect settings window to manager
+    m_clipboardSettingsWindow->SetClipboardManager(m_clipboardManager.get());
+
+    /**
+     * @note Log successfull initialization
+     */
     Logger::Info("MainWindow initialized successfully");
     return true;
 }
@@ -210,12 +246,20 @@ void MainWindow::Shutdown()
 
     if (m_todoManager)
         m_todoManager->Shutdown();    
+
+    if (m_clipboardSettingsWindow)
+        m_clipboardSettingsWindow->Shutdown();
+
+    if (m_clipboardManager)
+        m_clipboardManager->Shutdown();
     
     m_pomodoroSettingsWindow.reset();
     m_pomodoroTimer.reset();
     m_kanbanSettingsWindow.reset();
     m_kanbanManager.reset();
     m_todoManager.reset();
+    m_clipboardSettingsWindow.reset();
+    m_clipboardManager.reset();
 }
 
 void MainWindow::Update(float deltaTime)
@@ -247,6 +291,12 @@ void MainWindow::Update(float deltaTime)
     if (m_kanbanSettingsWindow && m_showKanbanSettings)
     {
         m_kanbanSettingsWindow->Update(deltaTime);
+    }
+
+    // Update settings windows if visible
+    if (m_clipboardSettingsWindow && m_showClipboardSettings)
+    {
+        m_clipboardSettingsWindow->Update(deltaTime);
     }
 }
 
@@ -311,6 +361,18 @@ void MainWindow::Render()
             m_showKanbanSettings = false;
         }
     }
+
+    if (m_clipboardSettingsWindow && m_showClipboardSettings)
+    {
+        m_clipboardSettingsWindow->SetVisible(true);
+        m_clipboardSettingsWindow->Render();
+        
+        // Check if settings window was closed
+        if (!m_clipboardSettingsWindow->IsVisible())
+        {
+            m_showClipboardSettings = false;
+        }
+    }
 }
 
 void MainWindow::SetCurrentModule(ModulePage module)
@@ -348,7 +410,7 @@ void MainWindow::RenderContentArea()
             RenderKanbanModule();
             break;
         case ModulePage::Clipboard:
-            RenderClipboardPlaceholder();
+            RenderClipboardModule();
             break;
         case ModulePage::Todo:
             RenderTodoModule();
@@ -2238,6 +2300,9 @@ void MainWindow::RenderTodoModule()
         return;
     }
     
+    // Date picker popup
+    RenderDatePicker();
+    
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
     
     // Header with navigation and statistics
@@ -2291,7 +2356,7 @@ void MainWindow::RenderTodoModule()
 void MainWindow::RenderTodoHeader()
 {
     float availableWidth = ImGui::GetContentRegionAvail().x;
-    float buttonAreaWidth = 300.0f;
+    float buttonAreaWidth = 350.0f; // Increased to accommodate date picker
     float infoAreaWidth = availableWidth - buttonAreaWidth - 20.0f;
     
     // Start horizontal layout
@@ -2394,16 +2459,22 @@ void MainWindow::RenderTodoHeader()
     
     ImGui::SameLine(0, buttonSpacing);
     
-    // View mode buttons
-    auto currentViewMode = m_todoManager->GetViewMode();
+    // Date picker button (replaces the "Day" button)
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.3f, 0.8f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.4f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.2f, 0.7f, 1.0f));
     
-    ImGui::PushStyleColor(ImGuiCol_Button, currentViewMode == TodoManager::ViewMode::Daily ? 
-                         ImVec4(0.3f, 0.5f, 0.8f, 1.0f) : ImVec4(0.2f, 0.4f, 0.6f, 0.8f));
-    if (ImGui::Button("Day", ImVec2(buttonWidth - 10, 28.0f)))
+    if (ImGui::Button("📅 Pick Date", ImVec2(90.0f, 28.0f)))
     {
-        m_todoManager->SetViewMode(TodoManager::ViewMode::Daily);
+        // Initialize date picker with current date
+        GetCurrentDateComponents(m_datePickerState.selectedYear, 
+                               m_datePickerState.selectedMonth, 
+                               m_datePickerState.selectedDay);
+        m_datePickerState.displayYear = m_datePickerState.selectedYear;
+        m_datePickerState.displayMonth = m_datePickerState.selectedMonth;
+        m_datePickerState.isOpen = true;
     }
-    ImGui::PopStyleColor();
+    ImGui::PopStyleColor(3);
     
     ImGui::PopStyleVar(); // FrameRounding
     
@@ -2502,9 +2573,9 @@ void MainWindow::RenderTodoDailyView()
     ImGui::Spacing();
     
     // Quick add task
-    RenderQuickAddTask(currentDate);
+    // RenderQuickAddTask(currentDate);
     
-    ImGui::Spacing();
+    // ImGui::Spacing();
     
     // Tasks list
     if (dayTasks && !dayTasks->tasks.empty())
@@ -3099,5 +3170,277 @@ ImVec4 MainWindow::GetStatusColor(int status) const
         case 2: return ImVec4(0.4f, 0.8f, 0.4f, 1.0f); // Green - Completed
         case 3: return ImVec4(0.8f, 0.4f, 0.4f, 1.0f); // Red - Cancelled
         default: return ImVec4(0.7f, 0.7f, 0.7f, 1.0f); // Gray
+    }
+}
+
+// =============================================================================
+// DATE PICKER IMPLEMENTATION
+// =============================================================================
+
+void MainWindow::GetCurrentDateComponents(int& year, int& month, int& day) const
+{
+    std::string currentDate = m_todoManager->GetCurrentDate();
+    // Parse YYYY-MM-DD format
+    if (currentDate.length() >= 10)
+    {
+        year = std::stoi(currentDate.substr(0, 4));
+        month = std::stoi(currentDate.substr(5, 2)) - 1; // Convert to 0-based
+        day = std::stoi(currentDate.substr(8, 2));
+    }
+}
+
+std::string MainWindow::FormatDateComponents(int year, int month, int day) const
+{
+    char buffer[32];
+    sprintf_s(buffer, "%04d-%02d-%02d", year, month + 1, day); // Convert from 0-based month
+    return std::string(buffer);
+}
+
+int MainWindow::GetDaysInMonth(int year, int month) const
+{
+    const int daysInMonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    
+    if (month == 1) // February
+    {
+        // Check for leap year
+        if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
+            return 29;
+        else
+            return 28;
+    }
+    
+    return daysInMonth[month];
+}
+
+int MainWindow::GetFirstDayOfWeek(int year, int month) const
+{
+    // Simple algorithm to get day of week for first day of month
+    // This is a simplified version - you might want to use a more robust date library
+    int totalDays = 0;
+    
+    // Days from year 1900 (known Sunday = 0)
+    for (int y = 1900; y < year; y++)
+    {
+        totalDays += 365;
+        if ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0))
+            totalDays += 1; // Leap year
+    }
+    
+    // Days from months in current year
+    for (int m = 0; m < month; m++)
+    {
+        totalDays += GetDaysInMonth(year, m);
+    }
+    
+    return totalDays % 7;
+}
+
+void MainWindow::RenderDatePicker()
+{
+    if (!m_datePickerState.isOpen)
+        return;
+    
+    ImGui::SetNextWindowSize(ImVec2(320, 280), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    bool isOpen = m_datePickerState.isOpen;
+    if (ImGui::Begin("📅 Select Date", &isOpen, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
+    {
+        // Month/Year navigation
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+        
+        // Previous month button
+        if (ImGui::Button("◀"))
+        {
+            m_datePickerState.displayMonth--;
+            if (m_datePickerState.displayMonth < 0)
+            {
+                m_datePickerState.displayMonth = 11;
+                m_datePickerState.displayYear--;
+            }
+        }
+        
+        ImGui::SameLine();
+        
+        // Month/Year display and selection
+        const char* monthNames[] = {
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        };
+        
+        ImGui::SetNextItemWidth(120);
+        if (ImGui::BeginCombo("##month", monthNames[m_datePickerState.displayMonth]))
+        {
+            for (int i = 0; i < 12; i++)
+            {
+                bool isSelected = (i == m_datePickerState.displayMonth);
+                if (ImGui::Selectable(monthNames[i], isSelected))
+                {
+                    m_datePickerState.displayMonth = i;
+                }
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        
+        ImGui::SameLine();
+        
+        // Year input
+        ImGui::SetNextItemWidth(80);
+        ImGui::InputInt("##year", &m_datePickerState.displayYear, 1, 10);
+        
+        // Clamp year to reasonable range
+        if (m_datePickerState.displayYear < 1900) m_datePickerState.displayYear = 1900;
+        if (m_datePickerState.displayYear > 2100) m_datePickerState.displayYear = 2100;
+        
+        ImGui::SameLine();
+        
+        // Next month button
+        if (ImGui::Button("▶"))
+        {
+            m_datePickerState.displayMonth++;
+            if (m_datePickerState.displayMonth > 11)
+            {
+                m_datePickerState.displayMonth = 0;
+                m_datePickerState.displayYear++;
+            }
+        }
+        
+        ImGui::PopStyleVar();
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Calendar grid
+        const char* dayNames[] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
+        
+        // Day headers
+        ImGui::Columns(7, "DayHeaders", false);
+        for (int i = 0; i < 7; i++)
+        {
+            ImGui::Text("%s", dayNames[i]);
+            ImGui::NextColumn();
+        }
+        ImGui::Columns(1);
+        
+        ImGui::Separator();
+        
+        // Calendar days
+        int daysInMonth = GetDaysInMonth(m_datePickerState.displayYear, m_datePickerState.displayMonth);
+        int firstDayOfWeek = GetFirstDayOfWeek(m_datePickerState.displayYear, m_datePickerState.displayMonth);
+        
+        ImGui::Columns(7, "Calendar", false);
+        
+        // Empty cells before first day
+        for (int i = 0; i < firstDayOfWeek; i++)
+        {
+            ImGui::NextColumn();
+        }
+        
+        // Days of the month
+        for (int day = 1; day <= daysInMonth; day++)
+        {
+            bool isSelected = (day == m_datePickerState.selectedDay &&
+                             m_datePickerState.displayMonth == m_datePickerState.selectedMonth &&
+                             m_datePickerState.displayYear == m_datePickerState.selectedYear);
+            
+            // Highlight today
+            std::string todayDate = m_todoManager->GetTodayDate();
+            std::string thisDate = FormatDateComponents(m_datePickerState.displayYear, m_datePickerState.displayMonth, day);
+            bool isToday = (thisDate == todayDate);
+            
+            if (isToday)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 0.8f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.3f, 1.0f));
+            }
+            else if (isSelected)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.5f, 0.8f, 0.8f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.6f, 0.9f, 1.0f));
+            }
+            
+            char dayStr[8];
+            sprintf_s(dayStr, "%d", day);
+            
+            if (ImGui::Button(dayStr, ImVec2(35, 25)))
+            {
+                m_datePickerState.selectedDay = day;
+                m_datePickerState.selectedMonth = m_datePickerState.displayMonth;
+                m_datePickerState.selectedYear = m_datePickerState.displayYear;
+                
+                // Apply the selected date
+                std::string newDate = FormatDateComponents(m_datePickerState.selectedYear, 
+                                                         m_datePickerState.selectedMonth, 
+                                                         m_datePickerState.selectedDay);
+                m_todoManager->SetCurrentDate(newDate);
+                
+                m_datePickerState.isOpen = false;
+            }
+            
+            if (isToday || isSelected)
+            {
+                ImGui::PopStyleColor(2);
+            }
+            
+            ImGui::NextColumn();
+        }
+        
+        ImGui::Columns(1);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Quick navigation buttons
+        float buttonWidth = 90.0f;
+        float totalButtonWidth = 3 * buttonWidth + 2 * 10.0f; // 3 buttons + 2 spacing
+        ImGui::SetCursorPosX((320 - totalButtonWidth) * 0.5f);
+        
+        if (ImGui::Button("Today", ImVec2(buttonWidth, 0)))
+        {
+            std::string today = m_todoManager->GetTodayDate();
+            m_todoManager->SetCurrentDate(today);
+            
+            // Update picker state to today
+            GetCurrentDateComponents(m_datePickerState.selectedYear, 
+                                   m_datePickerState.selectedMonth, 
+                                   m_datePickerState.selectedDay);
+            m_datePickerState.displayYear = m_datePickerState.selectedYear;
+            m_datePickerState.displayMonth = m_datePickerState.selectedMonth;
+            
+            m_datePickerState.isOpen = false;
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0)))
+        {
+            m_datePickerState.isOpen = false;
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Apply", ImVec2(buttonWidth, 0)))
+        {
+            std::string newDate = FormatDateComponents(m_datePickerState.selectedYear, 
+                                                     m_datePickerState.selectedMonth, 
+                                                     m_datePickerState.selectedDay);
+            m_todoManager->SetCurrentDate(newDate);
+            m_datePickerState.isOpen = false;
+        }
+    }
+    else
+    {
+        isOpen = false;
+    }
+    
+    ImGui::End();
+    
+    if (!isOpen)
+    {
+        m_datePickerState.isOpen = false;
     }
 }
