@@ -25,6 +25,9 @@
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Kanban\KanbanManager.cpp">
       <Filter>Source Files\Core\Kanban</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Todo\TodoManager.cpp">
+      <Filter>Source Files\Core\Todo</Filter>
+    </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\UIManager.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -94,6 +97,9 @@
     </Filter>
     <Filter Include="Source Files\Core\Timer">
       <UniqueIdentifier>{715841B4-E76E-38B0-997A-194E13F88C03}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core\Todo">
+      <UniqueIdentifier>{22941D45-71BE-3627-A82F-7862551D9AD6}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Platform">
       <UniqueIdentifier>{81229DCA-A8BF-36B2-B9A7-018A8405890F}</UniqueIdentifier>

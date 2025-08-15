@@ -4,6 +4,7 @@
 #include "ui/Windows/PomodoroWindow.h"
 #include "ui/Windows/KanbanWindow.h"
 #include "core/Timer/PomodoroTimer.h"
+#include "core/Todo/TodoManager.h"
 #include "core/Logger.h"
 #include "core/Utils.h"
 #include "app/Application.h"
@@ -133,6 +134,28 @@ bool MainWindow::Initialize(AppConfig* config)
     m_kanbanManager->SetOnProjectChanged([this](Kanban::Project* project) {
         OnKanbanProjectChanged(project);
     });
+
+    // Initialize Todo manager
+    m_todoManager = std::make_unique<TodoManager>();
+    
+    // Initialize Todo components
+    if (!m_todoManager->Initialize(config))
+    {
+        Logger::Warning("Failed to initialize Todo manager");
+    }
+
+    // Set up Todo callbacks
+    m_todoManager->SetOnTaskUpdated([this](std::shared_ptr<Todo::Task> task) {
+        OnTodoTaskUpdated(task);
+    });
+    
+    m_todoManager->SetOnTaskCompleted([this](std::shared_ptr<Todo::Task> task) {
+        OnTodoTaskCompleted(task);
+    });
+    
+    m_todoManager->SetOnDayChanged([this](const std::string& date) {
+        OnTodoDayChanged(date);
+    });
     
     // Connect settings window to manager
     m_kanbanSettingsWindow->SetKanbanManager(m_kanbanManager.get());
@@ -184,11 +207,15 @@ void MainWindow::Shutdown()
     
     if (m_kanbanManager)
         m_kanbanManager->Shutdown();
+
+    if (m_todoManager)
+        m_todoManager->Shutdown();    
     
     m_pomodoroSettingsWindow.reset();
     m_pomodoroTimer.reset();
     m_kanbanSettingsWindow.reset();
     m_kanbanManager.reset();
+    m_todoManager.reset();
 }
 
 void MainWindow::Update(float deltaTime)
@@ -324,7 +351,7 @@ void MainWindow::RenderContentArea()
             RenderClipboardPlaceholder();
             break;
         case ModulePage::Todo:
-            RenderBulkRenamePlaceholder(); // Todo: change to todo
+            RenderTodoModule();
             break;
         case ModulePage::FileConverter:
             RenderFileConverterPlaceholder();
@@ -2196,5 +2223,881 @@ const char* MainWindow::GetModuleName(ModulePage module) const
         case ModulePage::FileConverter: return "File Converter";
         case ModulePage::Settings:      return "Settings";
         default:                        return "Unknown";
+    }
+}
+
+// =============================================================================
+// TODO MODULE IMPLEMENTATION
+// =============================================================================
+
+void MainWindow::RenderTodoModule()
+{
+    if (!m_todoManager)
+    {
+        ImGui::Text("Todo Manager not available");
+        return;
+    }
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
+    
+    // Header with navigation and statistics
+    RenderTodoHeader();
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Main content area with sidebar and task view
+    float sidebarWidth = 200.0f;
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    float contentWidth = availableWidth - sidebarWidth - 10.0f;
+    
+    // Sidebar
+    ImGui::BeginChild("##TodoSidebar", ImVec2(sidebarWidth, 0), true);
+    RenderTodoSidebar();
+    ImGui::EndChild();
+    
+    ImGui::SameLine();
+    
+    // Main content area
+    ImGui::BeginChild("##TodoContent", ImVec2(contentWidth, 0), false);
+    
+    // Render based on current view mode
+    auto viewMode = m_todoManager->GetViewMode();
+    switch (viewMode)
+    {
+        case TodoManager::ViewMode::Daily:
+            RenderTodoDailyView();
+            break;
+        case TodoManager::ViewMode::Weekly:
+            RenderTodoWeeklyView();
+            break;
+        case TodoManager::ViewMode::Monthly:
+            RenderTodoCalendarView();
+            break;
+    }
+    
+    ImGui::EndChild();
+    
+    // Task edit dialog (modal)
+    if (m_taskEditState.isEditing)
+    {
+        RenderTaskEditDialog();
+    }
+    
+    ImGui::PopStyleVar();
+}
+
+void MainWindow::RenderTodoHeader()
+{
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    float buttonAreaWidth = 300.0f;
+    float infoAreaWidth = availableWidth - buttonAreaWidth - 20.0f;
+    
+    // Start horizontal layout
+    ImGui::BeginGroup();
+    
+    // Info area
+    ImGui::BeginChild("##TodoHeaderInfo", ImVec2(infoAreaWidth, 30.0f), false, 
+                     ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    
+    // Current date and statistics
+    std::string currentDate = m_todoManager->GetCurrentDate();
+    ImGui::Text("📅 %s", currentDate.c_str());
+    
+    ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+    
+    int totalTasks = m_todoManager->GetTotalTaskCount();
+    int completedTasks = m_todoManager->GetCompletedTaskCount();
+    int pendingTasks = m_todoManager->GetPendingTaskCount();
+    int overdueTasks = m_todoManager->GetOverdueTaskCount();
+    
+    ImGui::Text("Total:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%d", totalTasks);
+    
+    ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+    ImGui::Text("Completed:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), "%d", completedTasks);
+    
+    ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+    ImGui::Text("Pending:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.9f, 0.8f, 0.5f, 1.0f), "%d", pendingTasks);
+    
+    if (overdueTasks > 0)
+    {
+        ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+        ImGui::Text("Overdue:");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.9f, 0.3f, 0.3f, 1.0f), "%d", overdueTasks);
+    }
+    
+    // Completion rate
+    if (totalTasks > 0)
+    {
+        float completionRate = m_todoManager->GetCompletionRate() * 100.0f;
+        ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+        ImGui::Text("Progress:");
+        ImGui::SameLine();
+        
+        ImVec4 progressColor;
+        if (completionRate >= 80.0f)
+            progressColor = ImVec4(0.2f, 0.8f, 0.2f, 1.0f); // Green
+        else if (completionRate >= 50.0f)
+            progressColor = ImVec4(0.8f, 0.8f, 0.2f, 1.0f); // Yellow
+        else
+            progressColor = ImVec4(0.8f, 0.4f, 0.2f, 1.0f); // Orange
+        
+        ImGui::TextColored(progressColor, "%.1f%%", completionRate);
+    }
+    
+    ImGui::EndChild();
+    
+    // Navigation and view buttons
+    ImGui::SameLine();
+    
+    float buttonSpacing = 8.0f;
+    float buttonWidth = 70.0f;
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+    
+    // Previous day button
+    if (ImGui::Button("◀ Prev", ImVec2(buttonWidth, 28.0f)))
+    {
+        std::string prevDate = m_todoManager->GetPreviousDay(m_todoManager->GetCurrentDate());
+        m_todoManager->SetCurrentDate(prevDate);
+    }
+    
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // Today button
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.3f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.5f, 0.1f, 1.0f));
+    
+    if (ImGui::Button("Today", ImVec2(buttonWidth, 28.0f)))
+    {
+        m_todoManager->SetCurrentDate(m_todoManager->GetTodayDate());
+    }
+    ImGui::PopStyleColor(3);
+    
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // Next day button
+    if (ImGui::Button("Next ▶", ImVec2(buttonWidth, 28.0f)))
+    {
+        std::string nextDate = m_todoManager->GetNextDay(m_todoManager->GetCurrentDate());
+        m_todoManager->SetCurrentDate(nextDate);
+    }
+    
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // View mode buttons
+    auto currentViewMode = m_todoManager->GetViewMode();
+    
+    ImGui::PushStyleColor(ImGuiCol_Button, currentViewMode == TodoManager::ViewMode::Daily ? 
+                         ImVec4(0.3f, 0.5f, 0.8f, 1.0f) : ImVec4(0.2f, 0.4f, 0.6f, 0.8f));
+    if (ImGui::Button("Day", ImVec2(buttonWidth - 10, 28.0f)))
+    {
+        m_todoManager->SetViewMode(TodoManager::ViewMode::Daily);
+    }
+    ImGui::PopStyleColor();
+    
+    ImGui::PopStyleVar(); // FrameRounding
+    
+    ImGui::EndGroup();
+}
+
+void MainWindow::RenderTodoSidebar()
+{
+    ImGui::Text("📋 Quick Views");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Today tasks
+    auto todayTasks = m_todoManager->GetTodayTasks();
+    int todayPending = static_cast<int>(std::count_if(todayTasks.begin(), todayTasks.end(),
+        [](const std::shared_ptr<Todo::Task>& task) { return task && !task->IsCompleted(); }));
+    
+    if (ImGui::Selectable(("📅 Today (" + std::to_string(todayPending) + ")").c_str()))
+    {
+        m_todoManager->SetCurrentDate(m_todoManager->GetTodayDate());
+        m_todoManager->SetViewMode(TodoManager::ViewMode::Daily);
+    }
+    
+    // Overdue tasks
+    auto overdueTasks = m_todoManager->GetOverdueTasks();
+    if (!overdueTasks.empty())
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
+        if (ImGui::Selectable(("⚠️ Overdue (" + std::to_string(overdueTasks.size()) + ")").c_str()))
+        {
+            // Show overdue tasks (could implement a special view)
+        }
+        ImGui::PopStyleColor();
+    }
+    
+    // Upcoming tasks
+    auto upcomingTasks = m_todoManager->GetUpcomingTasks(7);
+    int upcomingPending = static_cast<int>(std::count_if(upcomingTasks.begin(), upcomingTasks.end(),
+        [](const std::shared_ptr<Todo::Task>& task) { return task && !task->IsCompleted(); }));
+    
+    if (ImGui::Selectable(("📆 Upcoming (" + std::to_string(upcomingPending) + ")").c_str()))
+    {
+        m_todoManager->SetViewMode(TodoManager::ViewMode::Weekly);
+    }
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Statistics
+    ImGui::Text("📊 Statistics");
+    ImGui::Spacing();
+    
+    float completionRate = m_todoManager->GetCompletionRate() * 100.0f;
+    ImGui::Text("Completion Rate:");
+    ImGui::ProgressBar(m_todoManager->GetCompletionRate(), ImVec2(-1, 0), 
+                      (std::to_string(static_cast<int>(completionRate)) + "%").c_str());
+    
+    ImGui::Spacing();
+    ImGui::Text("Total Tasks: %d", m_todoManager->GetTotalTaskCount());
+    ImGui::Text("Completed: %d", m_todoManager->GetCompletedTaskCount());
+    ImGui::Text("Pending: %d", m_todoManager->GetPendingTaskCount());
+    
+    int overdueCount = m_todoManager->GetOverdueTaskCount();
+    if (overdueCount > 0)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
+        ImGui::Text("Overdue: %d", overdueCount);
+        ImGui::PopStyleColor();
+    }
+}
+
+void MainWindow::RenderTodoDailyView()
+{
+    std::string currentDate = m_todoManager->GetCurrentDate();
+    auto dayTasks = m_todoManager->GetTasksForDate(currentDate);
+    
+    // Date header with quick add
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Could use larger font
+    ImGui::Text("📅 %s", currentDate.c_str());
+    ImGui::PopFont();
+    
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - 100);
+    if (ImGui::Button("+ Add Task", ImVec2(100, 0)))
+    {
+        auto task = m_todoManager->CreateTask("New Task", currentDate);
+        if (task)
+        {
+            StartEditingTask(task);
+        }
+    }
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Quick add task
+    RenderQuickAddTask(currentDate);
+    
+    ImGui::Spacing();
+    
+    // Tasks list
+    if (dayTasks && !dayTasks->tasks.empty())
+    {
+        RenderTodoTaskList(currentDate, dayTasks->tasks);
+    }
+    else
+    {
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 50);
+        ImVec2 centerPos = ImVec2(ImGui::GetContentRegionAvail().x * 0.5f - 80, ImGui::GetCursorPosY());
+        ImGui::SetCursorPos(centerPos);
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No tasks for this day");
+        ImGui::SetCursorPos(ImVec2(centerPos.x - 20, centerPos.y + 20));
+        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Add a task to get started!");
+    }
+}
+
+void MainWindow::RenderTodoWeeklyView()
+{
+    // Implementation for weekly view
+    ImGui::Text("Weekly View - Coming Soon");
+    ImGui::Text("This will show a week layout with tasks for each day");
+}
+
+void MainWindow::RenderTodoCalendarView()
+{
+    // Implementation for calendar view
+    ImGui::Text("Calendar View - Coming Soon");
+    ImGui::Text("This will show a monthly calendar with task indicators");
+}
+
+void MainWindow::RenderTodoTaskList(const std::string& date, const std::vector<std::shared_ptr<Todo::Task>>& tasks)
+{
+    ImGui::BeginChild("##TaskList", ImVec2(0, 0), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    
+    for (size_t i = 0; i < tasks.size(); ++i)
+    {
+        auto task = tasks[i];
+        if (!task) continue;
+        
+        if (i > 0)
+        {
+            ImGui::Spacing();
+        }
+        
+        RenderTodoTask(task, static_cast<int>(i), date);
+        
+        // Drop target between tasks
+        if (i < tasks.size() - 1)
+        {
+            RenderTodoDropTarget(date, static_cast<int>(i) + 1);
+        }
+    }
+    
+    // Drop target at the end
+    RenderTodoDropTarget(date, static_cast<int>(tasks.size()));
+    
+    ImGui::EndChild();
+}
+
+void MainWindow::RenderTodoTask(std::shared_ptr<Todo::Task> task, int taskIndex, const std::string& date)
+{
+    if (!task) return;
+    
+    float taskWidth = ImGui::GetContentRegionAvail().x;
+    float taskPadding = 8.0f;
+    float minTaskHeight = 60.0f;
+    
+    // Task background color based on status and priority
+    auto statusColor = task->GetStatusColor();
+    auto priorityColor = task->GetPriorityColor();
+    
+    ImU32 taskBgColor;
+    if (task->IsCompleted())
+    {
+        taskBgColor = IM_COL32(40, 60, 40, 255); // Darker green for completed
+    }
+    else if (task->IsOverdue())
+    {
+        taskBgColor = IM_COL32(80, 40, 40, 255); // Dark red for overdue
+    }
+    else
+    {
+        taskBgColor = IM_COL32(
+            static_cast<int>(priorityColor.x * 80 + 30),
+            static_cast<int>(priorityColor.y * 80 + 30),
+            static_cast<int>(priorityColor.z * 80 + 30),
+            255
+        );
+    }
+    
+    ImU32 taskBorderColor = IM_COL32(
+        static_cast<int>(priorityColor.x * 150 + 60),
+        static_cast<int>(priorityColor.y * 150 + 60),
+        static_cast<int>(priorityColor.z * 150 + 60),
+        255
+    );
+    
+    // Calculate task content height
+    float lineHeight = ImGui::GetTextLineHeight();
+    float taskContentHeight = taskPadding * 2 + lineHeight; // Title
+    
+    if (!task->description.empty())
+    {
+        ImVec2 textSize = ImGui::CalcTextSize(task->description.c_str(), nullptr, true, taskWidth - 2 * taskPadding);
+        taskContentHeight += textSize.y + 4;
+    }
+    
+    taskContentHeight += lineHeight + 4; // Metadata line
+    
+    if (taskContentHeight < minTaskHeight)
+    {
+        taskContentHeight = minTaskHeight;
+    }
+    
+    // Draw task background
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 windowPos = ImGui::GetWindowPos();
+    ImVec2 cursorPos = ImGui::GetCursorPos();
+    
+    ImVec2 taskMin = ImVec2(windowPos.x + cursorPos.x, windowPos.y + cursorPos.y);
+    ImVec2 taskMax = ImVec2(taskMin.x + taskWidth, taskMin.y + taskContentHeight);
+    
+    // Task shadow
+    ImVec2 shadowOffset = ImVec2(2, 2);
+    drawList->AddRectFilled(
+        ImVec2(taskMin.x + shadowOffset.x, taskMin.y + shadowOffset.y),
+        ImVec2(taskMax.x + shadowOffset.x, taskMax.y + shadowOffset.y),
+        IM_COL32(0, 0, 0, 40), 6.0f
+    );
+    
+    // Task background and border
+    drawList->AddRectFilled(taskMin, taskMax, taskBgColor, 6.0f);
+    drawList->AddRect(taskMin, taskMax, taskBorderColor, 6.0f, 0, 1.5f);
+    
+    // Begin task content
+    ImGui::PushID(task->id.c_str());
+    
+    // Checkbox area
+    ImGui::SetCursorPos(ImVec2(cursorPos.x + taskPadding, cursorPos.y + taskPadding));
+    
+    bool completed = task->IsCompleted();
+    if (ImGui::Checkbox("##completed", &completed))
+    {
+        m_todoManager->ToggleTaskStatus(task->id);
+    }
+    
+    // Task title
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5);
+    
+    ImGui::PushStyleColor(ImGuiCol_Text, completed ? 
+                         ImVec4(0.6f, 0.6f, 0.6f, 1.0f) : ImVec4(0.95f, 0.95f, 0.95f, 1.0f));
+    
+    if (completed)
+    {
+        // Strikethrough effect for completed tasks
+        ImGui::Text("✓ %s", task->title.c_str());
+    }
+    else
+    {
+        ImGui::Text("%s", task->title.c_str());
+    }
+    ImGui::PopStyleColor();
+    
+    // Task description
+    if (!task->description.empty())
+    {
+        ImGui::SetCursorPosX(cursorPos.x + taskPadding + 25); // Indent for description
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.75f, 0.75f, 1.0f));
+        ImGui::PushTextWrapPos(cursorPos.x + taskWidth - taskPadding);
+        ImGui::Text("%s", task->description.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::PopStyleColor();
+    }
+    
+    // Task metadata (priority, due time, status)
+    ImGui::SetCursorPos(ImVec2(cursorPos.x + taskPadding + 25, 
+                              taskMin.y + taskContentHeight - windowPos.y - lineHeight - taskPadding));
+    
+    // Priority indicator
+    ImGui::PushStyleColor(ImGuiCol_Text, priorityColor);
+    ImGui::Text("● %s", GetPriorityName(static_cast<int>(task->priority)));
+    ImGui::PopStyleColor();
+    
+    // Due time
+    if (!task->dueTime.empty() && !task->isAllDay)
+    {
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
+        ImGui::Text(" 🕐 %s", task->dueTime.c_str());
+        ImGui::PopStyleColor();
+    }
+    
+    // Status indicator
+    if (task->status != Todo::Status::Pending)
+    {
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, statusColor);
+        ImGui::Text(" [%s]", GetStatusName(static_cast<int>(task->status)));
+        ImGui::PopStyleColor();
+    }
+    
+    // Due date info
+    if (task->IsOverdue())
+    {
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
+        ImGui::Text(" ⚠️ OVERDUE");
+        ImGui::PopStyleColor();
+    }
+    
+    // Position cursor after task
+    ImGui::SetCursorPos(ImVec2(cursorPos.x, cursorPos.y + taskContentHeight + 4));
+    
+    // Invisible button for interaction
+    ImGui::SetCursorPos(ImVec2(cursorPos.x, cursorPos.y));
+    bool taskClicked = ImGui::InvisibleButton("##taskbutton", ImVec2(taskWidth, taskContentHeight));
+    
+    // Hover effect
+    if (ImGui::IsItemHovered())
+    {
+        drawList->AddRect(taskMin, taskMax, IM_COL32(255, 255, 255, 100), 6.0f, 0, 2.0f);
+    }
+    
+    // Double-click to toggle completion
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+    {
+        m_todoManager->ToggleTaskStatus(task->id);
+    }
+    
+    // Right-click context menu
+    if (ImGui::BeginPopupContextItem())
+    {
+        if (ImGui::MenuItem("✏️ Edit"))
+        {
+            StartEditingTask(task);
+        }
+        
+        ImGui::Separator();
+        
+        if (task->IsCompleted())
+        {
+            if (ImGui::MenuItem("🔄 Mark as Pending"))
+            {
+                m_todoManager->ToggleTaskStatus(task->id);
+            }
+        }
+        else
+        {
+            if (ImGui::MenuItem("✅ Mark as Completed"))
+            {
+                m_todoManager->ToggleTaskStatus(task->id);
+            }
+            
+            if (ImGui::MenuItem("🔄 Mark as In Progress"))
+            {
+                task->status = Todo::Status::InProgress;
+                m_todoManager->UpdateTask(task);
+            }
+        }
+        
+        ImGui::Separator();
+        
+        if (ImGui::MenuItem("🗑️ Delete", nullptr, false, true))
+        {
+            m_todoManager->DeleteTask(task->id);
+        }
+        
+        ImGui::EndPopup();
+    }
+    
+    // Drag and drop
+    if (ImGui::BeginDragDropSource())
+    {
+        m_todoManager->StartDrag(task, date);
+        ImGui::SetDragDropPayload("TODO_TASK", task.get(), sizeof(Todo::Task*));
+        
+        // Custom drag preview
+        ImGui::BeginTooltip();
+        ImGui::Text("Moving: %s", task->title.c_str());
+        if (!task->description.empty())
+        {
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%.50s%s", 
+                             task->description.c_str(), 
+                             task->description.length() > 50 ? "..." : "");
+        }
+        ImGui::EndTooltip();
+        
+        ImGui::EndDragDropSource();
+    }
+    
+    ImGui::PopID();
+}
+
+void MainWindow::RenderQuickAddTask(const std::string& date)
+{
+    static std::string quickAddText;
+    static bool quickAddActive = false;
+    
+    if (!quickAddActive)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.5f, 0.8f, 0.6f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.6f, 0.9f, 0.8f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.4f, 0.7f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        
+        if (ImGui::Button("+ Add Task", ImVec2(-1, 32.0f)))
+        {
+            quickAddActive = true;
+            quickAddText = "";
+        }
+        
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(3);
+    }
+    else
+    {
+        // Quick add input
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 6));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
+        
+        char buffer[256];
+        strncpy_s(buffer, quickAddText.c_str(), sizeof(buffer) - 1);
+        buffer[sizeof(buffer) - 1] = '\0';
+        
+        ImGui::SetKeyboardFocusHere();
+        ImGui::SetNextItemWidth(-1);
+        bool enterPressed = ImGui::InputText("##quickaddtask", buffer, sizeof(buffer), 
+                                           ImGuiInputTextFlags_EnterReturnsTrue | 
+                                           ImGuiInputTextFlags_AutoSelectAll);
+        quickAddText = buffer;
+        
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(2);
+        
+        if (enterPressed && strlen(buffer) > 0)
+        {
+            // Create the task
+            m_todoManager->CreateTask(buffer, date);
+            quickAddActive = false;
+            quickAddText = "";
+        }
+        
+        // Cancel on escape or click outside
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape) || 
+            (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsItemHovered()))
+        {
+            quickAddActive = false;
+            quickAddText = "";
+        }
+        
+        // Instruction text
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+        ImGui::Text("Enter to add, Esc to cancel");
+        ImGui::PopStyleColor();
+    }
+}
+
+void MainWindow::RenderTodoDropTarget(const std::string& date, int insertIndex)
+{
+    auto& dragState = m_todoManager->GetDragDropState();
+    
+    if (!dragState.isDragging)
+        return;
+    
+    // Create a small invisible drop target
+    float dropHeight = 20.0f;
+    ImVec2 dropSize = ImVec2(ImGui::GetContentRegionAvail().x, dropHeight);
+    
+    ImGui::InvisibleButton(("##todoDrop" + date + std::to_string(insertIndex)).c_str(), dropSize);
+    
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TODO_TASK"))
+        {
+            m_todoManager->UpdateDrag(date, insertIndex);
+            m_todoManager->EndDrag();
+        }
+        else
+        {
+            m_todoManager->UpdateDrag(date, insertIndex);
+        }
+        
+        // Visual feedback for drop target
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImVec2 itemMin = ImGui::GetItemRectMin();
+        ImVec2 itemMax = ImGui::GetItemRectMax();
+        
+        drawList->AddRectFilled(itemMin, itemMax, IM_COL32(100, 150, 255, 100), 3.0f);
+        drawList->AddRect(itemMin, itemMax, IM_COL32(100, 150, 255, 255), 3.0f, 0, 2.0f);
+        
+        ImGui::EndDragDropTarget();
+    }
+}
+
+void MainWindow::RenderTaskEditDialog()
+{
+    ImGui::SetNextWindowSize(ImVec2(500, 450), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+    
+    bool isOpen = m_taskEditState.isEditing;
+    if (ImGui::Begin("Edit Task", &isOpen, ImGuiWindowFlags_Modal))
+    {
+        ImGui::Text("Task Details");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Title
+        ImGui::Text("Title:");
+        ImGui::InputText("##title", m_taskEditState.titleBuffer, sizeof(m_taskEditState.titleBuffer));
+        
+        // Description
+        ImGui::Text("Description:");
+        ImGui::InputTextMultiline("##description", m_taskEditState.descriptionBuffer, 
+                                 sizeof(m_taskEditState.descriptionBuffer), ImVec2(-1, 80));
+        
+        // Priority
+        ImGui::Text("Priority:");
+        const char* priorityNames[] = { "Low", "Medium", "High", "Urgent" };
+        ImGui::Combo("##priority", &m_taskEditState.priority, priorityNames, IM_ARRAYSIZE(priorityNames));
+        
+        // Status
+        ImGui::Text("Status:");
+        const char* statusNames[] = { "Pending", "In Progress", "Completed", "Cancelled" };
+        ImGui::Combo("##status", &m_taskEditState.status, statusNames, IM_ARRAYSIZE(statusNames));
+        
+        // Due date
+        ImGui::Text("Due Date:");
+        ImGui::InputText("##duedate", m_taskEditState.dueDateBuffer, sizeof(m_taskEditState.dueDateBuffer));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Today"))
+        {
+            strcpy_s(m_taskEditState.dueDateBuffer, m_todoManager->GetTodayDate().c_str());
+        }
+        
+        // All day toggle
+        ImGui::Checkbox("All day", &m_taskEditState.isAllDay);
+        
+        // Due time (if not all day)
+        if (!m_taskEditState.isAllDay)
+        {
+            ImGui::Text("Due Time:");
+            ImGui::InputText("##duetime", m_taskEditState.dueTimeBuffer, sizeof(m_taskEditState.dueTimeBuffer));
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Now"))
+            {
+                // Set to current time - simplified
+                strcpy_s(m_taskEditState.dueTimeBuffer, "12:00");
+            }
+        }
+        
+        // Category
+        ImGui::Text("Category:");
+        ImGui::InputText("##category", m_taskEditState.categoryBuffer, sizeof(m_taskEditState.categoryBuffer));
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Buttons
+        if (ImGui::Button("Save", ImVec2(100, 0)))
+        {
+            StopEditingTask(true);
+        }
+        
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(100, 0)))
+        {
+            StopEditingTask(false);
+        }
+        
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - 100);
+        if (ImGui::Button("Delete", ImVec2(100, 0)))
+        {
+            // Delete the task
+            m_todoManager->DeleteTask(m_taskEditState.taskId);
+            StopEditingTask(false);
+        }
+    }
+    else
+    {
+        isOpen = false;
+    }
+    ImGui::End();
+    
+    if (!isOpen)
+    {
+        StopEditingTask(false);
+    }
+}
+
+void MainWindow::StartEditingTask(std::shared_ptr<Todo::Task> task)
+{
+    if (!task) return;
+    
+    m_taskEditState.isEditing = true;
+    m_taskEditState.taskId = task->id;
+    
+    // Copy task data to edit buffers
+    strncpy_s(m_taskEditState.titleBuffer, task->title.c_str(), sizeof(m_taskEditState.titleBuffer) - 1);
+    strncpy_s(m_taskEditState.descriptionBuffer, task->description.c_str(), sizeof(m_taskEditState.descriptionBuffer) - 1);
+    strncpy_s(m_taskEditState.dueDateBuffer, task->dueDate.c_str(), sizeof(m_taskEditState.dueDateBuffer) - 1);
+    strncpy_s(m_taskEditState.dueTimeBuffer, task->dueTime.c_str(), sizeof(m_taskEditState.dueTimeBuffer) - 1);
+    strncpy_s(m_taskEditState.categoryBuffer, task->category.c_str(), sizeof(m_taskEditState.categoryBuffer) - 1);
+    
+    m_taskEditState.priority = static_cast<int>(task->priority);
+    m_taskEditState.status = static_cast<int>(task->status);
+    m_taskEditState.isAllDay = task->isAllDay;
+}
+
+void MainWindow::StopEditingTask(bool save)
+{
+    if (save && !m_taskEditState.taskId.empty())
+    {
+        auto task = m_todoManager->FindTask(m_taskEditState.taskId);
+        if (task)
+        {
+            // Update task with edited data
+            std::string oldDate = task->dueDate;
+            
+            task->title = m_taskEditState.titleBuffer;
+            task->description = m_taskEditState.descriptionBuffer;
+            task->dueDate = m_taskEditState.dueDateBuffer;
+            task->dueTime = m_taskEditState.dueTimeBuffer;
+            task->category = m_taskEditState.categoryBuffer;
+            task->priority = static_cast<Todo::Priority>(m_taskEditState.priority);
+            task->status = static_cast<Todo::Status>(m_taskEditState.status);
+            task->isAllDay = m_taskEditState.isAllDay;
+            
+            // If date changed, move the task
+            if (oldDate != task->dueDate)
+            {
+                m_todoManager->MoveTask(task->id, task->dueDate);
+            }
+            else
+            {
+                m_todoManager->UpdateTask(task);
+            }
+        }
+    }
+    
+    // Clear edit state
+    m_taskEditState = TaskEditState();
+}
+
+// Todo event handlers
+void MainWindow::OnTodoTaskUpdated(std::shared_ptr<Todo::Task> task)
+{
+    if (task)
+    {
+        Logger::Debug("Todo task updated: {}", task->title);
+    }
+}
+
+void MainWindow::OnTodoTaskCompleted(std::shared_ptr<Todo::Task> task)
+{
+    if (task)
+    {
+        Logger::Debug("Todo task completed: {}", task->title);
+    }
+}
+
+void MainWindow::OnTodoDayChanged(const std::string& date)
+{
+    Logger::Debug("Todo day changed: {}", date);
+}
+
+// Helper methods for Todo
+const char* MainWindow::GetStatusName(int status) const
+{
+    switch (status)
+    {
+        case 0: return "Pending";
+        case 1: return "In Progress";
+        case 2: return "Completed";
+        case 3: return "Cancelled";
+        default: return "Unknown";
+    }
+}
+
+ImVec4 MainWindow::GetStatusColor(int status) const
+{
+    switch (status)
+    {
+        case 0: return ImVec4(0.7f, 0.7f, 0.7f, 1.0f); // Gray - Pending
+        case 1: return ImVec4(0.3f, 0.6f, 0.9f, 1.0f); // Blue - In Progress
+        case 2: return ImVec4(0.4f, 0.8f, 0.4f, 1.0f); // Green - Completed
+        case 3: return ImVec4(0.8f, 0.4f, 0.4f, 1.0f); // Red - Cancelled
+        default: return ImVec4(0.7f, 0.7f, 0.7f, 1.0f); // Gray
     }
 }

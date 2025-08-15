@@ -1,4 +1,4 @@
-// MainWindow.h - Updated with Kanban Integration
+// MainWindow.h - Updated with Todo and Kanban Integration
 #pragma once
 
 #include <memory>
@@ -6,6 +6,7 @@
 
 #include "imgui.h"
 #include "core/Kanban/KanbanManager.h"
+#include "core/Todo/TodoManager.h"
 
 // Forward declarations
 class Sidebar;
@@ -13,6 +14,7 @@ class PomodoroTimer;
 class PomodoroWindow;
 class KanbanManager;
 class KanbanWindow;
+class TodoManager;
 class AppConfig;
 
 enum class ModulePage
@@ -22,7 +24,6 @@ enum class ModulePage
     Kanban,
     Todo,
     Clipboard,
-    Dropover,
     FileConverter,
     Settings
 };
@@ -69,7 +70,11 @@ private:
     std::unique_ptr<KanbanWindow> m_kanbanSettingsWindow;
     bool m_showKanbanSettings = false;
     
-    // Card editing state
+    // Todo integration
+    std::unique_ptr<TodoManager> m_todoManager;
+    bool m_showTodoSettings = false;
+    
+    // Card editing state (for Kanban)
     struct CardEditState
     {
         bool isEditing = false;
@@ -80,6 +85,21 @@ private:
         char dueDateBuffer[32] = "";
         char assigneeBuffer[128] = "";
     } m_cardEditState;
+    
+    // Task editing state (for Todo)
+    struct TaskEditState
+    {
+        bool isEditing = false;
+        std::string taskId;
+        char titleBuffer[256] = "";
+        char descriptionBuffer[1024] = "";
+        int priority = 0;
+        int status = 0;
+        char dueDateBuffer[32] = "";
+        char dueTimeBuffer[16] = "";
+        bool isAllDay = true;
+        char categoryBuffer[128] = "";
+    } m_taskEditState;
     
     // Content area rendering
     void RenderMenuBar();
@@ -131,6 +151,31 @@ private:
     void RenderDropTarget(const std::string& columnId, int insertIndex = -1);
     
     /**
+     * @note Todo - Main Interface
+     */
+    void RenderTodoModule();
+    void RenderTodoHeader();
+    void RenderTodoNavigation();
+    void RenderTodoCalendarView();
+    void RenderTodoDailyView();
+    void RenderTodoWeeklyView();
+    void RenderTodoTaskList(const std::string& date, const std::vector<std::shared_ptr<Todo::Task>>& tasks);
+    void RenderTodoTask(std::shared_ptr<Todo::Task> task, int taskIndex, const std::string& date);
+    void RenderQuickAddTask(const std::string& date);
+    void RenderTaskEditDialog();
+    void RenderTodoSidebar();
+    
+    // Todo helpers
+    void StartEditingTask(std::shared_ptr<Todo::Task> task);
+    void StopEditingTask(bool save = false);
+    void OnTodoTaskUpdated(std::shared_ptr<Todo::Task> task);
+    void OnTodoTaskCompleted(std::shared_ptr<Todo::Task> task);
+    void OnTodoDayChanged(const std::string& date);
+    
+    // Todo drag and drop
+    void RenderTodoDropTarget(const std::string& date, int insertIndex = -1);
+    
+    /**
      * @note Other modules
      */
     void RenderClipboardPlaceholder();
@@ -141,9 +186,11 @@ private:
     // Utility
     const char* GetModuleName(ModulePage module) const;
     
-    // Priority color helpers
+    // Priority and status color helpers
     ImVec4 GetPriorityColor(int priority) const;
     const char* GetPriorityName(int priority) const;
+    const char* GetStatusName(int status) const;
+    ImVec4 GetStatusColor(int status) const;
 
 private:
     // Icon textures
@@ -155,9 +202,11 @@ private:
     ImTextureID iconPin     = nullptr;
     ImTextureID iconTrigger = nullptr;
     
-    // Kanban-specific icons (you can add these to your resources)
+    // Additional icons for modules
     ImTextureID iconAdd     = nullptr;
     ImTextureID iconEdit    = nullptr;
     ImTextureID iconMove    = nullptr;
     ImTextureID iconSettings = nullptr;
+    ImTextureID iconCalendar = nullptr;
+    ImTextureID iconTask    = nullptr;
 };

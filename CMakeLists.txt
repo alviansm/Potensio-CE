@@ -34,6 +34,7 @@ set(APP_SOURCES
     src/core/Utils.cpp
     src/core/Timer/PomodoroTimer.cpp
     src/core/Kanban/KanbanManager.cpp
+    src/core/Todo/TodoManager.cpp
     src/ui/UIManager.cpp
     src/ui/Components/Sidebar.cpp
     src/ui/Windows/MainWindow.cpp
@@ -126,6 +127,10 @@ source_group("Source Files\\Core\\Kanban" FILES
     src/core/Kanban/KanbanManager.cpp
 )
 
+source_group("Source Files\\Core\\Todo" FILES 
+    src/core/Todo/TodoManager.cpp
+)
+
 source_group("Source Files\\UI" FILES 
     src/ui/UIManager.cpp
 )
@@ -158,6 +163,10 @@ source_group("Header Files\\Core\\Timer" FILES
 
 source_group("Header Files\\Core\\Kanban" FILES 
     src/core/Kanban/KanbanManager.h
+)
+
+source_group("Header Files\\Core\\Todo" FILES 
+    src/core/Todo/TodoManager.h
 )
 
 source_group("Header Files\\UI\\Windows" FILES 

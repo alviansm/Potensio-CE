@@ -6,6 +6,7 @@ C:\Users\Alvians\Repository\PotensioApp\src\core\Logger.cpp;C:\Users\Alvians\Rep
 C:\Users\Alvians\Repository\PotensioApp\src\core\Utils.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\Utils.obj
 C:\Users\Alvians\Repository\PotensioApp\src\core\Timer\PomodoroTimer.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\PomodoroTimer.obj
 C:\Users\Alvians\Repository\PotensioApp\src\core\Kanban\KanbanManager.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\KanbanManager.obj
+C:\Users\Alvians\Repository\PotensioApp\src\core\Todo\TodoManager.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\TodoManager.obj
 C:\Users\Alvians\Repository\PotensioApp\src\ui\UIManager.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\UIManager.obj
 C:\Users\Alvians\Repository\PotensioApp\src\ui\Components\Sidebar.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\Sidebar.obj
 C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\MainWindow.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\MainWindow.obj
