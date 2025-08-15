@@ -19,4 +19,26 @@
 #define IDI_PIN_ICON 116
 #define IDI_TRIGGER_ICON 117
 
+// Additional Kanban icons
+#define IDI_ADD_ICON        118
+#define IDI_EDIT_ICON       119
+#define IDI_MOVE_ICON       120
+#define IDI_SETTINGS_ICON   121
+#define IDI_PROJECT_ICON    122
+#define IDI_BOARD_ICON      123
+#define IDI_CARD_ICON       124
+#define IDI_COLUMN_ICON     125
+
+// Priority icons (optional, for enhanced UI)
+#define IDI_PRIORITY_LOW    126
+#define IDI_PRIORITY_MED    127
+#define IDI_PRIORITY_HIGH   128
+#define IDI_PRIORITY_URG    129
+
+// Status icons (optional)
+#define IDI_STATUS_TODO     130
+#define IDI_STATUS_PROG     131
+#define IDI_STATUS_REVIEW   132
+#define IDI_STATUS_DONE     133
+
 #endif

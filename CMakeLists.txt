@@ -33,11 +33,13 @@ set(APP_SOURCES
     src/core/Logger.cpp
     src/core/Utils.cpp
     src/core/Timer/PomodoroTimer.cpp
+    src/core/Kanban/KanbanManager.cpp
     src/ui/UIManager.cpp
     src/ui/Components/Sidebar.cpp
     src/ui/Windows/MainWindow.cpp
     src/ui/Windows/SettingsWindow.cpp
     src/ui/Windows/PomodoroWindow.cpp
+    src/ui/Windows/KanbanWindow.cpp
     src/platform/windows/WindowsUtils.cpp
     src/platform/windows/WindowsHooks.cpp
     resources/app.rc
@@ -120,6 +122,10 @@ source_group("Source Files\\Core\\Timer" FILES
     src/core/Timer/PomodoroTimer.cpp
 )
 
+source_group("Source Files\\Core\\Kanban" FILES 
+    src/core/Kanban/KanbanManager.cpp
+)
+
 source_group("Source Files\\UI" FILES 
     src/ui/UIManager.cpp
 )
@@ -132,6 +138,7 @@ source_group("Source Files\\UI\\Windows" FILES
     src/ui/Windows/MainWindow.cpp
     src/ui/Windows/SettingsWindow.cpp
     src/ui/Windows/PomodoroWindow.cpp
+    src/ui/Windows/KanbanWindow.cpp
 )
 
 source_group("Source Files\\Platform\\Windows" FILES 
@@ -149,6 +156,11 @@ source_group("Header Files\\Core\\Timer" FILES
     src/core/Timer/PomodoroTimer.h
 )
 
+source_group("Header Files\\Core\\Kanban" FILES 
+    src/core/Kanban/KanbanManager.h
+)
+
 source_group("Header Files\\UI\\Windows" FILES 
     src/ui/Windows/PomodoroWindow.h
+    src/ui/Windows/KanbanWindow.h
 )

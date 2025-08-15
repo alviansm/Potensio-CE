@@ -5,11 +5,13 @@ C:\Users\Alvians\Repository\PotensioApp\src\app\SystemTray.cpp;C:\Users\Alvians\
 C:\Users\Alvians\Repository\PotensioApp\src\core\Logger.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\Logger.obj
 C:\Users\Alvians\Repository\PotensioApp\src\core\Utils.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\Utils.obj
 C:\Users\Alvians\Repository\PotensioApp\src\core\Timer\PomodoroTimer.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\PomodoroTimer.obj
+C:\Users\Alvians\Repository\PotensioApp\src\core\Kanban\KanbanManager.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\KanbanManager.obj
 C:\Users\Alvians\Repository\PotensioApp\src\ui\UIManager.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\UIManager.obj
 C:\Users\Alvians\Repository\PotensioApp\src\ui\Components\Sidebar.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\Sidebar.obj
 C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\MainWindow.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\MainWindow.obj
 C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\SettingsWindow.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\SettingsWindow.obj
 C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\PomodoroWindow.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\PomodoroWindow.obj
+C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\KanbanWindow.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\KanbanWindow.obj
 C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsUtils.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\WindowsUtils.obj
 C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsHooks.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\WindowsHooks.obj
 C:\Users\Alvians\Repository\PotensioApp\external\imgui\imgui.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\imgui.obj

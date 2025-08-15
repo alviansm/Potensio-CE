@@ -19,6 +19,25 @@ IDI_PASTE_ICON RCDATA "icons/paste.png"
 IDI_PIN_ICON RCDATA "icons/pin.png"
 IDI_TRIGGER_ICON RCDATA "icons/trigger.png"
 
+IDI_ADD_ICON RCDATA "icons/kanban/ic-add.png"
+IDI_EDIT_ICON RCDATA "icons/kanban/ic-edit.png"
+IDI_MOVE_ICON RCDATA "icons/kanban/ic-move.png"
+IDI_SETTINGS_ICON RCDATA "icons/kanban/ic-settings.png"
+IDI_PROJECT_ICON RCDATA "icons/kanban/ic-project.png"
+IDI_BOARD_ICON RCDATA "icons/kanban/ic-board.png"
+IDI_CARD_ICON RCDATA "icons/kanban/ic-card.png"
+IDI_COLUMN_ICON RCDATA "icons/kanban/ic-column.png"
+
+IDI_PRIORITY_LOW RCDATA "icons/kanban/ic-priority-low.png"
+IDI_PRIORITY_MED RCDATA "icons/kanban/ic-priority-medium.png"
+IDI_PRIORITY_HIGH RCDATA "icons/kanban/ic-priority-high.png"
+IDI_PRIORITY_URG RCDATA "icons/kanban/ic-priority-urgent.png"
+
+IDI_STATUS_TODO RCDATA "icons/kanban/ic-status-todo.png"
+IDI_STATUS_PROG RCDATA "icons/kanban/ic-status-prog.png"
+IDI_STATUS_REVIEW RCDATA "icons/kanban/ic-status-review.png"
+IDI_STATUS_DONE RCDATA "icons/kanban/ic-status-done.png"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION 0,1,0,0
 PRODUCTVERSION 0,1,0,0

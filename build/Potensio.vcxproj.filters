@@ -22,6 +22,9 @@
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Timer\PomodoroTimer.cpp">
       <Filter>Source Files\Core\Timer</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Kanban\KanbanManager.cpp">
+      <Filter>Source Files\Core\Kanban</Filter>
+    </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\UIManager.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -35,6 +38,9 @@
       <Filter>Source Files\UI\Windows</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\PomodoroWindow.cpp">
+      <Filter>Source Files\UI\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\KanbanWindow.cpp">
       <Filter>Source Files\UI\Windows</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsUtils.cpp">
@@ -82,6 +88,9 @@
     </Filter>
     <Filter Include="Source Files\Core">
       <UniqueIdentifier>{0C2DD429-437A-3907-A41C-D964D79B2E78}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core\Kanban">
+      <UniqueIdentifier>{AFCE2588-0184-309C-9EAD-90732BAA1BE5}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Core\Timer">
       <UniqueIdentifier>{715841B4-E76E-38B0-997A-194E13F88C03}</UniqueIdentifier>
