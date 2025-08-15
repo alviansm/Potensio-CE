@@ -32,10 +32,12 @@ set(APP_SOURCES
     src/app/SystemTray.cpp
     src/core/Logger.cpp
     src/core/Utils.cpp
+    src/core/Timer/PomodoroTimer.cpp
     src/ui/UIManager.cpp
     src/ui/Components/Sidebar.cpp
     src/ui/Windows/MainWindow.cpp
     src/ui/Windows/SettingsWindow.cpp
+    src/ui/Windows/PomodoroWindow.cpp
     src/platform/windows/WindowsUtils.cpp
     src/platform/windows/WindowsHooks.cpp
     resources/app.rc
@@ -51,14 +53,6 @@ if(WIN32)
         message(STATUS "Windows resource file disabled - using default icon")
     # endif()
 endif()
-# if(WIN32)
-#     if(EXISTS "${CMAKE_SOURCE_DIR}/resources/app.rc")
-#         list(APPEND APP_SOURCES resources/app.rc)
-#         message(STATUS "Added Windows resource file")
-#     else()
-#         message(STATUS "Windows resource file not found - using default icon")
-#     endif()
-# endif()
 
 # Create executable
 add_executable(Potensio 
@@ -109,3 +103,52 @@ file(COPY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIREC
 if(MSVC)
     set_target_properties(Potensio PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 endif()
+
+# Add custom target for organizing source files in IDE
+source_group("Source Files\\App" FILES 
+    src/app/Application.cpp
+    src/app/AppConfig.cpp
+    src/app/SystemTray.cpp
+)
+
+source_group("Source Files\\Core" FILES 
+    src/core/Logger.cpp
+    src/core/Utils.cpp
+)
+
+source_group("Source Files\\Core\\Timer" FILES 
+    src/core/Timer/PomodoroTimer.cpp
+)
+
+source_group("Source Files\\UI" FILES 
+    src/ui/UIManager.cpp
+)
+
+source_group("Source Files\\UI\\Components" FILES 
+    src/ui/Components/Sidebar.cpp
+)
+
+source_group("Source Files\\UI\\Windows" FILES 
+    src/ui/Windows/MainWindow.cpp
+    src/ui/Windows/SettingsWindow.cpp
+    src/ui/Windows/PomodoroWindow.cpp
+)
+
+source_group("Source Files\\Platform\\Windows" FILES 
+    src/platform/windows/WindowsUtils.cpp
+    src/platform/windows/WindowsHooks.cpp
+)
+
+source_group("Header Files\\App" FILES 
+    src/app/Application.h
+    src/app/AppConfig.h
+    src/app/SystemTray.h
+)
+
+source_group("Header Files\\Core\\Timer" FILES 
+    src/core/Timer/PomodoroTimer.h
+)
+
+source_group("Header Files\\UI\\Windows" FILES 
+    src/ui/Windows/PomodoroWindow.h
+)

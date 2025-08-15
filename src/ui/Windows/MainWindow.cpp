@@ -1,9 +1,12 @@
-// MainWindow.cpp - WITH MENUBAR AND ICON TOOLBAR
+// MainWindow.cpp - Updated with Pomodoro Integration
 #include "MainWindow.h"
 #include "ui/Components/Sidebar.h"
+#include "ui/Windows/PomodoroWindow.h"
+#include "core/Timer/PomodoroTimer.h"
 #include "core/Logger.h"
 #include "core/Utils.h"
 #include "app/Application.h"
+#include "app/AppConfig.h"
 #include <imgui.h>
 #include <vector>
 #include <algorithm>
@@ -65,6 +68,7 @@ MainWindow::MainWindow()
 
 MainWindow::~MainWindow()
 {
+    Shutdown();
     UnloadTexture(iconCut);
     UnloadTexture(iconPaste);
     UnloadTexture(iconTrash);
@@ -72,6 +76,80 @@ MainWindow::~MainWindow()
     UnloadTexture(iconClear);
     UnloadTexture(iconPin);
     UnloadTexture(iconTrigger);
+}
+
+bool MainWindow::Initialize(AppConfig* config)
+{
+    m_config = config;
+    
+    // Initialize Pomodoro timer
+    m_pomodoroTimer = std::make_unique<PomodoroTimer>();
+    m_pomodoroSettingsWindow = std::make_unique<PomodoroWindow>();
+    
+    // Set up timer callbacks
+    m_pomodoroTimer->SetOnSessionComplete([this](PomodoroTimer::SessionType type) {
+        OnPomodoroSessionComplete(static_cast<int>(type));
+    });
+    
+    m_pomodoroTimer->SetOnAllSessionsComplete([this]() {
+        OnPomodoroAllComplete();
+    });
+    
+    m_pomodoroTimer->SetOnTick([this]() {
+        OnPomodoroTick();
+    });
+    
+    // Initialize settings window (it manages its own config loading)
+    m_pomodoroSettingsWindow = std::make_unique<PomodoroWindow>();
+    if (!m_pomodoroSettingsWindow->Initialize(config))
+    {
+        Logger::Warning("Failed to initialize Pomodoro settings window");
+    }
+    
+    // Load Pomodoro configuration
+    if (config)
+    {
+        PomodoroTimer::PomodoroConfig pomodoroConfig;
+        
+        // Load from config
+        pomodoroConfig.workDurationMinutes = config->GetValue("pomodoro.work_duration", 25);
+        pomodoroConfig.shortBreakMinutes = config->GetValue("pomodoro.short_break", 5);
+        pomodoroConfig.longBreakMinutes = config->GetValue("pomodoro.long_break", 15);
+        pomodoroConfig.totalSessions = config->GetValue("pomodoro.total_sessions", 8);
+        pomodoroConfig.sessionsBeforeLongBreak = config->GetValue("pomodoro.sessions_before_long_break", 4);
+        pomodoroConfig.autoStartNextSession = config->GetValue("pomodoro.auto_start_next", true); // Load auto-start setting
+        
+        // Load colors
+        pomodoroConfig.colorHigh.r = config->GetValue("pomodoro.color_high_r", 0.0f);
+        pomodoroConfig.colorHigh.g = config->GetValue("pomodoro.color_high_g", 1.0f);
+        pomodoroConfig.colorHigh.b = config->GetValue("pomodoro.color_high_b", 0.0f);
+        
+        pomodoroConfig.colorMedium.r = config->GetValue("pomodoro.color_medium_r", 1.0f);
+        pomodoroConfig.colorMedium.g = config->GetValue("pomodoro.color_medium_g", 1.0f);
+        pomodoroConfig.colorMedium.b = config->GetValue("pomodoro.color_medium_b", 0.0f);
+        
+        pomodoroConfig.colorLow.r = config->GetValue("pomodoro.color_low_r", 1.0f);
+        pomodoroConfig.colorLow.g = config->GetValue("pomodoro.color_low_g", 0.5f);
+        pomodoroConfig.colorLow.b = config->GetValue("pomodoro.color_low_b", 0.0f);
+        
+        pomodoroConfig.colorCritical.r = config->GetValue("pomodoro.color_critical_r", 1.0f);
+        pomodoroConfig.colorCritical.g = config->GetValue("pomodoro.color_critical_g", 0.0f);
+        pomodoroConfig.colorCritical.b = config->GetValue("pomodoro.color_critical_b", 0.0f);
+        
+        m_pomodoroTimer->SetConfig(pomodoroConfig);
+    }
+    
+    Logger::Info("MainWindow initialized successfully");
+    return true;
+}
+
+void MainWindow::Shutdown()
+{
+    if (m_pomodoroSettingsWindow)
+        m_pomodoroSettingsWindow->Shutdown();
+    
+    m_pomodoroSettingsWindow.reset();
+    m_pomodoroTimer.reset();
 }
 
 void MainWindow::Update(float deltaTime)
@@ -86,6 +164,18 @@ void MainWindow::Update(float deltaTime)
         {
             SetCurrentModule(newModule);
         }
+    }
+    
+    // Update Pomodoro timer
+    if (m_pomodoroTimer)
+    {
+        m_pomodoroTimer->Update();
+    }
+    
+    // Update settings window if visible
+    if (m_pomodoroSettingsWindow && m_showPomodoroSettings)
+    {
+        m_pomodoroSettingsWindow->Update(deltaTime);
     }
 }
 
@@ -124,6 +214,19 @@ void MainWindow::Render()
     RenderContentArea();
     
     ImGui::End();
+    
+    // Render Pomodoro settings window if needed
+    if (m_pomodoroSettingsWindow && m_showPomodoroSettings)
+    {
+        m_pomodoroSettingsWindow->SetVisible(true);
+        m_pomodoroSettingsWindow->Render();
+        
+        // Check if settings window was closed
+        if (!m_pomodoroSettingsWindow->IsVisible())
+        {
+            m_showPomodoroSettings = false;
+        }
+    }
 }
 
 void MainWindow::SetCurrentModule(ModulePage module)
@@ -131,6 +234,433 @@ void MainWindow::SetCurrentModule(ModulePage module)
     m_currentModule = module;
     Logger::Debug("Switched to module: {}", GetModuleName(module));
 }
+
+void MainWindow::RenderContentArea()
+{
+    // Calculate content area (main area minus sidebar)
+    float sidebarWidth = m_sidebar ? m_sidebar->GetWidth() : 50.0f;
+    float menuBarHeight = ImGui::GetFrameHeight(); // Account for menubar
+    
+    ImVec2 contentPos = ImVec2(sidebarWidth, menuBarHeight);
+    ImVec2 contentSize = ImVec2(ImGui::GetContentRegionAvail().x, 
+                               ImGui::GetContentRegionAvail().y);
+    
+    // Set cursor position for content area
+    ImGui::SetCursorPos(contentPos);
+    
+    // Begin content area
+    ImGui::BeginChild("##ContentArea", contentSize, false, ImGuiWindowFlags_NoScrollbar);
+    
+    // Render current module content
+    switch (m_currentModule)
+    {
+        case ModulePage::Dashboard:
+            RenderDropoverInterface();
+            break;
+        case ModulePage::Pomodoro:
+            RenderPomodoroModule(); // Updated to actual implementation
+            break;
+        case ModulePage::Kanban:
+            RenderKanbanPlaceholder();
+            break;
+        case ModulePage::Clipboard:
+            RenderClipboardPlaceholder();
+            break;
+        case ModulePage::Todo:
+            RenderBulkRenamePlaceholder(); // Todo: change to todo
+            break;
+        case ModulePage::FileConverter:
+            RenderFileConverterPlaceholder();
+            break;
+        case ModulePage::Settings:
+            renderSettingPlaceholder();
+            break;
+        default:
+            ImGui::Text("Unknown module");
+            break;
+    }
+    
+    ImGui::EndChild();
+}
+
+// Pomodoro Module Implementation
+void MainWindow::RenderPomodoroModule()
+{
+    if (!m_pomodoroTimer)
+        return;
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20, 20));
+    
+    // Header with title and settings button
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Use default font, could be larger
+    ImGui::Text("🍅 Pomodoro Timer");
+    ImGui::PopFont();
+    
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - 100);
+    if (ImGui::Button("⚙ Settings"))
+    {
+        m_showPomodoroSettings = true;
+    }
+    
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Main timer display
+    RenderPomodoroTimer();
+    
+    ImGui::Spacing();
+    
+    // Progress bar
+    RenderPomodoroProgress();
+    
+    ImGui::Spacing();
+    
+    // Session information
+    RenderPomodoroSessionInfo();
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Control buttons
+    RenderPomodoroControls();
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Quick settings
+    RenderPomodoroQuickSettings();
+    
+    ImGui::PopStyleVar();
+}
+
+void MainWindow::RenderPomodoroTimer()
+{
+    auto color = m_pomodoroTimer->GetCurrentColor();
+    auto state = m_pomodoroTimer->GetState();
+    
+    // Large timer text - centered
+    std::string timeText = m_pomodoroTimer->GetFormattedTimeRemaining();
+    
+    // Add "PAUSED" indicator when paused
+    std::string displayText = timeText;
+    if (state == PomodoroTimer::TimerState::Paused)
+    {
+        displayText = timeText + " (PAUSED)";
+    }
+    
+    // Create a more prominent timer display using a bordered approach
+    ImVec2 availableSize = ImGui::GetContentRegionAvail();
+    float centerX = availableSize.x * 0.5f;
+    
+    // Calculate text size for centering (use display text for proper sizing)
+    ImVec2 textSize = ImGui::CalcTextSize(displayText.c_str());
+    
+    // Create a background box for the timer
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 windowPos = ImGui::GetWindowPos();
+    ImVec2 cursorPos = ImGui::GetCursorPos();
+    
+    // Timer background box
+    float boxWidth = textSize.x + 60.0f;
+    float boxHeight = textSize.y + 30.0f;
+    ImVec2 boxMin = ImVec2(windowPos.x + cursorPos.x + centerX - boxWidth * 0.5f, 
+                          windowPos.y + cursorPos.y);
+    ImVec2 boxMax = ImVec2(boxMin.x + boxWidth, boxMin.y + boxHeight);
+    
+    // Draw background with color-coded border
+    ImU32 borderColor = IM_COL32(
+        static_cast<int>(color.r * 255), 
+        static_cast<int>(color.g * 255), 
+        static_cast<int>(color.b * 255), 
+        255
+    );
+    
+    // Different background for paused state
+    ImU32 bgColor;
+    if (state == PomodoroTimer::TimerState::Paused)
+    {
+        bgColor = IM_COL32(40, 40, 40, 200); // Darker background when paused
+    }
+    else
+    {
+        bgColor = IM_COL32(20, 20, 20, 200); // Normal background
+    }
+    
+    drawList->AddRectFilled(boxMin, boxMax, bgColor, 8.0f);
+    drawList->AddRect(boxMin, boxMax, borderColor, 8.0f, 0, 3.0f);
+    
+    // Position cursor for text
+    ImGui::SetCursorPosX(centerX - textSize.x * 0.5f);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 15.0f);
+    
+    // Render text in a bright white/colored style
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(color.r, color.g, color.b, 1.0f));
+    
+    // Use the display text (which includes PAUSED indicator if needed)
+    ImGui::Text("%s", displayText.c_str());
+    
+    ImGui::PopStyleColor();
+    
+    // Move cursor past the timer box
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 15.0f);
+}
+
+void MainWindow::RenderPomodoroProgress()
+{
+    float progress = 1.0f - m_pomodoroTimer->GetProgressPercentage(); // Invert for visual progress
+    auto color = m_pomodoroTimer->GetCurrentColor();
+    
+    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(color.r, color.g, color.b, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 0.8f));
+    
+    ImGui::ProgressBar(progress, ImVec2(-1.0f, 30.0f), "");
+    
+    ImGui::PopStyleColor(2);
+}
+
+void MainWindow::RenderPomodoroSessionInfo()
+{
+    auto sessionInfo = m_pomodoroTimer->GetCurrentSession();
+    
+    // Session description
+    ImGui::Text("Current: %s", m_pomodoroTimer->GetSessionDescription().c_str());
+    
+    // Progress
+    ImGui::Text("Completed Sessions: %d/%d", 
+               m_pomodoroTimer->GetCompletedSessions(), 
+               sessionInfo.totalSessions);
+    
+    // Pause time if any
+    if (sessionInfo.pausedTime.count() > 0)
+    {
+        int pausedMinutes = static_cast<int>(sessionInfo.pausedTime.count() / 60);
+        int pausedSeconds = static_cast<int>(sessionInfo.pausedTime.count() % 60);
+        ImGui::Text("Paused time this session: %02d:%02d", pausedMinutes, pausedSeconds);
+    }
+    
+    // Total pause time
+    auto totalPaused = m_pomodoroTimer->GetTotalPausedTime();
+    if (totalPaused.count() > 0)
+    {
+        int totalPausedMinutes = static_cast<int>(totalPaused.count() / 60);
+        int totalPausedSeconds = static_cast<int>(totalPaused.count() % 60);
+        ImGui::Text("Total paused time: %02d:%02d", totalPausedMinutes, totalPausedSeconds);
+    }
+}
+
+void MainWindow::RenderPomodoroControls()
+{
+    float buttonWidth = 100.0f;
+    float spacing = 15.0f;
+    float totalWidth = 4 * buttonWidth + 3 * spacing;
+    float windowWidth = ImGui::GetContentRegionAvail().x;
+    
+    ImGui::SetCursorPosX((windowWidth - totalWidth) * 0.5f);
+    
+    auto state = m_pomodoroTimer->GetState();
+    
+    // Start/Pause/Resume button
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
+    
+    if (state == PomodoroTimer::TimerState::Stopped)
+    {
+        if (ImGui::Button("▶ Start", ImVec2(buttonWidth, 40)))
+            m_pomodoroTimer->Start();
+    }
+    else if (state == PomodoroTimer::TimerState::Running)
+    {
+        ImGui::PopStyleColor(2);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.7f, 0.2f, 0.8f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.8f, 0.3f, 1.0f));
+        
+        if (ImGui::Button("⏸ Pause", ImVec2(buttonWidth, 40)))
+            m_pomodoroTimer->Pause();
+    }
+    else if (state == PomodoroTimer::TimerState::Paused)
+    {
+        if (ImGui::Button("▶ Resume", ImVec2(buttonWidth, 40)))
+            m_pomodoroTimer->Resume();
+    }
+    
+    ImGui::PopStyleColor(2);
+    
+    ImGui::SameLine(0, spacing);
+    
+    // Stop button
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.3f, 0.3f, 1.0f));
+    
+    if (ImGui::Button("⏹ Stop", ImVec2(buttonWidth, 40)))
+        m_pomodoroTimer->Stop();
+    
+    ImGui::PopStyleColor(2);
+    
+    ImGui::SameLine(0, spacing);
+    
+    // Skip button
+    bool canSkip = (state == PomodoroTimer::TimerState::Running || 
+                   state == PomodoroTimer::TimerState::Paused);
+    
+    if (!canSkip) ImGui::BeginDisabled();
+    
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.5f, 0.7f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.8f, 1.0f));
+    
+    if (ImGui::Button("⏭ Skip", ImVec2(buttonWidth, 40)))
+        m_pomodoroTimer->Skip();
+    
+    ImGui::PopStyleColor(2);
+    
+    if (!canSkip) ImGui::EndDisabled();
+    
+    ImGui::SameLine(0, spacing);
+    
+    // Reset button
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.5f, 0.5f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+    
+    if (ImGui::Button("🔄 Reset", ImVec2(buttonWidth, 40)))
+        m_pomodoroTimer->Reset();
+    
+    ImGui::PopStyleColor(2);
+}
+
+void MainWindow::RenderPomodoroQuickSettings()
+{
+    if (ImGui::CollapsingHeader("Quick Settings"))
+    {
+        auto config = m_pomodoroTimer->GetConfig();
+        bool configChanged = false;
+        
+        ImGui::Columns(2, "QuickSettings", false);
+        ImGui::SetColumnWidth(0, 200.0f);
+        
+        // Work duration
+        ImGui::Text("Work Duration:");
+        ImGui::NextColumn();
+        ImGui::SetNextItemWidth(-1);
+        int workDuration = config.workDurationMinutes;
+        if (ImGui::SliderInt("##work", &workDuration, 1, 60, "%d min"))
+        {
+            config.workDurationMinutes = workDuration;
+            configChanged = true;
+        }
+        ImGui::NextColumn();
+        
+        // Short break
+        ImGui::Text("Short Break:");
+        ImGui::NextColumn();
+        ImGui::SetNextItemWidth(-1);
+        int shortBreak = config.shortBreakMinutes;
+        if (ImGui::SliderInt("##short", &shortBreak, 1, 30, "%d min"))
+        {
+            config.shortBreakMinutes = shortBreak;
+            configChanged = true;
+        }
+        ImGui::NextColumn();
+        
+        // Long break
+        ImGui::Text("Long Break:");
+        ImGui::NextColumn();
+        ImGui::SetNextItemWidth(-1);
+        int longBreak = config.longBreakMinutes;
+        if (ImGui::SliderInt("##long", &longBreak, 5, 60, "%d min"))
+        {
+            config.longBreakMinutes = longBreak;
+            configChanged = true;
+        }
+        ImGui::NextColumn();
+        
+        // Total sessions
+        ImGui::Text("Total Sessions:");
+        ImGui::NextColumn();
+        ImGui::SetNextItemWidth(-1);
+        int totalSessions = config.totalSessions;
+        if (ImGui::SliderInt("##total", &totalSessions, 1, 20))
+        {
+            config.totalSessions = totalSessions;
+            configChanged = true;
+        }
+        ImGui::NextColumn();
+        
+        // Auto-start next session toggle
+        ImGui::Text("Auto-start Next:");
+        ImGui::NextColumn();
+        bool autoStart = config.autoStartNextSession;
+        if (ImGui::Checkbox("##autostart", &autoStart))
+        {
+            config.autoStartNextSession = autoStart;
+            configChanged = true;
+        }
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Automatically start the next session when current one ends");
+        }
+        
+        ImGui::Columns(1);
+        
+        if (configChanged)
+        {
+            m_pomodoroTimer->SetConfig(config);
+            
+            // Save to config file
+            if (m_config)
+            {
+                m_config->SetValue("pomodoro.work_duration", config.workDurationMinutes);
+                m_config->SetValue("pomodoro.short_break", config.shortBreakMinutes);
+                m_config->SetValue("pomodoro.long_break", config.longBreakMinutes);
+                m_config->SetValue("pomodoro.total_sessions", config.totalSessions);
+                m_config->SetValue("pomodoro.auto_start_next", config.autoStartNextSession);
+                m_config->Save();
+            }
+        }
+    }
+}
+
+// Pomodoro Event Handlers
+void MainWindow::OnPomodoroSessionComplete(int sessionType)
+{
+    std::string message;
+    
+    // Use simple integer comparison to avoid casting issues
+    if (sessionType == 0) // Work session
+    {
+        message = "Work session completed! Time for a break.";
+    }
+    else if (sessionType == 1) // Short break
+    {
+        message = "Short break finished! Back to work.";
+    }
+    else if (sessionType == 2) // Long break
+    {
+        message = "Long break finished! Ready for more work.";
+    }
+    else
+    {
+        message = "Session completed!";
+    }
+    
+    Logger::Info("Pomodoro: {}", message);
+    // TODO: Show system notification when available
+}
+
+void MainWindow::OnPomodoroAllComplete()
+{
+    Logger::Info("Pomodoro: All sessions completed! Excellent work!");
+    // TODO: Show completion notification when available
+}
+
+void MainWindow::OnPomodoroTick()
+{
+    // Could be used for animations or updates
+}
+
+// [Keep all the existing methods for texture loading, dropover interface, placeholders, etc...]
+// [This is just the updated/new code - the rest remains the same]
 
 ImTextureID MainWindow::LoadTextureFromFile(const char* filename, int* out_width, int* out_height)
 {
@@ -329,62 +859,9 @@ void MainWindow::RenderMenuBar()
     }
 }
 
-void MainWindow::RenderContentArea()
-{
-    // Calculate content area (main area minus sidebar)
-    float sidebarWidth = m_sidebar ? m_sidebar->GetWidth() : 50.0f;
-    float menuBarHeight = ImGui::GetFrameHeight(); // Account for menubar
-    
-    ImVec2 contentPos = ImVec2(sidebarWidth, menuBarHeight);
-    ImVec2 contentSize = ImVec2(ImGui::GetContentRegionAvail().x, 
-                               ImGui::GetContentRegionAvail().y);
-    
-    // Set cursor position for content area
-    ImGui::SetCursorPos(contentPos);
-    
-    // Begin content area
-    ImGui::BeginChild("##ContentArea", contentSize, false, ImGuiWindowFlags_NoScrollbar);
-    
-    // Render current module content
-    switch (m_currentModule)
-    {
-        case ModulePage::Dashboard:
-            RenderDropoverInterface();
-            break;
-        case ModulePage::Pomodoro:
-            RenderPomodoroPlaceholder();
-            break;
-        case ModulePage::Kanban:
-            RenderKanbanPlaceholder();
-            break;
-        case ModulePage::Clipboard:
-            RenderClipboardPlaceholder();
-            break;
-        case ModulePage::Todo:
-            RenderBulkRenamePlaceholder(); // Todo: change to todo
-            break;
-        case ModulePage::FileConverter:
-            RenderFileConverterPlaceholder();
-            break;
-        case ModulePage::Settings:
-            renderSettingPlaceholder();
-            break;
-        default:
-            ImGui::Text("Unknown module");
-            break;
-    }
-    
-    ImGui::EndChild();
-}
-
 void MainWindow::RenderDropoverInterface()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
-    
-    // Header
-    // ImGui::Text("Dropover - File Management");
-    // ImGui::Separator();
-    // ImGui::Spacing();
     
     // Toolbar
     RenderDropoverToolbar();
@@ -401,7 +878,7 @@ void MainWindow::RenderDropoverToolbar()
     // File operations toolbar with icons
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 6));
     
-    if (ImGui::ImageButton(iconPaste, ImVec2(16, 16))) // 📋 Paste icon
+    if (ImGui::ImageButton(iconPaste, ImVec2(16, 16)))
     {
         Logger::Info("Paste Here clicked");
         // TODO: Implement paste from clipboard
@@ -409,7 +886,7 @@ void MainWindow::RenderDropoverToolbar()
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Paste Here");
     
     ImGui::SameLine();
-    if (ImGui::ImageButton(iconCut, ImVec2(16, 16))) // ✂ Cut icon
+    if (ImGui::ImageButton(iconCut, ImVec2(16, 16)))
     {
         Logger::Info("Cut Files clicked");
         // TODO: Implement cut selected files
@@ -417,7 +894,7 @@ void MainWindow::RenderDropoverToolbar()
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cut Files");
 
     ImGui::SameLine();
-    if (ImGui::ImageButton(iconRename, ImVec2(16, 16))) // 🔤 Rename icon
+    if (ImGui::ImageButton(iconRename, ImVec2(16, 16)))
     {
         Logger::Info("Bulk Rename clicked");
         // TODO: Open bulk rename dialog
@@ -428,7 +905,7 @@ void MainWindow::RenderDropoverToolbar()
     ImGui::Spacing();
     ImGui::SameLine();
 
-    if (ImGui::ImageButton(iconClear, ImVec2(16, 16))) // 🗑 Clear icon
+    if (ImGui::ImageButton(iconClear, ImVec2(16, 16)))
     {
         Logger::Info("Clear All clicked");
         // TODO: Clear all files from dropover
@@ -436,7 +913,7 @@ void MainWindow::RenderDropoverToolbar()
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Clear All");
     
     ImGui::SameLine();
-    if (ImGui::ImageButton(iconTrash, ImVec2(16, 16))) // 🗑 Trash icon
+    if (ImGui::ImageButton(iconTrash, ImVec2(16, 16)))
     {
         Logger::Info("Recycle Bin clicked");
         // TODO: Implement delete selected files
@@ -448,7 +925,7 @@ void MainWindow::RenderDropoverToolbar()
     ImGui::SameLine();
 
     // View options
-    if (ImGui::ImageButton(iconPin, ImVec2(16, 16))) // Pin window
+    if (ImGui::ImageButton(iconPin, ImVec2(16, 16)))
     {
         Logger::Info("Pin Window is clicked");
         // TODO: Clear all files from dropover
@@ -456,7 +933,7 @@ void MainWindow::RenderDropoverToolbar()
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Pin Window");
 
     ImGui::SameLine();
-    if (ImGui::ImageButton(iconTrigger, ImVec2(16, 16))) // Toggle trigger
+    if (ImGui::ImageButton(iconTrigger, ImVec2(16, 16)))
     {
         Logger::Info("Trigger toggled");
         // TODO: Clear all files from dropover
@@ -615,27 +1092,7 @@ void MainWindow::InitializeResources()
     iconTrigger   = LoadTextureFromResource(IDI_TRIGGER_ICON);
 }
 
-// Placeholder methods remain the same...
-void MainWindow::RenderPomodoroPlaceholder()
-{
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 16));
-    
-    ImGui::Text("Pomodoro Timer");
-    ImGui::Separator();
-    ImGui::Spacing();
-    
-    ImGui::TextWrapped("The Pomodoro Timer will be implemented in Sprint 2.");
-    ImGui::Spacing();
-    ImGui::Text("Features coming soon:");
-    ImGui::BulletText("25-minute focus sessions");
-    ImGui::BulletText("5-minute short breaks");
-    ImGui::BulletText("15-minute long breaks");
-    ImGui::BulletText("Session statistics");
-    ImGui::BulletText("Background notifications");
-    
-    ImGui::PopStyleVar();
-}
-
+// Placeholder methods for other modules
 void MainWindow::RenderKanbanPlaceholder()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 16));

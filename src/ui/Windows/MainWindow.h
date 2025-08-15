@@ -1,4 +1,4 @@
-// MainWindow.h - FIXED VERSION
+// MainWindow.h - Updated with Pomodoro Integration
 #pragma once
 
 #include <memory>
@@ -8,6 +8,9 @@
 
 // Forward declarations
 class Sidebar;
+class PomodoroTimer;
+class PomodoroWindow;
+class AppConfig;
 
 enum class ModulePage
 {
@@ -27,6 +30,10 @@ public:
     MainWindow();
     ~MainWindow();
 
+    // Initialization
+    bool Initialize(AppConfig* config);
+    void Shutdown();
+
     // Update and render
     void Update(float deltaTime);
     void Render();
@@ -36,7 +43,7 @@ public:
     ModulePage GetCurrentModule() const { return m_currentModule; }
 
     // Load Textures
-    void InitializeResources(); // Main load teture function
+    void InitializeResources(); // Main load texture function
 
     static ImTextureID LoadTextureFromFile(const char* filename, int* out_width = nullptr, int* out_height = nullptr);
     static void UnloadTexture(ImTextureID tex_id);
@@ -46,41 +53,60 @@ public:
 private:
     std::unique_ptr<Sidebar> m_sidebar;
     ModulePage m_currentModule = ModulePage::Dashboard;
-    bool m_alwaysOnTop = false;  // New member for always on top state
+    bool m_alwaysOnTop = false;
+    AppConfig* m_config = nullptr;
+    
+    // Pomodoro integration
+    std::unique_ptr<PomodoroTimer> m_pomodoroTimer;
+    std::unique_ptr<PomodoroWindow> m_pomodoroSettingsWindow;
+    bool m_showPomodoroSettings = false;
     
     // Content area rendering
-    void RenderMenuBar();               // New menubar rendering
-
+    void RenderMenuBar();
     void RenderContentArea();
 
     /**
      * @note Dashboard
      */
-    void RenderDropoverInterface();     // New dropover interface
-    void RenderDropoverToolbar();       // Toolbar with file operations
-    void RenderDropoverArea();          // Main drop zone and file list
-    void RenderFileList();              // File list table    
+    void RenderDropoverInterface();
+    void RenderDropoverToolbar();
+    void RenderDropoverArea();
+    void RenderFileList();
     
     /**
-     * @note Pomodoro
+     * @note Pomodoro - Main Interface
      */
-    void RenderPomodoroPlaceholder();
+    void RenderPomodoroModule();
+    void RenderPomodoroTimer();
+    void RenderPomodoroControls();
+    void RenderPomodoroProgress();
+    void RenderPomodoroSessionInfo();
+    void RenderPomodoroQuickSettings();
+    
+    // Pomodoro helpers
+    void OnPomodoroSessionComplete(int sessionType);
+    void OnPomodoroAllComplete();
+    void OnPomodoroTick();
+    
+    /**
+     * @note Other modules
+     */
     void RenderKanbanPlaceholder();
     void RenderClipboardPlaceholder();
     void RenderBulkRenamePlaceholder();
     void RenderFileConverterPlaceholder();
-
     void renderSettingPlaceholder();
     
     // Utility
     const char* GetModuleName(ModulePage module) const;
 
 private:
+    // Icon textures
     ImTextureID iconPaste   = nullptr;
     ImTextureID iconCut     = nullptr;
     ImTextureID iconTrash   = nullptr;
     ImTextureID iconRename  = nullptr;
     ImTextureID iconClear   = nullptr;
-    ImTextureID iconPin   = nullptr;
-    ImTextureID iconTrigger   = nullptr;
+    ImTextureID iconPin     = nullptr;
+    ImTextureID iconTrigger = nullptr;
 };

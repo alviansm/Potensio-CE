@@ -5,37 +5,43 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\app\Application.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\app\AppConfig.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\app\SystemTray.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Logger.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Utils.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Timer\PomodoroTimer.cpp">
+      <Filter>Source Files\Core\Timer</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\UIManager.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\UI</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Components\Sidebar.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\UI\Components</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\MainWindow.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\UI\Windows</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\SettingsWindow.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\UI\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\PomodoroWindow.cpp">
+      <Filter>Source Files\UI\Windows</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsUtils.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Platform\Windows</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsHooks.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Platform\Windows</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\external\imgui\imgui.cpp">
       <Filter>Source Files</Filter>
@@ -70,6 +76,30 @@
   <ItemGroup>
     <Filter Include="Source Files">
       <UniqueIdentifier>{46C60526-E8F0-3554-974B-B2B443E57DD9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\App">
+      <UniqueIdentifier>{422D1FC3-9DF5-360D-8BD8-AA08F2DBB94F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core">
+      <UniqueIdentifier>{0C2DD429-437A-3907-A41C-D964D79B2E78}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core\Timer">
+      <UniqueIdentifier>{715841B4-E76E-38B0-997A-194E13F88C03}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Platform">
+      <UniqueIdentifier>{81229DCA-A8BF-36B2-B9A7-018A8405890F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Platform\Windows">
+      <UniqueIdentifier>{2A6CA2D8-A5D6-3367-864D-B403538F807D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\UI">
+      <UniqueIdentifier>{C6F644B1-B394-3BD1-BEB8-870EEABDB648}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\UI\Components">
+      <UniqueIdentifier>{343DDFDA-9DAF-3736-B473-C6D0CC67401D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\UI\Windows">
+      <UniqueIdentifier>{77D06D1E-F3BA-357A-AF46-1C3D6B8B9141}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

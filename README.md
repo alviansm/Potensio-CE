@@ -1,5 +1,4 @@
 # Potensio
-
 Potensio () is an all-in-one productivity suite.
 
 ## How to Build

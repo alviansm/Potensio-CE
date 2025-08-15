@@ -2,10 +2,12 @@
 
 #include <windows.h>
 #include <memory>
+#include <string>
 
 // Forward declarations
 class MainWindow;
 class SettingsWindow;
+class AppConfig;
 
 class UIManager
 {
@@ -19,59 +21,60 @@ public:
         bool maximized = false;
     };
 
+public:
     UIManager();
     ~UIManager();
 
-    // Initialize UI system
+    // Initialization
     bool Initialize(HINSTANCE hInstance);
-    
-    // Shutdown UI system
     void Shutdown();
-    
-    // Main UI loop functions
+
+    // Main loop functions
     void NewFrame();
     void Update(float deltaTime);
     void Render();
-    
+
     // Window management
     void ShowWindow();
     void HideWindow();
     bool IsWindowVisible() const;
-    
+
     // Window state
-    WindowInfo GetWindowInfo() const;
     void SetWindowInfo(const WindowInfo& info);
-    
-    // Get window handle
-    HWND GetWindowHandle() const { return m_hwnd; }
+    WindowInfo GetWindowInfo() const;
+
+    // Component access
+    MainWindow* GetMainWindow() { return m_mainWindow.get(); }
 
 private:
-    HINSTANCE m_hInstance = nullptr;
-    HWND m_hwnd = nullptr;
-    HDC m_hdc = nullptr;
-    HGLRC m_hglrc = nullptr;
+    // Window creation and setup
+    bool CreateMainWindow(HINSTANCE hInstance);
+    bool InitializeImGui();
+    bool InitializeOpenGL();
+    void SetupImGuiStyle();
+
+    // Event handling
+    static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+    LRESULT HandleMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+private:
+    // Window handles
+    HWND m_hwnd;
+    HDC m_hdc;
+    HGLRC m_hglrc;
     
-    bool m_isInitialized = false;
-    bool m_isVisible = false;
+    // Window state
+    bool m_isVisible;
+    bool m_isInitialized;
+    WindowInfo m_windowInfo;
     
-    // UI Windows
+    // UI Components
     std::unique_ptr<MainWindow> m_mainWindow;
     std::unique_ptr<SettingsWindow> m_settingsWindow;
     
-    // Window management
-    static const char* WINDOW_CLASS_NAME;
-    static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+    // Configuration
+    AppConfig* m_config;
     
-    // OpenGL and ImGui setup
-    bool InitializeOpenGL();
-    bool InitializeImGui();
-    void CleanupOpenGL();
-    void CleanupImGui();
-    
-    // Window creation
-    bool CreateMainWindow();
-    
-    // Event handling
-    void OnWindowClose();
-    void OnWindowResize(int width, int height);
+    // Window class name
+    static constexpr const char* WINDOW_CLASS_NAME = "PotensioMainWindow";
 };
