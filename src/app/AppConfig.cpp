@@ -130,6 +130,19 @@ std::string AppConfig::GetValue(const std::string& key, const std::string& defau
     return defaultValue;
 }
 
+std::string AppConfig::GetValueString(const std::string& key, const std::string& defaultValue) const
+{
+    auto it = m_config.find(key);
+    if (it != m_config.end())
+    {
+        if (std::holds_alternative<std::string>(it->second))
+        {
+            return std::get<std::string>(it->second);
+        }
+    }
+    return defaultValue;
+}
+
 void AppConfig::SetValue(const std::string& key, bool value)
 {
     m_config[key] = value;

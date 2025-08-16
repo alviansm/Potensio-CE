@@ -46,6 +46,17 @@ public:
     // Get application configuration
     AppConfig* GetConfig() const { return m_config.get(); }
 
+    // Settings integration
+    void ApplyStartupSettings();
+    void RegisterStartupWithWindows(bool enable);
+    void UpdateHotkeys();
+    void ApplySystemSettings();
+    void UpdateSettingsFromConfig();
+    
+    // Hotkey callback registration
+    void RegisterSettingsHotkeys();
+    void UnregisterSettingsHotkeys();
+
 private:
     // Static instance for singleton access
     static Application* s_instance;
@@ -68,8 +79,25 @@ private:
     
     // Hotkey handling
     void HandleGlobalHotkey();
+    void HandlePomodoroHotkey();
+    void HandleQuickCaptureHotkey();
+    void HandleShowTodayTasksHotkey();
+    
+    // Settings change callbacks
+    void OnSettingsChanged();
+    
+    // Hotkey parsing
+    bool ParseHotkeyString(const std::string& hotkeyStr, UINT& modifiers, UINT& vk);
     
     // Window state management
     void SaveWindowState();
     void RestoreWindowState();
+
+    // Hotkey IDs for settings
+    enum HotkeyIDs {
+        HOTKEY_GLOBAL_TOGGLE = 1,
+        HOTKEY_POMODORO_START = 2,
+        HOTKEY_QUICK_CAPTURE = 3,
+        HOTKEY_SHOW_TODAY_TASKS = 4
+    };
 };

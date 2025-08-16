@@ -257,6 +257,9 @@ bool MainWindow::Initialize(AppConfig* config)
         m_fileConverterUIState.autoProcessJobs = config->GetValue("file_converter.auto_process", true);
     }
 
+    // Initialize Settings UI State
+    LoadSettingsFromConfig();
+
     /**
      * @note Log successfull initialization
      */
@@ -454,7 +457,7 @@ void MainWindow::RenderContentArea()
             RenderFileConverterModule();
             break;
         case ModulePage::Settings:
-            renderSettingPlaceholder();
+            RenderSettingsModule();
             break;
         default:
             ImGui::Text("Unknown module");
@@ -2290,23 +2293,23 @@ void MainWindow::RenderBulkRenamePlaceholder()
 //     ImGui::PopStyleVar();
 // }
 
-void MainWindow::renderSettingPlaceholder()
-{
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 16));
+// void MainWindow::renderSettingPlaceholder()
+// {
+//     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 16));
     
-    ImGui::Text("Settings");
-    ImGui::Separator();
-    ImGui::Spacing();
+//     ImGui::Text("Settings");
+//     ImGui::Separator();
+//     ImGui::Spacing();
     
-    ImGui::TextWrapped("Settings in Sprint 6.");
-    ImGui::Spacing();
-    ImGui::Text("Features coming soon:");
-    ImGui::BulletText("Theme");
-    ImGui::BulletText("Account");
-    ImGui::BulletText("Update");
+//     ImGui::TextWrapped("Settings in Sprint 6.");
+//     ImGui::Spacing();
+//     ImGui::Text("Features coming soon:");
+//     ImGui::BulletText("Theme");
+//     ImGui::BulletText("Account");
+//     ImGui::BulletText("Update");
     
-    ImGui::PopStyleVar(); 
-}
+//     ImGui::PopStyleVar(); 
+// }
 
 const char* MainWindow::GetModuleName(ModulePage module) const
 {
@@ -4782,4 +4785,999 @@ bool MainWindow::IsFileSupported(const std::string& path)
 {
     FileType type = FileConverter::GetFileTypeFromPath(path);
     return type != FileType::Unknown;
+}
+
+// =============================================================================
+// KANBAN MODULE IMPLEMENTATION
+// =============================================================================
+void MainWindow::RenderSettingsModule()
+{
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    
+    // Main settings area with sidebar
+    float sidebarWidth = 200.0f;
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    float contentWidth = availableWidth - sidebarWidth - 10.0f;
+    
+    // Settings sidebar
+    ImGui::BeginChild("##SettingsSidebar", ImVec2(sidebarWidth, 0), true);
+    RenderSettingsSidebar();
+    ImGui::EndChild();
+    
+    ImGui::SameLine();
+    
+    // Settings content area
+    ImGui::BeginChild("##SettingsContent", ImVec2(contentWidth, 0), false);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20, 20));
+    RenderSettingsContent();
+    ImGui::PopStyleVar();
+    ImGui::EndChild();
+    
+    // Modal dialogs
+    RenderResetConfirmDialog();
+    RenderDataManagementDialogs();
+    
+    ImGui::PopStyleVar();
+}
+
+void MainWindow::RenderSettingsSidebar()
+{
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
+    
+    ImGui::Text("⚙️ Settings");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Settings categories
+    const SettingsCategory categories[] = {
+        SettingsCategory::General,
+        SettingsCategory::Appearance,
+        SettingsCategory::Hotkeys,
+        SettingsCategory::Modules,
+        SettingsCategory::Account,
+        SettingsCategory::About
+    };
+    
+    const char* icons[] = {
+        "🔧", "🎨", "⌨️", "📦", "👤", "ℹ️"
+    };
+    
+    for (int i = 0; i < 6; ++i)
+    {
+        SettingsCategory category = categories[i];
+        bool isSelected = (m_settingsUIState.selectedCategory == category);
+        
+        if (isSelected)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.5f, 0.8f, 0.8f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.6f, 0.9f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.4f, 0.7f, 1.0f));
+        }
+        
+        std::string buttonText = std::string(icons[i]) + " " + GetCategoryName(category);
+        
+        if (ImGui::Button(buttonText.c_str(), ImVec2(-1, 35)))
+        {
+            m_settingsUIState.selectedCategory = category;
+        }
+        
+        if (isSelected)
+        {
+            ImGui::PopStyleColor(3);
+        }
+        
+        if (i < 5) ImGui::Spacing();
+    }
+    
+    ImGui::PopStyleVar();
+}
+
+void MainWindow::RenderSettingsContent()
+{
+    switch (m_settingsUIState.selectedCategory)
+    {
+        case SettingsCategory::General:
+            RenderGeneralSettings();
+            break;
+        case SettingsCategory::Appearance:
+            RenderAppearanceSettings();
+            break;
+        case SettingsCategory::Hotkeys:
+            RenderHotkeySettings();
+            break;
+        case SettingsCategory::Modules:
+            RenderModuleSettings();
+            break;
+        case SettingsCategory::Account:
+            RenderAccountSettings();
+            break;
+        case SettingsCategory::About:
+            RenderAboutSettings();
+            break;
+    }
+}
+
+void MainWindow::RenderGeneralSettings()
+{
+    ImGui::Text("🔧 General Settings");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Startup behavior
+    ImGui::Text("Startup Behavior");
+    ImGui::Spacing();
+    
+    if (ImGui::Checkbox("Start with Windows", &m_settingsUIState.startWithWindows))
+    {
+        // TODO: Implement Windows startup registration
+        Logger::Info("Start with Windows toggled: {}", m_settingsUIState.startWithWindows);
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Automatically start Potensio when Windows starts");
+    
+    ImGui::Checkbox("Start minimized", &m_settingsUIState.startMinimized);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Start the application in the system tray");
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Window behavior
+    ImGui::Text("Window Behavior");
+    ImGui::Spacing();
+    
+    ImGui::Checkbox("Minimize to system tray", &m_settingsUIState.minimizeToTray);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Hide to system tray instead of taskbar when minimized");
+    
+    ImGui::Checkbox("Close to system tray", &m_settingsUIState.closeToTray);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Keep running in system tray when window is closed");
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Notifications and sounds
+    ImGui::Text("Notifications & Sounds");
+    ImGui::Spacing();
+    
+    ImGui::Checkbox("Show notifications", &m_settingsUIState.showNotifications);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Show system notifications for events");
+    
+    ImGui::Checkbox("Enable sounds", &m_settingsUIState.enableSounds);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Play sound effects for actions and notifications");
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Data management
+    ImGui::Text("Data Management");
+    ImGui::Spacing();
+    
+    ImGui::Checkbox("Auto-save data", &m_settingsUIState.autoSave);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Automatically save changes");
+    
+    if (m_settingsUIState.autoSave)
+    {
+        ImGui::Text("Auto-save interval:");
+        ImGui::SliderInt("##autosave", &m_settingsUIState.autoSaveInterval, 5, 300, "%d seconds");
+    }
+    
+    ImGui::Spacing();
+    
+    // Data management buttons
+    if (ImGui::Button("📤 Export Data", ImVec2(120, 0)))
+    {
+        m_showExportDataDialog = true;
+    }
+    ImGui::SameLine();
+    
+    if (ImGui::Button("📥 Import Data", ImVec2(120, 0)))
+    {
+        m_showImportDataDialog = true;
+    }
+    ImGui::SameLine();
+    
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.3f, 0.3f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.4f, 0.4f, 1.0f));
+    if (ImGui::Button("🗑️ Clear All Data", ImVec2(120, 0)))
+    {
+        m_showClearDataDialog = true;
+    }
+    ImGui::PopStyleColor(2);
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Reset settings
+    ImGui::Text("Reset");
+    ImGui::Spacing();
+    
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.6f, 0.6f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+    if (ImGui::Button("🔄 Reset to Defaults", ImVec2(150, 0)))
+    {
+        m_showResetConfirmDialog = true;
+    }
+    ImGui::PopStyleColor(2);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Reset all settings to their default values");
+}
+
+void MainWindow::RenderAppearanceSettings()
+{
+    ImGui::Text("🎨 Appearance Settings");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Theme selection
+    ImGui::Text("Theme");
+    ImGui::Spacing();
+    
+    const char* themeNames[] = { "Dark", "Light", "Auto (System)" };
+    int currentTheme = m_settingsUIState.themeMode;
+    
+    if (ImGui::Combo("Theme Mode", &currentTheme, themeNames, IM_ARRAYSIZE(themeNames)))
+    {
+        m_settingsUIState.themeMode = currentTheme;
+        ApplyThemeSettings();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Choose between dark, light, or system-matching theme");
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // UI Scale
+    ImGui::Text("User Interface");
+    ImGui::Spacing();
+    
+    float currentScale = m_settingsUIState.uiScale;
+    if (ImGui::SliderFloat("UI Scale", &currentScale, 0.8f, 2.0f, "%.1f"))
+    {
+        m_settingsUIState.uiScale = currentScale;
+        // TODO: Apply UI scale changes
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Adjust the size of UI elements");
+    
+    ImGui::Checkbox("Compact mode", &m_settingsUIState.compactMode);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Use smaller spacing and elements to fit more content");
+    
+    ImGui::Checkbox("Enable animations", &m_settingsUIState.enableAnimations);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Enable smooth transitions and animations");
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Accent colors
+    ImGui::Text("Accent Color");
+    ImGui::Spacing();
+    
+    const char* colorNames[] = { 
+        "Blue", "Green", "Purple", "Orange", "Red", "Teal", "Pink", "Yellow" 
+    };
+    
+    if (ImGui::Combo("Accent Color", &m_settingsUIState.accentColor, colorNames, IM_ARRAYSIZE(colorNames)))
+    {
+        // TODO: Apply accent color changes
+    }
+    
+    // Color preview
+    ImVec4 accentColor = GetAccentColor(m_settingsUIState.accentColor);
+    ImGui::SameLine();
+    ImGui::ColorButton("##accent_preview", accentColor, ImGuiColorEditFlags_NoTooltip, ImVec2(30, 30));
+    
+    ImGui::Spacing();
+    
+    // Preview area
+    ImGui::Text("Preview");
+    ImGui::BeginChild("##ThemePreview", ImVec2(0, 120), true);
+    
+    ImGui::Text("Sample text in current theme");
+    ImGui::Button("Sample Button");
+    ImGui::SameLine();
+    ImGui::ProgressBar(0.65f, ImVec2(-1, 0), "Sample Progress");
+    
+    ImGui::Text("🎯 Accent color elements");
+    ImGui::PushStyleColor(ImGuiCol_Button, accentColor);
+    ImGui::Button("Accent Button");
+    ImGui::PopStyleColor();
+    
+    ImGui::EndChild();
+}
+
+void MainWindow::RenderHotkeySettings()
+{
+    ImGui::Text("⌨️ Hotkey Settings");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.5f, 1.0f), 
+                      "Click on a hotkey field and press the desired key combination");
+    ImGui::Spacing();
+    
+    // Global hotkeys
+    ImGui::Text("Global Hotkeys");
+    ImGui::Spacing();
+    
+    RenderHotkeyEditor("Show/Hide Potensio", m_settingsUIState.globalHotkeyBuffer, 
+                      sizeof(m_settingsUIState.globalHotkeyBuffer));
+    
+    RenderHotkeyEditor("Quick Capture", m_settingsUIState.quickCaptureBuffer, 
+                      sizeof(m_settingsUIState.quickCaptureBuffer));
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Module hotkeys
+    ImGui::Text("Module Hotkeys");
+    ImGui::Spacing();
+    
+    RenderHotkeyEditor("Start/Stop Pomodoro", m_settingsUIState.pomodoroStartBuffer, 
+                      sizeof(m_settingsUIState.pomodoroStartBuffer));
+    
+    RenderHotkeyEditor("Show Today's Tasks", m_settingsUIState.showTodayTasksBuffer, 
+                      sizeof(m_settingsUIState.showTodayTasksBuffer));
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Hotkey help
+    ImGui::Text("📋 Hotkey Tips");
+    ImGui::BulletText("Use Ctrl, Alt, Shift modifiers");
+    ImGui::BulletText("Function keys (F1-F12) work well");
+    ImGui::BulletText("Avoid system-reserved combinations");
+    ImGui::BulletText("Leave empty to disable a hotkey");
+    
+    ImGui::Spacing();
+    
+    if (ImGui::Button("🔄 Reset Hotkeys", ImVec2(120, 0)))
+    {
+        // Reset to defaults
+        strcpy_s(m_settingsUIState.globalHotkeyBuffer, "Ctrl+Shift+P");
+        strcpy_s(m_settingsUIState.pomodoroStartBuffer, "Ctrl+Alt+P");
+        strcpy_s(m_settingsUIState.quickCaptureBuffer, "Ctrl+Shift+C");
+        strcpy_s(m_settingsUIState.showTodayTasksBuffer, "Ctrl+Shift+T");
+    }
+}
+
+void MainWindow::RenderModuleSettings()
+{
+    ImGui::Text("📦 Module Settings");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    ImGui::Text("Enable/Disable Modules");
+    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), 
+                      "Disabled modules will be hidden from the sidebar");
+    ImGui::Spacing();
+    
+    // Module toggles with descriptions
+    struct ModuleInfo {
+        bool* enabled;
+        const char* name;
+        const char* icon;
+        const char* description;
+    };
+    
+    ModuleInfo modules[] = {
+        { &m_settingsUIState.enableDropover, "Dropover", "📁", "File staging and batch operations" },
+        { &m_settingsUIState.enablePomodoro, "Pomodoro Timer", "🍅", "Time management and productivity tracking" },
+        { &m_settingsUIState.enableKanban, "Kanban Board", "📋", "Project management and task tracking" },
+        { &m_settingsUIState.enableTodo, "Todo List", "✅", "Daily task management and scheduling" },
+        { &m_settingsUIState.enableClipboard, "Clipboard Manager", "📄", "Clipboard history and management" },
+        { &m_settingsUIState.enableFileConverter, "File Converter", "🔄", "File format conversion and compression" }
+    };
+    
+    for (const auto& module : modules)
+    {
+        ImGui::PushID(module.name);
+        
+        // Module header
+        if (ImGui::Checkbox((std::string(module.icon) + " " + module.name).c_str(), module.enabled))
+        {
+            // TODO: Apply module enable/disable logic
+            Logger::Info("Module {} {}", module.name, *module.enabled ? "enabled" : "disabled");
+        }
+        
+        // Description
+        ImGui::Indent(30);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+        ImGui::TextWrapped("%s", module.description);
+        ImGui::PopStyleColor();
+        ImGui::Unindent(30);
+        
+        ImGui::Spacing();
+        
+        ImGui::PopID();
+    }
+    
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Performance settings
+    ImGui::Text("Performance");
+    ImGui::Spacing();
+    
+    static bool enableMultithreading = true;
+    static bool optimizeMemory = true;
+    static int maxHistoryItems = 1000;
+    
+    ImGui::Checkbox("Enable multithreading", &enableMultithreading);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Use multiple CPU cores for better performance");
+    
+    ImGui::Checkbox("Optimize memory usage", &optimizeMemory);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Reduce memory usage at the cost of some features");
+    
+    ImGui::Text("Max history items:");
+    ImGui::SliderInt("##maxhistory", &maxHistoryItems, 100, 10000, "%d items");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Maximum number of items to keep in module histories");
+}
+
+void MainWindow::RenderAccountSettings()
+{
+    ImGui::Text("👤 Account Settings");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Future feature notice
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.5f, 1.0f));
+    ImGui::Text("🚧 Account features are coming in a future update!");
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+    
+    // Profile section (placeholder)
+    ImGui::Text("Profile");
+    ImGui::Spacing();
+    
+    ImGui::BeginDisabled(); // Disable inputs for now
+    
+    ImGui::Text("Username:");
+    ImGui::InputText("##username", m_settingsUIState.usernameBuffer, 
+                    sizeof(m_settingsUIState.usernameBuffer));
+    
+    ImGui::Text("Email:");
+    ImGui::InputText("##email", m_settingsUIState.emailBuffer, 
+                    sizeof(m_settingsUIState.emailBuffer));
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Sync settings
+    ImGui::Text("Synchronization");
+    ImGui::Spacing();
+    
+    ImGui::Checkbox("Enable cloud sync", &m_settingsUIState.syncEnabled);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Sync your data across devices");
+    
+    ImGui::Checkbox("Enable cloud backup", &m_settingsUIState.cloudBackup);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Backup your data to the cloud");
+    
+    ImGui::Spacing();
+    
+    if (ImGui::Button("🔗 Sign In", ImVec2(100, 0)))
+    {
+        // TODO: Implement sign in
+    }
+    ImGui::SameLine();
+    
+    if (ImGui::Button("📝 Create Account", ImVec2(120, 0)))
+    {
+        // TODO: Implement account creation
+    }
+    
+    ImGui::EndDisabled();
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // License info
+    ImGui::Text("License");
+    ImGui::Spacing();
+    
+    ImGui::Text("Potensio Personal License");
+    ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), "✅ Licensed");
+    ImGui::Text("Valid until: Not applicable (Lifetime)");
+    
+    ImGui::Spacing();
+    
+    if (ImGui::Button("📋 View License", ImVec2(120, 0)))
+    {
+        // TODO: Show license dialog
+    }
+}
+
+void MainWindow::RenderAboutSettings()
+{
+    ImGui::Text("ℹ️ About Potensio");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // App info
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Use default/larger font if available
+    ImGui::Text("Potensio");
+    ImGui::PopFont();
+    
+    ImGui::Text("Version: %s", m_settingsUIState.currentVersion.c_str());
+    ImGui::Text("Build Date: %s %s", __DATE__, __TIME__);
+    ImGui::Text("Platform: Windows x64");
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Update section
+    ImGui::Text("🔄 Updates");
+    ImGui::Spacing();
+    
+    ImGui::Checkbox("Automatically check for updates", &m_settingsUIState.autoCheckUpdates);
+    ImGui::Checkbox("Download updates automatically", &m_settingsUIState.downloadUpdatesAuto);
+    ImGui::Checkbox("Participate in beta testing", &m_settingsUIState.betaChannel);
+    
+    ImGui::Spacing();
+    
+    // Update status
+    if (m_settingsUIState.updateAvailable)
+    {
+        ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), 
+                          "🎉 Update available: v%s", m_settingsUIState.latestVersion.c_str());
+        if (ImGui::Button("📥 Download Update", ImVec2(140, 0)))
+        {
+            // TODO: Implement update download
+        }
+    }
+    else if (m_settingsUIState.checkingUpdates)
+    {
+        ImGui::Text("🔍 Checking for updates...");
+    }
+    else
+    {
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "✅ You're up to date!");
+    }
+    
+    ImGui::Spacing();
+    
+    if (ImGui::Button("🔍 Check Now", ImVec2(100, 0)))
+    {
+        CheckForUpdates();
+    }
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // System info
+    ImGui::Text("💻 System Information");
+    ImGui::Spacing();
+    
+    // Get system info
+    SYSTEM_INFO sysInfo;
+    GetSystemInfo(&sysInfo);
+    
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+    GlobalMemoryStatusEx(&memInfo);
+    
+    ImGui::Text("CPU Cores: %d", sysInfo.dwNumberOfProcessors);
+    ImGui::Text("RAM: %.1f GB", memInfo.ullTotalPhys / (1024.0 * 1024.0 * 1024.0));
+    
+    // OpenGL info
+    const char* glVersion = (const char*)glGetString(GL_VERSION);
+    const char* glRenderer = (const char*)glGetString(GL_RENDERER);
+    if (glVersion) ImGui::Text("OpenGL: %s", glVersion);
+    if (glRenderer) ImGui::Text("GPU: %s", glRenderer);
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Credits and links
+    ImGui::Text("🙏 Credits & Links");
+    ImGui::Spacing();
+    
+    if (ImGui::Button("🌐 Website", ImVec2(80, 0)))
+    {
+        // TODO: Open website
+    }
+    ImGui::SameLine();
+    
+    if (ImGui::Button("📖 Documentation", ImVec2(120, 0)))
+    {
+        // TODO: Open documentation
+    }
+    ImGui::SameLine();
+    
+    if (ImGui::Button("🐛 Report Bug", ImVec2(100, 0)))
+    {
+        // TODO: Open bug report
+    }
+    
+    ImGui::Spacing();
+    
+    ImGui::Text("Built with:");
+    ImGui::BulletText("Dear ImGui %s", IMGUI_VERSION);
+    ImGui::BulletText("OpenGL");
+    ImGui::BulletText("SQLite 3");
+    ImGui::BulletText("CMake");
+}
+
+// Dialog implementations
+void MainWindow::RenderResetConfirmDialog()
+{
+    if (!m_showResetConfirmDialog) return;
+    
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(400, 150), ImGuiCond_Appearing);
+    
+    if (ImGui::BeginPopupModal("Reset Settings", &m_showResetConfirmDialog, 
+                              ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
+    {
+        ImGui::Text("⚠️ Reset all settings to defaults?");
+        ImGui::Spacing();
+        ImGui::TextWrapped("This will reset all your preferences, hotkeys, and module settings. This action cannot be undone.");
+        ImGui::Spacing();
+        
+        if (ImGui::Button("🔄 Reset", ImVec2(80, 0)))
+        {
+            ResetSettingsToDefaults();
+            m_showResetConfirmDialog = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::SameLine();
+        if (ImGui::Button("❌ Cancel", ImVec2(80, 0)))
+        {
+            m_showResetConfirmDialog = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+    
+    if (m_showResetConfirmDialog && !ImGui::IsPopupOpen("Reset Settings"))
+    {
+        ImGui::OpenPopup("Reset Settings");
+    }
+}
+
+void MainWindow::RenderDataManagementDialogs()
+{
+    // Export Data Dialog
+    if (m_showExportDataDialog)
+    {
+        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(400, 200), ImGuiCond_Appearing);
+        
+        if (ImGui::BeginPopupModal("Export Data", &m_showExportDataDialog))
+        {
+            ImGui::Text("📤 Export your Potensio data");
+            ImGui::Spacing();
+            ImGui::TextWrapped("This will create a backup file containing all your settings, tasks, projects, and other data.");
+            ImGui::Spacing();
+            
+            if (ImGui::Button("📁 Choose Location", ImVec2(150, 0)))
+            {
+                ExportUserData();
+                m_showExportDataDialog = false;
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::SameLine();
+            if (ImGui::Button("❌ Cancel", ImVec2(80, 0)))
+            {
+                m_showExportDataDialog = false;
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::EndPopup();
+        }
+        
+        if (!ImGui::IsPopupOpen("Export Data"))
+        {
+            ImGui::OpenPopup("Export Data");
+        }
+    }
+    
+    // Import Data Dialog
+    if (m_showImportDataDialog)
+    {
+        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(400, 200), ImGuiCond_Appearing);
+        
+        if (ImGui::BeginPopupModal("Import Data", &m_showImportDataDialog))
+        {
+            ImGui::Text("📥 Import Potensio data");
+            ImGui::Spacing();
+            ImGui::TextWrapped("Select a backup file to restore your data. This will overwrite your current data.");
+            ImGui::Spacing();
+            
+            if (ImGui::Button("📁 Select File", ImVec2(120, 0)))
+            {
+                ImportUserData();
+                m_showImportDataDialog = false;
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::SameLine();
+            if (ImGui::Button("❌ Cancel", ImVec2(80, 0)))
+            {
+                m_showImportDataDialog = false;
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::EndPopup();
+        }
+        
+        if (!ImGui::IsPopupOpen("Import Data"))
+        {
+            ImGui::OpenPopup("Import Data");
+        }
+    }
+    
+    // Clear Data Dialog
+    if (m_showClearDataDialog)
+    {
+        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(400, 200), ImGuiCond_Appearing);
+        
+        if (ImGui::BeginPopupModal("Clear All Data", &m_showClearDataDialog))
+        {
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "⚠️ DANGER: Clear all data?");
+            ImGui::Spacing();
+            ImGui::TextWrapped("This will permanently delete ALL your data including tasks, projects, settings, and history. This action CANNOT be undone!");
+            ImGui::Spacing();
+            
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.3f, 0.3f, 0.8f));
+            if (ImGui::Button("🗑️ Delete Everything", ImVec2(150, 0)))
+            {
+                ClearAllUserData();
+                m_showClearDataDialog = false;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::PopStyleColor();
+            
+            ImGui::SameLine();
+            if (ImGui::Button("❌ Cancel", ImVec2(80, 0)))
+            {
+                m_showClearDataDialog = false;
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::EndPopup();
+        }
+        
+        if (!ImGui::IsPopupOpen("Clear All Data"))
+        {
+            ImGui::OpenPopup("Clear All Data");
+        }
+    }
+}
+
+void MainWindow::RenderHotkeyEditor(const char* label, char* buffer, size_t bufferSize)
+{
+    ImGui::Text("%s:", label);
+    ImGui::SameLine(200); // Align input fields
+    
+    ImGui::PushID(label);
+    
+    // Special styling for hotkey input
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.3f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.3f, 0.3f, 0.4f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.4f, 0.4f, 0.5f, 1.0f));
+    
+    ImGui::SetNextItemWidth(200);
+    if (ImGui::InputText("##hotkey", buffer, bufferSize, ImGuiInputTextFlags_ReadOnly))
+    {
+        // Handle hotkey capture here
+        // TODO: Implement hotkey capture logic
+    }
+    
+    ImGui::PopStyleColor(3);
+    
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Click and press key combination to set hotkey");
+    }
+    
+    // Clear button
+    ImGui::SameLine();
+    if (ImGui::Button("❌"))
+    {
+        buffer[0] = '\0'; // Clear the hotkey
+    }
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Clear hotkey");
+    }
+    
+    ImGui::PopID();
+}
+
+// Helper method implementations
+void MainWindow::LoadSettingsFromConfig()
+{
+    if (!m_config) return;
+    
+    // Load general settings
+    m_settingsUIState.startWithWindows = m_config->GetValue("general.start_with_windows", false);
+    m_settingsUIState.startMinimized = m_config->GetValue("general.start_minimized", false);
+    m_settingsUIState.minimizeToTray = m_config->GetValue("general.minimize_to_tray", true);
+    m_settingsUIState.closeToTray = m_config->GetValue("general.close_to_tray", true);
+    m_settingsUIState.showNotifications = m_config->GetValue("general.show_notifications", true);
+    m_settingsUIState.enableSounds = m_config->GetValue("general.enable_sounds", true);
+    m_settingsUIState.autoSave = m_config->GetValue("general.auto_save", true);
+    m_settingsUIState.autoSaveInterval = m_config->GetValue("general.auto_save_interval", 30);
+    
+    // Load appearance settings
+    m_settingsUIState.themeMode = m_config->GetValue("appearance.theme_mode", 0);
+    m_settingsUIState.uiScale = m_config->GetValue("appearance.ui_scale", 1.0f);
+    m_settingsUIState.accentColor = m_config->GetValue("appearance.accent_color", 0);
+    m_settingsUIState.enableAnimations = m_config->GetValue("appearance.enable_animations", true);
+    m_settingsUIState.compactMode = m_config->GetValue("appearance.compact_mode", false);
+    
+    // Load hotkeys
+    std::string defaultPomodoro("Ctrl+Alt+P");
+
+    std::string globalHotkey = m_config->GetValue("hotkeys.global_hotkey", defaultPomodoro);
+    strcpy_s(m_settingsUIState.globalHotkeyBuffer, globalHotkey.c_str());
+    
+    // Load module settings
+    m_settingsUIState.enablePomodoro = m_config->GetValue("modules.enable_pomodoro", true);
+    m_settingsUIState.enableKanban = m_config->GetValue("modules.enable_kanban", true);
+    m_settingsUIState.enableTodo = m_config->GetValue("modules.enable_todo", true);
+    m_settingsUIState.enableClipboard = m_config->GetValue("modules.enable_clipboard", true);
+    m_settingsUIState.enableFileConverter = m_config->GetValue("modules.enable_file_converter", true);
+    m_settingsUIState.enableDropover = m_config->GetValue("modules.enable_dropover", true);
+    
+    Logger::Info("Settings loaded from configuration");
+}
+
+void MainWindow::SaveSettingsToConfig()
+{
+    if (!m_config) return;
+
+    if (Application::GetInstance())
+    {
+        Application::GetInstance()->UpdateSettingsFromConfig();
+    }
+    
+    // Save general settings
+    m_config->SetValue("general.start_with_windows", m_settingsUIState.startWithWindows);
+    m_config->SetValue("general.start_minimized", m_settingsUIState.startMinimized);
+    m_config->SetValue("general.minimize_to_tray", m_settingsUIState.minimizeToTray);
+    m_config->SetValue("general.close_to_tray", m_settingsUIState.closeToTray);
+    m_config->SetValue("general.show_notifications", m_settingsUIState.showNotifications);
+    m_config->SetValue("general.enable_sounds", m_settingsUIState.enableSounds);
+    m_config->SetValue("general.auto_save", m_settingsUIState.autoSave);
+    m_config->SetValue("general.auto_save_interval", m_settingsUIState.autoSaveInterval);
+    
+    // Save appearance settings
+    m_config->SetValue("appearance.theme_mode", m_settingsUIState.themeMode);
+    m_config->SetValue("appearance.ui_scale", m_settingsUIState.uiScale);
+    m_config->SetValue("appearance.accent_color", m_settingsUIState.accentColor);
+    m_config->SetValue("appearance.enable_animations", m_settingsUIState.enableAnimations);
+    m_config->SetValue("appearance.compact_mode", m_settingsUIState.compactMode);
+    
+    // Save hotkeys
+    m_config->SetValue("hotkeys.global_hotkey", std::string(m_settingsUIState.globalHotkeyBuffer));
+    
+    // Save module settings
+    m_config->SetValue("modules.enable_pomodoro", m_settingsUIState.enablePomodoro);
+    m_config->SetValue("modules.enable_kanban", m_settingsUIState.enableKanban);
+    m_config->SetValue("modules.enable_todo", m_settingsUIState.enableTodo);
+    m_config->SetValue("modules.enable_clipboard", m_settingsUIState.enableClipboard);
+    m_config->SetValue("modules.enable_file_converter", m_settingsUIState.enableFileConverter);
+    m_config->SetValue("modules.enable_dropover", m_settingsUIState.enableDropover);
+    
+    m_config->Save();
+    Logger::Info("Settings saved to configuration");
+}
+
+void MainWindow::ResetSettingsToDefaults()
+{
+    m_settingsUIState = SettingsUIState(); // Reset to default state
+    SaveSettingsToConfig();
+    ApplyThemeSettings();
+    Logger::Info("Settings reset to defaults");
+}
+
+void MainWindow::ApplyThemeSettings()
+{
+    // TODO: Implement theme application logic
+    Logger::Info("Theme settings applied: {}", GetThemeModeName(m_settingsUIState.themeMode));
+}
+
+void MainWindow::CheckForUpdates()
+{
+    m_settingsUIState.checkingUpdates = true;
+    // TODO: Implement actual update checking
+    Logger::Info("Checking for updates...");
+    
+    // Simulate update check (remove in real implementation)
+    // In real implementation, this would be async
+    m_settingsUIState.checkingUpdates = false;
+    m_settingsUIState.updateAvailable = false; // or true if update found
+}
+
+void MainWindow::ExportUserData()
+{
+    // TODO: Implement data export
+    Logger::Info("Exporting user data...");
+}
+
+void MainWindow::ImportUserData()
+{
+    // TODO: Implement data import
+    Logger::Info("Importing user data...");
+}
+
+void MainWindow::ClearAllUserData()
+{
+    // TODO: Implement data clearing
+    Logger::Info("Clearing all user data...");
+}
+
+const char* MainWindow::GetThemeModeName(int mode) const
+{
+    switch (mode)
+    {
+        case 0: return "Dark";
+        case 1: return "Light";
+        case 2: return "Auto (System)";
+        default: return "Unknown";
+    }
+}
+
+const char* MainWindow::GetCategoryName(SettingsCategory category) const
+{
+    switch (category)
+    {
+        case SettingsCategory::General: return "General";
+        case SettingsCategory::Appearance: return "Appearance";
+        case SettingsCategory::Hotkeys: return "Hotkeys";
+        case SettingsCategory::Modules: return "Modules";
+        case SettingsCategory::Account: return "Account";
+        case SettingsCategory::About: return "About";
+        default: return "Unknown";
+    }
+}
+
+ImVec4 MainWindow::GetAccentColor(int colorIndex) const
+{
+    const ImVec4 colors[] = {
+        ImVec4(0.3f, 0.6f, 1.0f, 1.0f), // Blue
+        ImVec4(0.3f, 0.8f, 0.3f, 1.0f), // Green
+        ImVec4(0.7f, 0.3f, 1.0f, 1.0f), // Purple
+        ImVec4(1.0f, 0.6f, 0.2f, 1.0f), // Orange
+        ImVec4(1.0f, 0.3f, 0.3f, 1.0f), // Red
+        ImVec4(0.2f, 0.8f, 0.8f, 1.0f), // Teal
+        ImVec4(1.0f, 0.4f, 0.8f, 1.0f), // Pink
+        ImVec4(1.0f, 0.9f, 0.2f, 1.0f), // Yellow
+    };
+    
+    if (colorIndex >= 0 && colorIndex < 8)
+        return colors[colorIndex];
+    
+    return colors[0]; // Default to blue
 }

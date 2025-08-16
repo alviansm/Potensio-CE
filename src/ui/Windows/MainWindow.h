@@ -1,8 +1,9 @@
-// MainWindow.h - Updated with Todo and Kanban Integration
+// MainWindow.h - Updated with Settings Module
 #pragma once
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "imgui.h"
 
@@ -34,6 +35,16 @@ enum class ModulePage
     Settings
 };
 
+enum class SettingsCategory
+{
+    General = 0,
+    Appearance,
+    Hotkeys,
+    Modules,
+    Account,
+    About
+};
+
 class MainWindow
 {
 public:
@@ -53,7 +64,7 @@ public:
     ModulePage GetCurrentModule() const { return m_currentModule; }
 
     // Load Textures
-    void InitializeResources(); // Main load texture function
+    void InitializeResources();
 
     static ImTextureID LoadTextureFromFile(const char* filename, int* out_width = nullptr, int* out_height = nullptr);
     static void UnloadTexture(ImTextureID tex_id);
@@ -118,7 +129,7 @@ private:
         std::string searchQuery;
         bool showFavorites = false;
         bool showPinned = false;
-        Clipboard::ClipboardFormat filterFormat = Clipboard::ClipboardFormat::Text; // "All" filter
+        Clipboard::ClipboardFormat filterFormat = Clipboard::ClipboardFormat::Text;
         int selectedItemIndex = -1;
         bool showPreview = true;
     } m_clipboardUIState;
@@ -130,11 +141,8 @@ private:
     // File converter UI state
     struct FileConverterUIState
     {
-        // Drop zone state
         bool isDragOver = false;
         std::vector<std::string> draggedFiles;
-        
-        // Settings
         FileType outputFormat = FileType::JPG;
         int imageQuality = 85;
         int pngCompression = 6;
@@ -142,30 +150,113 @@ private:
         size_t targetSizeKB = 0;
         std::string outputDirectory;
         bool useSourceDirectory = true;
-        
-        // UI state
         int selectedJobIndex = -1;
         bool showCompletedJobs = true;
         bool autoProcessJobs = true;
         std::string searchFilter;
-        
     } m_fileConverterUIState;
+
+    // Settings UI state
+    struct SettingsUIState
+    {
+        SettingsCategory selectedCategory = SettingsCategory::General;
+        
+        // General settings
+        bool startWithWindows = false;
+        bool startMinimized = false;
+        bool minimizeToTray = true;
+        bool closeToTray = true;
+        bool showNotifications = true;
+        bool enableSounds = true;
+        bool autoSave = true;
+        int autoSaveInterval = 30; // seconds
+        
+        // Appearance settings
+        int themeMode = 0; // 0=Dark, 1=Light, 2=Auto
+        float uiScale = 1.0f;
+        int accentColor = 0; // Color scheme index
+        bool enableAnimations = true;
+        bool compactMode = false;
+        
+        // Hotkey settings
+        char globalHotkeyBuffer[64] = "Ctrl+Shift+P";
+        char pomodoroStartBuffer[64] = "Ctrl+Alt+P";
+        char quickCaptureBuffer[64] = "Ctrl+Shift+C";
+        char showTodayTasksBuffer[64] = "Ctrl+Shift+T";
+        
+        // Module settings
+        bool enablePomodoro = true;
+        bool enableKanban = true;
+        bool enableTodo = true;
+        bool enableClipboard = true;
+        bool enableFileConverter = true;
+        bool enableDropover = true;
+        
+        // Account settings (placeholders for future)
+        char usernameBuffer[128] = "";
+        char emailBuffer[256] = "";
+        bool syncEnabled = false;
+        bool cloudBackup = false;
+        
+        // Update settings
+        bool autoCheckUpdates = true;
+        bool downloadUpdatesAuto = false;
+        bool betaChannel = false;
+        std::string currentVersion = "0.1.0";
+        std::string latestVersion = "";
+        bool updateAvailable = false;
+        bool checkingUpdates = false;
+        
+    } m_settingsUIState;
+    
+    // Settings dialog states
+    bool m_showResetConfirmDialog = false;
+    bool m_showExportDataDialog = false;
+    bool m_showImportDataDialog = false;
+    bool m_showClearDataDialog = false;
     
     // Content area rendering
     void RenderMenuBar();
     void RenderContentArea();
 
-    /**
-     * @note Dashboard
-     */
+    // Settings Module - Main Interface
+    void RenderSettingsModule();
+    void RenderSettingsSidebar();
+    void RenderSettingsContent();
+    
+    // Settings Categories
+    void RenderGeneralSettings();
+    void RenderAppearanceSettings();
+    void RenderHotkeySettings();
+    void RenderModuleSettings();
+    void RenderAccountSettings();
+    void RenderAboutSettings();
+    
+    // Settings Dialogs
+    void RenderResetConfirmDialog();
+    void RenderDataManagementDialogs();
+    void RenderHotkeyEditor(const char* label, char* buffer, size_t bufferSize);
+    
+    // Settings Helpers
+    void LoadSettingsFromConfig();
+    void SaveSettingsToConfig();
+    void ResetSettingsToDefaults();
+    void ApplyThemeSettings();
+    void CheckForUpdates();
+    void ExportUserData();
+    void ImportUserData();
+    void ClearAllUserData();
+    const char* GetThemeModeName(int mode) const;
+    const char* GetCategoryName(SettingsCategory category) const;
+    ImVec4 GetAccentColor(int colorIndex) const;
+
+    // Dashboard
     void RenderDropoverInterface();
     void RenderDropoverToolbar();
     void RenderDropoverArea();
     void RenderFileList();
     
-    /**
-     * @note Pomodoro - Main Interface
-     */
+    // Pomodoro - Main Interface
     void RenderPomodoroModule();
     void RenderPomodoroTimer();
     void RenderPomodoroControls();
@@ -178,9 +269,7 @@ private:
     void OnPomodoroAllComplete();
     void OnPomodoroTick();
     
-    /**
-     * @note Kanban - Main Interface
-     */
+    // Kanban - Main Interface
     void RenderKanbanModule();
     void RenderKanbanHeader();
     void RenderKanbanBoard();
@@ -200,9 +289,7 @@ private:
     void HandleCardDragDrop(std::shared_ptr<class Kanban::Card> card, const std::string& columnId, int cardIndex);
     void RenderDropTarget(const std::string& columnId, int insertIndex = -1);
     
-    /**
-     * @note Todo - Main Interface
-     */
+    // Todo - Main Interface
     void RenderTodoModule();
     void RenderTodoHeader();
     void RenderTodoNavigation();
@@ -230,7 +317,7 @@ private:
     {
         bool isOpen = false;
         int selectedYear = 2025;
-        int selectedMonth = 8;  // 0-based (0=January, 7=August)
+        int selectedMonth = 8;
         int selectedDay = 15;
         int displayYear = 2025;
         int displayMonth = 8;
@@ -243,9 +330,7 @@ private:
     int GetFirstDayOfWeek(int year, int month) const;
     void RenderDatePicker();
 
-    /**
-     * @note Clipboard - Main Interface
-     */
+    // Clipboard - Main Interface
     void RenderClipboardModule();
     void RenderClipboardHeader();
     void RenderClipboardToolbar();
@@ -270,14 +355,10 @@ private:
     ImVec4 GetClipboardFormatColor(Clipboard::ClipboardFormat format) const;
     std::string FormatClipboardTimestamp(const std::chrono::system_clock::time_point& timestamp) const;
     
-    /**
-     * @note Other modules
-     */
-    void RenderBulkRenamePlaceholder(); // Legacy placeholder, delete later
+    // Other modules
+    void RenderBulkRenamePlaceholder();
 
-    /**
-     * @note FileConverter - Main Interface
-     */
+    // FileConverter - Main Interface
     void RenderFileConverterModule();
     void RenderFileConverterHeader();
     void RenderFileConverterDropZone();
@@ -294,8 +375,6 @@ private:
     void AddConversionJob(const std::string& inputPath);
     std::string GenerateOutputPath(const std::string& inputPath, FileType outputType);
     bool IsFileSupported(const std::string& path);
-
-    void renderSettingPlaceholder();
     
     // Utility
     const char* GetModuleName(ModulePage module) const;

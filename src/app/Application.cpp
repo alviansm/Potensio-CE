@@ -52,6 +52,10 @@ bool Application::Initialize(HINSTANCE hInstance)
         return false;
     }
     
+    // Apply settings-based configurations
+    ApplyStartupSettings();
+    RegisterSettingsHotkeys();
+    
     // Restore window state
     RestoreWindowState();
     
@@ -115,6 +119,9 @@ void Application::Shutdown()
     
     // Save current state
     SaveWindowState();
+    
+    // Unregister hotkeys
+    UnregisterSettingsHotkeys();
     
     // Cleanup in reverse order
     WindowsHooks::Cleanup();
@@ -283,4 +290,342 @@ void Application::RestoreWindowState()
         m_uiManager->SetWindowInfo(windowInfo);
         Logger::Debug("Window state restored");
     }
+}
+
+void Application::ApplyStartupSettings()
+{
+    if (!m_config) return;
+    
+    // Apply startup with Windows setting
+    bool startWithWindows = m_config->GetValue("general.start_with_windows", false);
+    RegisterStartupWithWindows(startWithWindows);
+    
+    // Apply startup minimized setting
+    bool startMinimized = m_config->GetValue("general.start_minimized", false);
+    if (startMinimized)
+    {
+        m_isVisible = false;
+        if (m_uiManager)
+        {
+            m_uiManager->HideWindow();
+        }
+    }
+    
+    Logger::Info("Startup settings applied");
+}
+
+void Application::RegisterStartupWithWindows(bool enable)
+{
+    const char* APP_NAME = "Potensio";
+    const char* REG_KEY = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+    
+    HKEY hKey;
+    LONG result = RegOpenKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, KEY_SET_VALUE, &hKey);
+    
+    if (result == ERROR_SUCCESS)
+    {
+        if (enable)
+        {
+            // Get the current executable path
+            char exePath[MAX_PATH];
+            GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+            
+            // Add quotes around path to handle spaces
+            std::string quotedPath = "\"" + std::string(exePath) + "\" --startup";
+            
+            // Set the registry value
+            result = RegSetValueExA(hKey, APP_NAME, 0, REG_SZ, 
+                                   (BYTE*)quotedPath.c_str(), 
+                                   static_cast<DWORD>(quotedPath.length() + 1));
+            
+            if (result == ERROR_SUCCESS)
+            {
+                Logger::Info("Startup with Windows enabled");
+            }
+            else
+            {
+                Logger::Error("Failed to enable startup with Windows: {}", result);
+            }
+        }
+        else
+        {
+            // Remove the registry value
+            result = RegDeleteValueA(hKey, APP_NAME);
+            
+            if (result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND)
+            {
+                Logger::Info("Startup with Windows disabled");
+            }
+            else
+            {
+                Logger::Error("Failed to disable startup with Windows: {}", result);
+            }
+        }
+        
+        RegCloseKey(hKey);
+    }
+    else
+    {
+        Logger::Error("Failed to open registry key for startup settings: {}", result);
+    }
+}
+
+void Application::RegisterSettingsHotkeys()
+{
+    if (!m_config) return;
+    
+    // Unregister existing hotkeys first
+    UnregisterSettingsHotkeys();
+    
+    std::string defaultGlobal("Ctrl+Shift+P");
+    std::string defaultPomodoro("Ctrl+Alt+P");
+    std::string defaultCapture("Ctrl+Shift+C");
+    std::string defaultTasks("Ctrl+Shift+T");
+    
+    std::string globalHotkey = m_config->GetValue("hotkeys.global_hotkey", defaultGlobal);
+    std::string pomodoroHotkey = m_config->GetValue("hotkeys.pomodoro_start", defaultPomodoro);
+    std::string captureHotkey = m_config->GetValue("hotkeys.quick_capture", defaultCapture);
+    std::string tasksHotkey = m_config->GetValue("hotkeys.show_today_tasks", defaultTasks);
+    
+    // Parse and register global toggle hotkey
+    UINT modifiers, vk;
+    if (ParseHotkeyString(globalHotkey, modifiers, vk))
+    {
+        auto globalCallback = []() {
+            if (s_instance) {
+                s_instance->ToggleMainWindow();
+            }
+        };
+        
+        if (WindowsHooks::RegisterHotkeyCallback(HOTKEY_GLOBAL_TOGGLE, modifiers, vk, globalCallback))
+        {
+            Logger::Info("Global hotkey registered: {}", globalHotkey);
+        }
+    }
+    
+    // Parse and register Pomodoro hotkey
+    if (ParseHotkeyString(pomodoroHotkey, modifiers, vk))
+    {
+        auto pomodoroCallback = []() {
+            if (s_instance) {
+                s_instance->HandlePomodoroHotkey();
+            }
+        };
+        
+        if (WindowsHooks::RegisterHotkeyCallback(HOTKEY_POMODORO_START, modifiers, vk, pomodoroCallback))
+        {
+            Logger::Info("Pomodoro hotkey registered: {}", pomodoroHotkey);
+        }
+    }
+    
+    // Parse and register quick capture hotkey
+    if (ParseHotkeyString(captureHotkey, modifiers, vk))
+    {
+        auto captureCallback = []() {
+            if (s_instance) {
+                s_instance->HandleQuickCaptureHotkey();
+            }
+        };
+        
+        if (WindowsHooks::RegisterHotkeyCallback(HOTKEY_QUICK_CAPTURE, modifiers, vk, captureCallback))
+        {
+            Logger::Info("Quick capture hotkey registered: {}", captureHotkey);
+        }
+    }
+    
+    // Parse and register today tasks hotkey
+    if (ParseHotkeyString(tasksHotkey, modifiers, vk))
+    {
+        auto tasksCallback = []() {
+            if (s_instance) {
+                s_instance->HandleShowTodayTasksHotkey();
+            }
+        };
+        
+        if (WindowsHooks::RegisterHotkeyCallback(HOTKEY_SHOW_TODAY_TASKS, modifiers, vk, tasksCallback))
+        {
+            Logger::Info("Today tasks hotkey registered: {}", tasksHotkey);
+        }
+    }
+}
+
+void Application::UnregisterSettingsHotkeys()
+{
+    WindowsHooks::UnregisterHotkey(HOTKEY_GLOBAL_TOGGLE);
+    WindowsHooks::UnregisterHotkey(HOTKEY_POMODORO_START);
+    WindowsHooks::UnregisterHotkey(HOTKEY_QUICK_CAPTURE);
+    WindowsHooks::UnregisterHotkey(HOTKEY_SHOW_TODAY_TASKS);
+}
+
+bool Application::ParseHotkeyString(const std::string& hotkeyStr, UINT& modifiers, UINT& vk)
+{
+    if (hotkeyStr.empty()) return false;
+    
+    modifiers = 0;
+    vk = 0;
+    
+    // Simple parser for hotkey strings like "Ctrl+Shift+P"
+    std::string str = hotkeyStr;
+    
+    // Check for modifiers
+    if (str.find("Ctrl+") != std::string::npos)
+    {
+        modifiers |= MOD_CONTROL;
+        str.erase(str.find("Ctrl+"), 5);
+    }
+    
+    if (str.find("Alt+") != std::string::npos)
+    {
+        modifiers |= MOD_ALT;
+        str.erase(str.find("Alt+"), 4);
+    }
+    
+    if (str.find("Shift+") != std::string::npos)
+    {
+        modifiers |= MOD_SHIFT;
+        str.erase(str.find("Shift+"), 6);
+    }
+    
+    if (str.find("Win+") != std::string::npos)
+    {
+        modifiers |= MOD_WIN;
+        str.erase(str.find("Win+"), 4);
+    }
+    
+    // Get the main key
+    if (str.length() == 1)
+    {
+        // Single character key
+        char c = str[0];
+        if (c >= 'A' && c <= 'Z')
+        {
+            vk = c;
+        }
+        else if (c >= 'a' && c <= 'z')
+        {
+            vk = c - 'a' + 'A'; // Convert to uppercase
+        }
+        else if (c >= '0' && c <= '9')
+        {
+            vk = c;
+        }
+    }
+    else
+    {
+        // Function keys and special keys
+        if (str.substr(0, 1) == "F" && str.length() <= 3)
+        {
+            // Function key (F1-F12)
+            int fnum = std::atoi(str.substr(1).c_str());
+            if (fnum >= 1 && fnum <= 12)
+            {
+                vk = VK_F1 + fnum - 1;
+            }
+        }
+        else
+        {
+            // Special keys
+            if (str == "Space") vk = VK_SPACE;
+            else if (str == "Enter") vk = VK_RETURN;
+            else if (str == "Tab") vk = VK_TAB;
+            else if (str == "Esc") vk = VK_ESCAPE;
+            else if (str == "Delete") vk = VK_DELETE;
+            else if (str == "Insert") vk = VK_INSERT;
+            else if (str == "Home") vk = VK_HOME;
+            else if (str == "End") vk = VK_END;
+            else if (str == "PageUp") vk = VK_PRIOR;
+            else if (str == "PageDown") vk = VK_NEXT;
+            // Add more special keys as needed
+        }
+    }
+    
+    return (vk != 0);
+}
+
+// Hotkey handlers
+void Application::HandlePomodoroHotkey()
+{
+    Logger::Debug("Pomodoro hotkey triggered");
+    
+    // Show window if hidden
+    if (!m_isVisible)
+    {
+        ShowMainWindow();
+    }
+    
+    // Switch to Pomodoro module and start/stop timer
+    // TODO: Implement direct access to MainWindow to switch modules
+    // This would require adding a method to MainWindow to switch modules
+    // and access the Pomodoro timer
+}
+
+void Application::HandleQuickCaptureHotkey()
+{
+    Logger::Debug("Quick capture hotkey triggered");
+    
+    // TODO: Implement quick capture functionality
+    // This could capture clipboard content, take a screenshot, etc.
+}
+
+void Application::HandleShowTodayTasksHotkey()
+{
+    Logger::Debug("Show today tasks hotkey triggered");
+    
+    // Show window if hidden
+    if (!m_isVisible)
+    {
+        ShowMainWindow();
+    }
+    
+    // TODO: Switch to Todo module and show today's tasks
+}
+
+// Settings change notification
+void Application::OnSettingsChanged()
+{
+    Logger::Info("Settings changed, applying updates...");
+    
+    // Reapply startup settings
+    ApplyStartupSettings();
+    
+    // Update hotkeys
+    RegisterSettingsHotkeys();
+    
+    // Apply other system-level settings
+    ApplySystemSettings();
+}
+
+void Application::ApplySystemSettings()
+{
+    if (!m_config) return;
+    
+    // Apply notification settings
+    bool showNotifications = m_config->GetValue("general.show_notifications", true);
+    // TODO: Configure system notification settings
+    
+    // Apply sound settings
+    bool enableSounds = m_config->GetValue("general.enable_sounds", true);
+    // TODO: Configure sound system
+    
+    // Apply tray behavior
+    bool minimizeToTray = m_config->GetValue("general.minimize_to_tray", true);
+    bool closeToTray = m_config->GetValue("general.close_to_tray", true);
+    
+    // Note: Removed SystemTray method calls that don't exist
+    // These settings can be used elsewhere or implemented later
+    Logger::Info("Tray behavior - Minimize to tray: {}, Close to tray: {}", 
+                minimizeToTray, closeToTray);
+    
+    Logger::Info("System settings applied");
+}
+
+void Application::UpdateHotkeys()
+{
+    // Alias for RegisterSettingsHotkeys
+    RegisterSettingsHotkeys();
+}
+
+void Application::UpdateSettingsFromConfig()
+{
+    OnSettingsChanged();
 }

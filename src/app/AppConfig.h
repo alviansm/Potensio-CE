@@ -24,6 +24,7 @@ public:
     int GetValue(const std::string& key, int defaultValue) const;
     float GetValue(const std::string& key, float defaultValue) const;
     std::string GetValue(const std::string& key, const std::string& defaultValue) const;
+    std::string GetValueString(const std::string& key, const std::string& defaultValue) const;
     
     // Set configuration values
     void SetValue(const std::string& key, bool value);
