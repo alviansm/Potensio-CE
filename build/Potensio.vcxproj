@@ -340,6 +340,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\ClipboardWindow.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsUtils.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsHooks.cpp" />
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\FileConverter\FileConverter.cpp" />
     <ResourceCompile Include="C:\Users\Alvians\Repository\PotensioApp\resources\app.rc" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\external\imgui\imgui.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\external\imgui\imgui_demo.cpp" />

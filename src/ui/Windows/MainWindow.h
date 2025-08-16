@@ -10,6 +10,7 @@
 #include "core/Kanban/KanbanManager.h"
 #include "core/Todo/TodoManager.h"
 #include "core/Clipboard/ClipboardManager.h"
+#include "core/FileConverter/FileConverter.h"
 
 // Forward declarations
 class Sidebar;
@@ -121,6 +122,34 @@ private:
         int selectedItemIndex = -1;
         bool showPreview = true;
     } m_clipboardUIState;
+
+    // File Converter integration
+    std::unique_ptr<FileConverter> m_fileConverter;
+    bool m_showFileConverterSettings = false;
+    
+    // File converter UI state
+    struct FileConverterUIState
+    {
+        // Drop zone state
+        bool isDragOver = false;
+        std::vector<std::string> draggedFiles;
+        
+        // Settings
+        FileType outputFormat = FileType::JPG;
+        int imageQuality = 85;
+        int pngCompression = 6;
+        bool preserveMetadata = false;
+        size_t targetSizeKB = 0;
+        std::string outputDirectory;
+        bool useSourceDirectory = true;
+        
+        // UI state
+        int selectedJobIndex = -1;
+        bool showCompletedJobs = true;
+        bool autoProcessJobs = true;
+        std::string searchFilter;
+        
+    } m_fileConverterUIState;
     
     // Content area rendering
     void RenderMenuBar();
@@ -244,8 +273,28 @@ private:
     /**
      * @note Other modules
      */
-    void RenderBulkRenamePlaceholder();
-    void RenderFileConverterPlaceholder();
+    void RenderBulkRenamePlaceholder(); // Legacy placeholder, delete later
+
+    /**
+     * @note FileConverter - Main Interface
+     */
+    void RenderFileConverterModule();
+    void RenderFileConverterHeader();
+    void RenderFileConverterDropZone();
+    void RenderFileConverterSettings();
+    void RenderFileConverterJobQueue();
+    void RenderFileConverterJob(std::shared_ptr<FileConversionJob> job, int index, bool isSelected);
+    void RenderFileConverterProgress();
+    void RenderFileConverterStats();
+    
+    // File Converter helpers
+    void OnFileConverterJobProgress(const std::string& jobId, float progress);
+    void OnFileConverterJobComplete(const std::string& jobId, bool success, const std::string& error);
+    void ProcessDroppedFiles(const std::vector<std::string>& files);
+    void AddConversionJob(const std::string& inputPath);
+    std::string GenerateOutputPath(const std::string& inputPath, FileType outputType);
+    bool IsFileSupported(const std::string& path);
+
     void renderSettingPlaceholder();
     
     // Utility

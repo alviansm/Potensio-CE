@@ -13,6 +13,7 @@
 #include <imgui.h>
 #include <vector>
 #include <algorithm>
+#include <filesystem>
 
 #include "resource.h"
 
@@ -227,6 +228,35 @@ bool MainWindow::Initialize(AppConfig* config)
     // Connect settings window to manager
     m_clipboardSettingsWindow->SetClipboardManager(m_clipboardManager.get());
 
+    // Initialize File Converter
+    m_fileConverter = std::make_unique<FileConverter>();
+    
+    if (!m_fileConverter->Initialize())
+    {
+        Logger::Warning("Failed to initialize File Converter");
+    }
+    
+    // Set up File Converter callbacks
+    m_fileConverter->SetProgressCallback([this](const std::string& jobId, float progress) {
+        OnFileConverterJobProgress(jobId, progress);
+    });
+    
+    m_fileConverter->SetCompletionCallback([this](const std::string& jobId, bool success, const std::string& error) {
+        OnFileConverterJobComplete(jobId, success, error);
+    });
+    
+    // Load File Converter settings
+    if (config)
+    {
+        m_fileConverterUIState.imageQuality = config->GetValue("file_converter.image_quality", 85);
+        m_fileConverterUIState.pngCompression = config->GetValue("file_converter.png_compression", 6);
+        m_fileConverterUIState.preserveMetadata = config->GetValue("file_converter.preserve_metadata", false);
+        m_fileConverterUIState.targetSizeKB = config->GetValue("file_converter.target_size_kb", 0);
+        m_fileConverterUIState.outputDirectory = config->GetValue("file_converter.output_directory", "");
+        m_fileConverterUIState.useSourceDirectory = config->GetValue("file_converter.use_source_directory", true);
+        m_fileConverterUIState.autoProcessJobs = config->GetValue("file_converter.auto_process", true);
+    }
+
     /**
      * @note Log successfull initialization
      */
@@ -254,6 +284,9 @@ void MainWindow::Shutdown()
     if (m_clipboardManager)
         m_clipboardManager->Shutdown();
     
+    if (m_fileConverter)
+        m_fileConverter->Shutdown();
+    
     m_pomodoroSettingsWindow.reset();
     m_pomodoroTimer.reset();
     m_kanbanSettingsWindow.reset();
@@ -261,6 +294,7 @@ void MainWindow::Shutdown()
     m_todoManager.reset();
     m_clipboardSettingsWindow.reset();
     m_clipboardManager.reset();
+    m_fileConverter.reset();
 }
 
 void MainWindow::Update(float deltaTime)
@@ -417,7 +451,7 @@ void MainWindow::RenderContentArea()
             RenderTodoModule();
             break;
         case ModulePage::FileConverter:
-            RenderFileConverterPlaceholder();
+            RenderFileConverterModule();
             break;
         case ModulePage::Settings:
             renderSettingPlaceholder();
@@ -2236,25 +2270,25 @@ void MainWindow::RenderBulkRenamePlaceholder()
     ImGui::PopStyleVar();
 }
 
-void MainWindow::RenderFileConverterPlaceholder()
-{
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 16));
+// void MainWindow::RenderFileConverterPlaceholder()
+// {
+//     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 16));
     
-    ImGui::Text("File Converter");
-    ImGui::Separator();
-    ImGui::Spacing();
+//     ImGui::Text("File Converter");
+//     ImGui::Separator();
+//     ImGui::Spacing();
     
-    ImGui::TextWrapped("File conversion and compression will be implemented in Sprint 5.");
-    ImGui::Spacing();
-    ImGui::Text("Features coming soon:");
-    ImGui::BulletText("PDF compression");
-    ImGui::BulletText("Image format conversion");
-    ImGui::BulletText("Image compression");
-    ImGui::BulletText("Batch processing");
-    ImGui::BulletText("Quality settings");
+//     ImGui::TextWrapped("File conversion and compression will be implemented in Sprint 5.");
+//     ImGui::Spacing();
+//     ImGui::Text("Features coming soon:");
+//     ImGui::BulletText("PDF compression");
+//     ImGui::BulletText("Image format conversion");
+//     ImGui::BulletText("Image compression");
+//     ImGui::BulletText("Batch processing");
+//     ImGui::BulletText("Quality settings");
     
-    ImGui::PopStyleVar();
-}
+//     ImGui::PopStyleVar();
+// }
 
 void MainWindow::renderSettingPlaceholder()
 {
@@ -3979,4 +4013,773 @@ std::string MainWindow::FormatClipboardTimestamp(const std::chrono::system_clock
         int days = static_cast<int>(diff.count() / 86400);
         return std::to_string(days) + "d ago";
     }
+}
+
+// =============================================================================
+// KANBAN MODULE IMPLEMENTATION
+// =============================================================================
+void MainWindow::RenderFileConverterModule()
+{
+    if (!m_fileConverter)
+    {
+        ImGui::Text("File Converter not available");
+        return;
+    }
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
+    
+    // Header with controls
+    RenderFileConverterHeader();
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Main content area
+    float leftPanelWidth = ImGui::GetContentRegionAvail().x * 0.65f;
+    float rightPanelWidth = ImGui::GetContentRegionAvail().x * 0.35f - 10.0f;
+    
+    // Left panel: Drop zone and job queue
+    ImGui::BeginChild("##FileConverterLeft", ImVec2(leftPanelWidth, 0), false);
+    
+    // Drop zone
+    RenderFileConverterDropZone();
+    
+    ImGui::Spacing();
+    
+    // Job queue
+    RenderFileConverterJobQueue();
+    
+    ImGui::EndChild();
+    
+    ImGui::SameLine();
+    
+    // Right panel: Settings and progress
+    ImGui::BeginChild("##FileConverterRight", ImVec2(rightPanelWidth, 0), true);
+    
+    // Settings
+    RenderFileConverterSettings();
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Progress and stats
+    RenderFileConverterProgress();
+    
+    ImGui::Spacing();
+    
+    RenderFileConverterStats();
+    
+    ImGui::EndChild();
+    
+    ImGui::PopStyleVar();
+}
+
+void MainWindow::RenderFileConverterHeader()
+{
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    float buttonAreaWidth = 300.0f;
+    float titleAreaWidth = availableWidth - buttonAreaWidth - 20.0f;
+    
+    // Title area
+    ImGui::BeginChild("##FileConverterHeaderTitle", ImVec2(titleAreaWidth, 30.0f), false, 
+                     ImGuiWindowFlags_NoScrollbar);
+    
+    ImGui::Text("🔄 File Converter & Compressor");
+    
+    // Stats summary
+    int totalJobs = static_cast<int>(m_fileConverter->GetJobs().size());
+    int completedJobs = m_fileConverter->GetCompletedJobCount();
+    int failedJobs = m_fileConverter->GetFailedJobCount();
+    
+    if (totalJobs > 0)
+    {
+        ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+        ImGui::Text("Jobs:");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%d", totalJobs);
+        
+        if (completedJobs > 0)
+        {
+            ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+            ImGui::Text("Completed:");
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), "%d", completedJobs);
+        }
+        
+        if (failedJobs > 0)
+        {
+            ImGui::SameLine(); ImGui::Text("  |  "); ImGui::SameLine();
+            ImGui::Text("Failed:");
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.9f, 0.3f, 0.3f, 1.0f), "%d", failedJobs);
+        }
+    }
+    
+    ImGui::EndChild();
+    
+    // Control buttons
+    ImGui::SameLine();
+    
+    float buttonSpacing = 8.0f;
+    float buttonWidth = 80.0f;
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+    
+    // Process All button
+    bool hasUnprocessedJobs = false;
+    for (const auto& job : m_fileConverter->GetJobs())
+    {
+        if (!job->isCompleted)
+        {
+            hasUnprocessedJobs = true;
+            break;
+        }
+    }
+    
+    if (!hasUnprocessedJobs) ImGui::BeginDisabled();
+    
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.1f, 1.0f));
+    
+    if (ImGui::Button("▶ Process", ImVec2(buttonWidth, 28.0f)))
+    {
+        m_fileConverter->ProcessAllJobs();
+    }
+    ImGui::PopStyleColor(3);
+    
+    if (!hasUnprocessedJobs) ImGui::EndDisabled();
+    
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // Clear Completed button
+    bool hasCompletedJobs = completedJobs > 0;
+    if (!hasCompletedJobs) ImGui::BeginDisabled();
+    
+    if (ImGui::Button("🗑️ Clear", ImVec2(buttonWidth, 28.0f)))
+    {
+        m_fileConverter->ClearCompleted();
+    }
+    
+    if (!hasCompletedJobs) ImGui::EndDisabled();
+    
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // Settings toggle
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.6f, 0.6f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+    
+    if (ImGui::Button("⚙️", ImVec2(28.0f, 28.0f)))
+    {
+        m_showFileConverterSettings = !m_showFileConverterSettings;
+    }
+    ImGui::PopStyleColor(3);
+    
+    ImGui::PopStyleVar(); // FrameRounding
+}
+
+void MainWindow::RenderFileConverterDropZone()
+{
+    ImVec2 dropZoneSize = ImVec2(ImGui::GetContentRegionAvail().x - 16, 120);
+    ImVec2 dropZonePos = ImGui::GetCursorPos();
+    
+    // Drop zone background
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 windowPos = ImGui::GetWindowPos();
+    ImVec2 dropZoneMin = ImVec2(windowPos.x + dropZonePos.x + 8, windowPos.y + dropZonePos.y);
+    ImVec2 dropZoneMax = ImVec2(dropZoneMin.x + dropZoneSize.x, dropZoneMin.y + dropZoneSize.y);
+    
+    // Background color based on drag state
+    ImU32 bgColor = m_fileConverterUIState.isDragOver ? 
+                    IM_COL32(40, 60, 40, 255) : IM_COL32(25, 25, 25, 255);
+    ImU32 borderColor = m_fileConverterUIState.isDragOver ? 
+                        IM_COL32(100, 200, 100, 255) : IM_COL32(100, 100, 100, 255);
+    
+    // Draw drop zone
+    drawList->AddRectFilled(dropZoneMin, dropZoneMax, bgColor, 6.0f);
+    drawList->AddRect(dropZoneMin, dropZoneMax, borderColor, 6.0f, 0, 2.0f);
+    
+    // Drop zone content
+    ImGui::SetCursorPos(ImVec2(dropZonePos.x + dropZoneSize.x * 0.5f - 120, dropZonePos.y + 35));
+    if (m_fileConverterUIState.isDragOver)
+    {
+        ImGui::TextColored(ImVec4(0.7f, 1.0f, 0.7f, 1.0f), "🎯 Drop files here to convert");
+    }
+    else
+    {
+        ImGui::Text("📁 Drop images (PNG, JPG) or PDFs here");
+    }
+    
+    ImGui::SetCursorPos(ImVec2(dropZonePos.x + dropZoneSize.x * 0.5f - 100, dropZonePos.y + 60));
+    ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Supports: PNG, JPG, PDF compression & conversion");
+    
+    // Add Browse button
+    ImGui::SetCursorPos(ImVec2(dropZonePos.x + dropZoneSize.x * 0.5f - 40, dropZonePos.y + 85));
+    if (ImGui::Button("📂 Browse", ImVec2(80, 25)))
+    {
+        // TODO: Implement file browser dialog
+        Logger::Info("Browse button clicked - implement file dialog");
+    }
+    
+    // Move cursor past drop zone
+    ImGui::SetCursorPos(ImVec2(dropZonePos.x, dropZonePos.y + dropZoneSize.y + 16));
+    
+    // Invisible button for drag & drop detection
+    ImGui::SetCursorPos(dropZonePos);
+    ImGui::InvisibleButton("##dropzone", dropZoneSize);
+    
+    // Handle drag & drop (simplified - you'd need proper Windows drag/drop integration)
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("FILES"))
+        {
+            // Handle dropped files
+            m_fileConverterUIState.isDragOver = false;
+            // TODO: Process dropped files
+        }
+        else
+        {
+            m_fileConverterUIState.isDragOver = true;
+        }
+        ImGui::EndDragDropTarget();
+    }
+    else
+    {
+        m_fileConverterUIState.isDragOver = false;
+    }
+}
+
+void MainWindow::RenderFileConverterSettings()
+{
+    ImGui::Text("⚙️ Conversion Settings");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Output format selection
+    ImGui::Text("Output Format:");
+    const char* formatNames[] = { "Keep Original", "PNG", "JPG", "PDF" };
+    int currentFormat = static_cast<int>(m_fileConverterUIState.outputFormat);
+    if (ImGui::Combo("##outputformat", &currentFormat, formatNames, IM_ARRAYSIZE(formatNames)))
+    {
+        m_fileConverterUIState.outputFormat = static_cast<FileType>(currentFormat);
+    }
+    
+    ImGui::Spacing();
+    
+    // Quality settings for images
+    if (m_fileConverterUIState.outputFormat == FileType::JPG || 
+        m_fileConverterUIState.outputFormat == FileType::Unknown)
+    {
+        ImGui::Text("JPEG Quality:");
+        ImGui::SliderInt("##jpegquality", &m_fileConverterUIState.imageQuality, 1, 100, "%d%%");
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Higher values = better quality, larger file size");
+        }
+    }
+    
+    if (m_fileConverterUIState.outputFormat == FileType::PNG || 
+        m_fileConverterUIState.outputFormat == FileType::Unknown)
+    {
+        ImGui::Text("PNG Compression:");
+        ImGui::SliderInt("##pngcompression", &m_fileConverterUIState.pngCompression, 0, 9, "Level %d");
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Higher values = smaller file size, slower compression");
+        }
+    }
+    
+    ImGui::Spacing();
+    
+    // Target file size
+    ImGui::Text("Target Size (KB):");
+    int targetSize = static_cast<int>(m_fileConverterUIState.targetSizeKB);
+    if (ImGui::InputInt("##targetsize", &targetSize, 10, 100))
+    {
+        m_fileConverterUIState.targetSizeKB = (targetSize > 0) ? targetSize : 0;
+    }
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("0 = no size limit, >0 = target file size in KB");
+    }
+    
+    ImGui::Spacing();
+    
+    // Additional options
+    ImGui::Checkbox("Preserve Metadata", &m_fileConverterUIState.preserveMetadata);
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Keep EXIF data, color profiles, etc.");
+    }
+    
+    ImGui::Checkbox("Auto-process new jobs", &m_fileConverterUIState.autoProcessJobs);
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Automatically start processing when files are added");
+    }
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Output directory
+    ImGui::Text("📁 Output Directory:");
+    ImGui::Checkbox("Use source directory", &m_fileConverterUIState.useSourceDirectory);
+    
+    if (!m_fileConverterUIState.useSourceDirectory)
+    {
+        char outputDirBuffer[512];
+        strncpy_s(outputDirBuffer, m_fileConverterUIState.outputDirectory.c_str(), sizeof(outputDirBuffer) - 1);
+        outputDirBuffer[sizeof(outputDirBuffer) - 1] = '\0';
+        
+        ImGui::InputText("##outputdir", outputDirBuffer, sizeof(outputDirBuffer));
+        m_fileConverterUIState.outputDirectory = outputDirBuffer;
+        
+        ImGui::SameLine();
+        if (ImGui::Button("📂"))
+        {
+            // TODO: Open folder selection dialog
+            Logger::Info("Output directory browse clicked");
+        }
+    }
+}
+
+void MainWindow::RenderFileConverterJobQueue()
+{
+    ImGui::Text("📋 Conversion Queue");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    auto jobs = m_fileConverter->GetJobs();
+    
+    if (jobs.empty())
+    {
+        ImVec2 centerPos = ImVec2(ImGui::GetContentRegionAvail().x * 0.5f - 80, 50);
+        ImGui::SetCursorPos(centerPos);
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No conversion jobs");
+        ImGui::SetCursorPos(ImVec2(centerPos.x - 30, centerPos.y + 20));
+        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Drop files above to start converting");
+        return;
+    }
+    
+    // Job list
+    ImGui::BeginChild("##JobList", ImVec2(0, 0), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    
+    for (size_t i = 0; i < jobs.size(); ++i)
+    {
+        auto job = jobs[i];
+        bool isSelected = (static_cast<int>(i) == m_fileConverterUIState.selectedJobIndex);
+        
+        if (i > 0)
+        {
+            ImGui::Spacing();
+        }
+        
+        RenderFileConverterJob(job, static_cast<int>(i), isSelected);
+    }
+    
+    ImGui::EndChild();
+}
+
+void MainWindow::RenderFileConverterJob(std::shared_ptr<FileConversionJob> job, int index, bool isSelected)
+{
+    if (!job) return;
+    
+    float jobWidth = ImGui::GetContentRegionAvail().x - 8.0f;
+    float jobPadding = 8.0f;
+    float minJobHeight = 70.0f;
+    
+    // Job background color based on status
+    ImU32 jobBgColor;
+    if (job->hasError)
+        jobBgColor = IM_COL32(60, 30, 30, 255); // Red for errors
+    else if (job->isCompleted)
+        jobBgColor = IM_COL32(30, 50, 30, 255); // Green for completed
+    else if (job->progress > 0.0f)
+        jobBgColor = IM_COL32(40, 40, 60, 255); // Blue for processing
+    else
+        jobBgColor = IM_COL32(40, 40, 40, 255); // Gray for pending
+    
+    if (isSelected)
+    {
+        // Brighten selected job - Use parentheses to avoid Windows macro conflict
+        jobBgColor = IM_COL32(
+            (std::min)(255, static_cast<int>(((jobBgColor >> 0) & 0xFF) + 20)),
+            (std::min)(255, static_cast<int>(((jobBgColor >> 8) & 0xFF) + 20)),
+            (std::min)(255, static_cast<int>(((jobBgColor >> 16) & 0xFF) + 20)),
+            255
+        );
+    }
+    
+    ImU32 jobBorderColor = IM_COL32(80, 80, 80, 255);
+    
+    // Calculate job height
+    float lineHeight = ImGui::GetTextLineHeight();
+    float jobHeight = jobPadding * 2 + lineHeight * 3 + 12; // Title, info, progress
+    
+    if (jobHeight < minJobHeight)
+        jobHeight = minJobHeight;
+    
+    // Draw job background
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 windowPos = ImGui::GetWindowPos();
+    ImVec2 cursorPos = ImGui::GetCursorPos();
+    
+    ImVec2 jobMin = ImVec2(windowPos.x + cursorPos.x, windowPos.y + cursorPos.y);
+    ImVec2 jobMax = ImVec2(jobMin.x + jobWidth, jobMin.y + jobHeight);
+    
+    // Job background and border
+    drawList->AddRectFilled(jobMin, jobMax, jobBgColor, 6.0f);
+    drawList->AddRect(jobMin, jobMax, jobBorderColor, 6.0f, 0, isSelected ? 2.0f : 1.0f);
+    
+    // Begin job content
+    ImGui::PushID(job->id.c_str());
+    
+    // Position cursor for content
+    ImGui::SetCursorPos(ImVec2(cursorPos.x + jobPadding, cursorPos.y + jobPadding));
+    
+    // Job title with file type icons
+    std::string inputIcon = "📄";
+    std::string outputIcon = "📄";
+    
+    switch (job->inputType)
+    {
+        case FileType::PNG: inputIcon = "🖼️"; break;
+        case FileType::JPG: inputIcon = "🖼️"; break;
+        case FileType::PDF: inputIcon = "📕"; break;
+    }
+    
+    switch (job->outputType)
+    {
+        case FileType::PNG: outputIcon = "🖼️"; break;
+        case FileType::JPG: outputIcon = "🖼️"; break;
+        case FileType::PDF: outputIcon = "📕"; break;
+    }
+    
+    ImGui::Text("%s %s → %s %s", 
+               inputIcon.c_str(), job->GetInputFileName().c_str(),
+               outputIcon.c_str(), FileConverter::GetFileTypeString(job->outputType).c_str());
+    
+    // Status indicator
+    ImGui::SameLine();
+    if (job->hasError)
+    {
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "❌ Error");
+    }
+    else if (job->isCompleted)
+    {
+        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "✅ Done");
+    }
+    else if (job->progress > 0.0f)
+    {
+        ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "⏳ Processing");
+    }
+    else
+    {
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "⏸️ Pending");
+    }
+    
+    // Job info line
+    ImGui::SetCursorPosX(cursorPos.x + jobPadding);
+    std::string infoText = job->GetFileSizeString(job->originalSizeBytes);
+    if (job->isCompleted && !job->hasError)
+    {
+        infoText += " → " + job->GetFileSizeString(job->compressedSizeBytes);
+        float ratio = job->GetCompressionRatio();
+        if (ratio > 0.1f)
+        {
+            infoText += " (" + std::to_string(static_cast<int>(ratio)) + "% saved)";
+        }
+    }
+    if (job->quality != 85) // Show quality if not default
+    {
+        infoText += " • Q" + std::to_string(job->quality);
+    }
+    
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
+    ImGui::Text("%s", infoText.c_str());
+    ImGui::PopStyleColor();
+    
+    // Progress bar (only if processing or completed)
+    if (job->progress > 0.0f || job->isCompleted)
+    {
+        ImGui::SetCursorPosX(cursorPos.x + jobPadding);
+        ImGui::SetNextItemWidth(jobWidth - 2 * jobPadding - 100); // Leave space for time/status
+        
+        float progress = job->isCompleted ? 1.0f : job->progress;
+        
+        ImVec4 progressColor;
+        if (job->hasError)
+            progressColor = ImVec4(1.0f, 0.3f, 0.3f, 0.8f); // Red
+        else if (job->isCompleted)
+            progressColor = ImVec4(0.3f, 1.0f, 0.3f, 0.8f); // Green
+        else
+            progressColor = ImVec4(0.3f, 0.6f, 1.0f, 0.8f); // Blue
+        
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, progressColor);
+        ImGui::ProgressBar(progress, ImVec2(0, 0), "");
+        ImGui::PopStyleColor();
+        
+        // Time/status on the right side of progress bar
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        if (job->hasError)
+        {
+            ImGui::Text("Failed");
+        }
+        else if (job->isCompleted)
+        {
+            ImGui::Text("%s", job->GetProcessingTimeString().c_str());
+        }
+        else
+        {
+            ImGui::Text("%.0f%%", progress * 100.0f);
+        }
+        ImGui::PopStyleColor();
+    }
+    
+    // Position cursor after job
+    ImGui::SetCursorPos(ImVec2(cursorPos.x, cursorPos.y + jobHeight + 4));
+    
+    // Invisible button for selection
+    ImGui::SetCursorPos(ImVec2(cursorPos.x, cursorPos.y));
+    bool jobClicked = ImGui::InvisibleButton("##jobbutton", ImVec2(jobWidth, jobHeight));
+    
+    // Handle selection
+    if (jobClicked)
+    {
+        m_fileConverterUIState.selectedJobIndex = index;
+    }
+    
+    // Context menu
+    if (ImGui::BeginPopupContextItem())
+    {
+        if (!job->isCompleted && ImGui::MenuItem("▶️ Process Now"))
+        {
+            m_fileConverter->ProcessJob(job->id);
+        }
+        
+        if (job->isCompleted && !job->hasError && ImGui::MenuItem("📂 Show Output"))
+        {
+            // TODO: Open file explorer to output file
+            Logger::Info("Show output file: {}", job->outputPath);
+        }
+        
+        if (job->hasError && ImGui::MenuItem("🔄 Retry"))
+        {
+            job->hasError = false;
+            job->isCompleted = false;
+            job->progress = 0.0f;
+            job->errorMessage.clear();
+        }
+        
+        ImGui::Separator();
+        
+        if (ImGui::MenuItem("🗑️ Remove"))
+        {
+            m_fileConverter->RemoveJob(job->id);
+            if (m_fileConverterUIState.selectedJobIndex == index)
+            {
+                m_fileConverterUIState.selectedJobIndex = -1;
+            }
+        }
+        
+        ImGui::EndPopup();
+    }
+    
+    ImGui::PopID();
+}
+
+void MainWindow::RenderFileConverterProgress()
+{
+    ImGui::Text("📊 Progress");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    bool isProcessing = m_fileConverter->IsProcessing();
+    
+    if (isProcessing)
+    {
+        ImGui::TextColored(ImVec4(0.3f, 0.7f, 1.0f, 1.0f), "⏳ Processing...");
+        
+        // Find current processing job
+        for (const auto& job : m_fileConverter->GetJobs())
+        {
+            if (!job->isCompleted && job->progress > 0.0f)
+            {
+                ImGui::Text("Current: %s", job->GetInputFileName().c_str());
+                ImGui::ProgressBar(job->progress, ImVec2(-1, 0), "");
+                break;
+            }
+        }
+    }
+    else
+    {
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "💤 Idle");
+    }
+}
+
+void MainWindow::RenderFileConverterStats()
+{
+    ImGui::Text("📈 Statistics");
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    auto jobs = m_fileConverter->GetJobs();
+    int total = static_cast<int>(jobs.size());
+    int completed = m_fileConverter->GetCompletedJobCount();
+    int failed = m_fileConverter->GetFailedJobCount();
+    int pending = total - completed - failed;
+    
+    ImGui::Text("Total Jobs: %d", total);
+    ImGui::Text("Completed: %d", completed);
+    ImGui::Text("Failed: %d", failed);
+    ImGui::Text("Pending: %d", pending);
+    
+    if (completed > 0)
+    {
+        // Calculate total space saved
+        size_t totalOriginal = 0;
+        size_t totalCompressed = 0;
+        
+        for (const auto& job : jobs)
+        {
+            if (job->isCompleted && !job->hasError)
+            {
+                totalOriginal += job->originalSizeBytes;
+                totalCompressed += job->compressedSizeBytes;
+            }
+        }
+        
+        if (totalOriginal > 0)
+        {
+            float savedRatio = (1.0f - static_cast<float>(totalCompressed) / totalOriginal) * 100.0f;
+            size_t savedBytes = totalOriginal - totalCompressed;
+            
+            ImGui::Spacing();
+            ImGui::Text("Space Saved:");
+            ImGui::Text("%.1f%% (%s)", savedRatio, FileConversionJob().GetFileSizeString(savedBytes).c_str());
+        }
+    }
+}
+
+// Helper method implementations
+void MainWindow::OnFileConverterJobProgress(const std::string& jobId, float progress)
+{
+    // Update can be handled in real-time through the shared job objects
+    // This callback is mainly for logging or triggering UI updates
+    Logger::Debug("Job {} progress: {:.1f}%", jobId, progress * 100.0f);
+}
+
+void MainWindow::OnFileConverterJobComplete(const std::string& jobId, bool success, const std::string& error)
+{
+    if (success)
+    {
+        Logger::Info("Job {} completed successfully", jobId);
+    }
+    else
+    {
+        Logger::Error("Job {} failed: {}", jobId, error);
+    }
+}
+
+void MainWindow::ProcessDroppedFiles(const std::vector<std::string>& files)
+{
+    for (const auto& filePath : files)
+    {
+        if (IsFileSupported(filePath))
+        {
+            AddConversionJob(filePath);
+        }
+        else
+        {
+            Logger::Warning("Unsupported file type: {}", filePath);
+        }
+    }
+}
+
+void MainWindow::AddConversionJob(const std::string& inputPath)
+{
+    FileType inputType = FileConverter::GetFileTypeFromPath(inputPath);
+    FileType outputType = m_fileConverterUIState.outputFormat;
+    
+    // If output format is "Keep Original", use same type for compression
+    if (outputType == FileType::Unknown)
+    {
+        outputType = inputType;
+    }
+    
+    std::string outputPath = GenerateOutputPath(inputPath, outputType);
+    
+    // Create job with current settings
+    FileConversionJob jobSettings;
+    jobSettings.quality = (outputType == FileType::JPG) ? 
+                         m_fileConverterUIState.imageQuality : 
+                         m_fileConverterUIState.pngCompression;
+    jobSettings.targetSizeKB = m_fileConverterUIState.targetSizeKB;
+    jobSettings.preserveMetadata = m_fileConverterUIState.preserveMetadata;
+    
+    std::string jobId = m_fileConverter->AddConversionJob(inputPath, outputPath, outputType, jobSettings);
+    
+    // Auto-process if enabled
+    if (m_fileConverterUIState.autoProcessJobs)
+    {
+        m_fileConverter->ProcessJob(jobId);
+    }
+    
+    Logger::Info("Added conversion job: {} -> {}", inputPath, outputPath);
+}
+
+std::string MainWindow::GenerateOutputPath(const std::string& inputPath, FileType outputType)
+{
+    namespace fs = std::filesystem;
+
+    fs::path input(inputPath);
+    fs::path outputDir;
+    
+    if (m_fileConverterUIState.useSourceDirectory || m_fileConverterUIState.outputDirectory.empty())
+    {
+        outputDir = input.parent_path();
+    }
+    else
+    {
+        outputDir = m_fileConverterUIState.outputDirectory;
+    }
+    
+    // Generate output filename
+    std::string stem = input.stem().string();
+    std::string extension;
+    
+    switch (outputType)
+    {
+        case FileType::PNG: extension = ".png"; break;
+        case FileType::JPG: extension = ".jpg"; break;
+        case FileType::PDF: extension = ".pdf"; break;
+        default: extension = input.extension().string(); break;
+    }
+    
+    // Add suffix to avoid overwriting
+    // Add suffix to avoid overwriting
+    std::string outputFilename = stem + "_converted" + extension;
+    fs::path outputPath = outputDir / outputFilename;
+    
+    // Make sure we don't overwrite existing files
+    int counter = 1;
+    while (fs::exists(outputPath))
+    {
+        outputFilename = stem + "_converted_" + std::to_string(counter) + extension;
+        outputPath = outputDir / outputFilename;
+        counter++;
+    }
+    
+    return outputPath.string();
+}
+
+bool MainWindow::IsFileSupported(const std::string& path)
+{
+    FileType type = FileConverter::GetFileTypeFromPath(path);
+    return type != FileType::Unknown;
 }

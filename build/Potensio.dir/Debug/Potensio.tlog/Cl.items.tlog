@@ -17,6 +17,7 @@ C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\KanbanWindow.cpp;C:\Users
 C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\ClipboardWindow.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\ClipboardWindow.obj
 C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsUtils.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\WindowsUtils.obj
 C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsHooks.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\WindowsHooks.obj
+C:\Users\Alvians\Repository\PotensioApp\src\core\FileConverter\FileConverter.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\FileConverter.obj
 C:\Users\Alvians\Repository\PotensioApp\external\imgui\imgui.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\imgui.obj
 C:\Users\Alvians\Repository\PotensioApp\external\imgui\imgui_demo.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\imgui_demo.obj
 C:\Users\Alvians\Repository\PotensioApp\external\imgui\imgui_draw.cpp;C:\Users\Alvians\Repository\PotensioApp\build\Potensio.dir\Debug\imgui_draw.obj

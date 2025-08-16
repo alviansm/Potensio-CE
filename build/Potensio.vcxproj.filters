@@ -58,6 +58,9 @@
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsHooks.cpp">
       <Filter>Source Files\Platform\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\FileConverter\FileConverter.cpp">
+      <Filter>Source Files\Core\FileConverter</Filter>
+    </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\external\imgui\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -100,6 +103,9 @@
     </Filter>
     <Filter Include="Source Files\Core\Clipboard">
       <UniqueIdentifier>{3613253E-20BD-3085-AD6E-758B5EE1D271}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core\FileConverter">
+      <UniqueIdentifier>{4B468FCE-E9FB-3086-812D-E1DB86CAE482}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Core\Kanban">
       <UniqueIdentifier>{AFCE2588-0184-309C-9EAD-90732BAA1BE5}</UniqueIdentifier>
