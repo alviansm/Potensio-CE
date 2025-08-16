@@ -1,19 +1,26 @@
 // MainWindow.cpp - Updated with Pomodoro Integration
 #include "MainWindow.h"
+
 #include "ui/Components/Sidebar.h"
 #include "ui/Windows/PomodoroWindow.h"
 #include "ui/Windows/KanbanWindow.h"
 #include "ui/Windows/ClipboardWindow.h"
+
 #include "core/Timer/PomodoroTimer.h"
 #include "core/Todo/TodoManager.h"
 #include "core/Logger.h"
 #include "core/Utils.h"
+
 #include "app/Application.h"
 #include "app/AppConfig.h"
+
 #include <imgui.h>
 #include <vector>
 #include <algorithm>
 #include <filesystem>
+
+#include "core/Database/DatabaseManager.h"
+#include "core/Database/PomodoroDatabase.h"
 
 #include "resource.h"
 
@@ -85,10 +92,19 @@ MainWindow::~MainWindow()
 bool MainWindow::Initialize(AppConfig* config)
 {
     m_config = config;
+
+    // Initialize database
+    if (!InitializeDatabase())
+    {
+        Logger::Error("Failed to initialize database - continuing without database support");
+    }
     
     // Initialize Pomodoro timer
     m_pomodoroTimer = std::make_unique<PomodoroTimer>();
     m_pomodoroSettingsWindow = std::make_unique<PomodoroWindow>();
+
+    // Load Pomodoro configuration from database first, then fallback to AppConfig
+    LoadPomodoroConfiguration();
     
     // Set up timer callbacks
     m_pomodoroTimer->SetOnSessionComplete([this](PomodoroTimer::SessionType type) {
@@ -298,6 +314,22 @@ void MainWindow::Shutdown()
     m_clipboardSettingsWindow.reset();
     m_clipboardManager.reset();
     m_fileConverter.reset();
+
+    // End any active session
+    if (m_currentSessionId != -1 && m_pomodoroDatabase)
+    {
+        auto sessionInfo = m_pomodoroTimer->GetCurrentSession();
+        int pausedSeconds = static_cast<int>(sessionInfo.pausedTime.count());
+        
+        m_pomodoroDatabase->EndSession(m_currentSessionId, false, pausedSeconds); // Not completed
+        m_currentSessionId = -1;
+    }
+
+    // Shutdown database
+    if (m_databaseManager)
+    {
+        m_databaseManager->Shutdown();
+    }
 }
 
 void MainWindow::Update(float deltaTime)
@@ -1584,7 +1616,10 @@ void MainWindow::RenderPomodoroControls()
     if (state == PomodoroTimer::TimerState::Stopped)
     {
         if (ImGui::Button("▶ Start", ImVec2(buttonWidth, 40)))
+        {
             m_pomodoroTimer->Start();
+            OnPomodoroSessionStart();
+        }
     }
     else if (state == PomodoroTimer::TimerState::Running)
     {
@@ -1718,20 +1753,28 @@ void MainWindow::RenderPomodoroQuickSettings()
         
         ImGui::Columns(1);
         
+        // if (configChanged) // Legacy code
+        // {
+        //     m_pomodoroTimer->SetConfig(config);
+            
+        //     // Save to config file
+        //     if (m_config)
+        //     {
+        //         m_config->SetValue("pomodoro.work_duration", config.workDurationMinutes);
+        //         m_config->SetValue("pomodoro.short_break", config.shortBreakMinutes);
+        //         m_config->SetValue("pomodoro.long_break", config.longBreakMinutes);
+        //         m_config->SetValue("pomodoro.total_sessions", config.totalSessions);
+        //         m_config->SetValue("pomodoro.auto_start_next", config.autoStartNextSession);
+        //         m_config->Save();
+        //     }
+        // }
+
         if (configChanged)
         {
             m_pomodoroTimer->SetConfig(config);
             
-            // Save to config file
-            if (m_config)
-            {
-                m_config->SetValue("pomodoro.work_duration", config.workDurationMinutes);
-                m_config->SetValue("pomodoro.short_break", config.shortBreakMinutes);
-                m_config->SetValue("pomodoro.long_break", config.longBreakMinutes);
-                m_config->SetValue("pomodoro.total_sessions", config.totalSessions);
-                m_config->SetValue("pomodoro.auto_start_next", config.autoStartNextSession);
-                m_config->Save();
-            }
+            // Save to database instead of just AppConfig
+            SavePomodoroConfiguration(config);
         }
     }
 }
@@ -1740,33 +1783,55 @@ void MainWindow::RenderPomodoroQuickSettings()
 void MainWindow::OnPomodoroSessionComplete(int sessionType)
 {
     std::string message;
+    std::string sessionTypeStr;
     
-    // Use simple integer comparison to avoid casting issues
     if (sessionType == 0) // Work session
     {
         message = "Work session completed! Time for a break.";
+        sessionTypeStr = "work";
     }
     else if (sessionType == 1) // Short break
     {
         message = "Short break finished! Back to work.";
+        sessionTypeStr = "short_break";
     }
     else if (sessionType == 2) // Long break
     {
         message = "Long break finished! Ready for more work.";
+        sessionTypeStr = "long_break";
     }
     else
     {
         message = "Session completed!";
+        sessionTypeStr = "unknown";
+    }
+    
+    // End current session in database
+    if (m_currentSessionId != -1 && m_pomodoroDatabase)
+    {
+        auto sessionInfo = m_pomodoroTimer->GetCurrentSession();
+        int pausedSeconds = static_cast<int>(sessionInfo.pausedTime.count());
+        
+        m_pomodoroDatabase->EndSession(m_currentSessionId, true, pausedSeconds);
+        m_currentSessionId = -1;
     }
     
     Logger::Info("Pomodoro: {}", message);
-    // TODO: Show system notification when available
 }
 
 void MainWindow::OnPomodoroAllComplete()
 {
     Logger::Info("Pomodoro: All sessions completed! Excellent work!");
-    // TODO: Show completion notification when available
+    
+    // End current session if any
+    if (m_currentSessionId != -1 && m_pomodoroDatabase)
+    {
+        auto sessionInfo = m_pomodoroTimer->GetCurrentSession();
+        int pausedSeconds = static_cast<int>(sessionInfo.pausedTime.count());
+        
+        m_pomodoroDatabase->EndSession(m_currentSessionId, true, pausedSeconds);
+        m_currentSessionId = -1;
+    }
 }
 
 void MainWindow::OnPomodoroTick()
@@ -5780,4 +5845,186 @@ ImVec4 MainWindow::GetAccentColor(int colorIndex) const
         return colors[colorIndex];
     
     return colors[0]; // Default to blue
+}
+
+// =============================================================================
+// POMODORO DATABASE IMPLEMENTATION
+// =============================================================================
+void MainWindow::OnPomodoroSessionStart()
+{
+    if (!m_pomodoroDatabase) return;
+    
+    auto sessionInfo = m_pomodoroTimer->GetCurrentSession();
+    std::string sessionTypeStr;
+    
+    switch (sessionInfo.type)
+    {
+        case PomodoroTimer::SessionType::Work:
+            sessionTypeStr = "work";
+            break;
+        case PomodoroTimer::SessionType::ShortBreak:
+            sessionTypeStr = "short_break";
+            break;
+        case PomodoroTimer::SessionType::LongBreak:
+            sessionTypeStr = "long_break";
+            break;
+    }
+    
+    std::string today = m_pomodoroDatabase->GetTodayDate();
+    m_currentSessionId = m_pomodoroDatabase->StartSession(sessionTypeStr, sessionInfo.sessionNumber, today);
+    
+    Logger::Debug("Started tracking Pomodoro session {} (ID: {})", sessionTypeStr, m_currentSessionId);
+}
+
+bool MainWindow::InitializeDatabase()
+{
+    // Create database manager
+    m_databaseManager = std::make_shared<DatabaseManager>();
+    
+    // Determine database path (in user's app data directory)
+    std::string databasePath = GetDatabasePath();
+    
+    if (!m_databaseManager->Initialize(databasePath))
+    {
+        Logger::Error("Failed to initialize database manager");
+        return false;
+    }
+    
+    // Initialize Pomodoro database
+    m_pomodoroDatabase = std::make_shared<PomodoroDatabase>(m_databaseManager);
+    
+    if (!m_pomodoroDatabase->Initialize())
+    {
+        Logger::Error("Failed to initialize Pomodoro database");
+        return false;
+    }
+    
+    Logger::Info("Database initialized successfully");
+    return true;
+}
+
+std::string MainWindow::GetDatabasePath()
+{
+    // Get user's local app data directory
+    char* appDataPath = nullptr;
+    size_t len = 0;
+    
+    if (_dupenv_s(&appDataPath, &len, "LOCALAPPDATA") == 0 && appDataPath != nullptr)
+    {
+        std::string path = std::string(appDataPath) + "\\Potensio\\potensio.db";
+        free(appDataPath);
+        return path;
+    }
+    
+    // Fallback to current directory
+    return "potensio.db";
+}
+
+void MainWindow::LoadPomodoroConfiguration()
+{
+    PomodoroTimer::PomodoroConfig pomodoroConfig;
+    bool loadedFromDatabase = false;
+    
+    // Try to load from database first
+    if (m_pomodoroDatabase && m_pomodoroDatabase->ConfigurationExists())
+    {
+        if (m_pomodoroDatabase->LoadConfiguration(pomodoroConfig))
+        {
+            loadedFromDatabase = true;
+            Logger::Info("Pomodoro configuration loaded from database");
+        }
+        else
+        {
+            Logger::Warning("Failed to load Pomodoro configuration from database");
+        }
+    }
+    
+    // Fallback to AppConfig if database load failed or doesn't exist
+    if (!loadedFromDatabase && m_config)
+    {
+        pomodoroConfig.workDurationMinutes = m_config->GetValue("pomodoro.work_duration", 25);
+        pomodoroConfig.shortBreakMinutes = m_config->GetValue("pomodoro.short_break", 5);
+        pomodoroConfig.longBreakMinutes = m_config->GetValue("pomodoro.long_break", 15);
+        pomodoroConfig.totalSessions = m_config->GetValue("pomodoro.total_sessions", 8);
+        pomodoroConfig.sessionsBeforeLongBreak = m_config->GetValue("pomodoro.sessions_before_long_break", 4);
+        pomodoroConfig.autoStartNextSession = m_config->GetValue("pomodoro.auto_start_next", true);
+        
+        // Load colors
+        pomodoroConfig.colorHigh.r = m_config->GetValue("pomodoro.color_high_r", 0.0f);
+        pomodoroConfig.colorHigh.g = m_config->GetValue("pomodoro.color_high_g", 1.0f);
+        pomodoroConfig.colorHigh.b = m_config->GetValue("pomodoro.color_high_b", 0.0f);
+        
+        pomodoroConfig.colorMedium.r = m_config->GetValue("pomodoro.color_medium_r", 1.0f);
+        pomodoroConfig.colorMedium.g = m_config->GetValue("pomodoro.color_medium_g", 1.0f);
+        pomodoroConfig.colorMedium.b = m_config->GetValue("pomodoro.color_medium_b", 0.0f);
+        
+        pomodoroConfig.colorLow.r = m_config->GetValue("pomodoro.color_low_r", 1.0f);
+        pomodoroConfig.colorLow.g = m_config->GetValue("pomodoro.color_low_g", 0.5f);
+        pomodoroConfig.colorLow.b = m_config->GetValue("pomodoro.color_low_b", 0.0f);
+        
+        pomodoroConfig.colorCritical.r = m_config->GetValue("pomodoro.color_critical_r", 1.0f);
+        pomodoroConfig.colorCritical.g = m_config->GetValue("pomodoro.color_critical_g", 0.0f);
+        pomodoroConfig.colorCritical.b = m_config->GetValue("pomodoro.color_critical_b", 0.0f);
+        
+        // Save to database for future use
+        if (m_pomodoroDatabase)
+        {
+            m_pomodoroDatabase->SaveConfiguration(pomodoroConfig);
+            Logger::Info("Pomodoro configuration migrated from AppConfig to database");
+        }
+        
+        Logger::Info("Pomodoro configuration loaded from AppConfig");
+    }
+    
+    // Apply configuration to timer
+    if (m_pomodoroTimer)
+    {
+        m_pomodoroTimer->SetConfig(pomodoroConfig);
+    }
+}
+
+void MainWindow::SavePomodoroConfiguration(const PomodoroTimer::PomodoroConfig& config)
+{
+    // Save to database
+    if (m_pomodoroDatabase)
+    {
+        if (m_pomodoroDatabase->SaveConfiguration(config))
+        {
+            Logger::Debug("Pomodoro configuration saved to database");
+        }
+        else
+        {
+            Logger::Warning("Failed to save Pomodoro configuration to database");
+        }
+    }
+    
+    // Also save to AppConfig as backup
+    if (m_config)
+    {
+        m_config->SetValue("pomodoro.work_duration", config.workDurationMinutes);
+        m_config->SetValue("pomodoro.short_break", config.shortBreakMinutes);
+        m_config->SetValue("pomodoro.long_break", config.longBreakMinutes);
+        m_config->SetValue("pomodoro.total_sessions", config.totalSessions);
+        m_config->SetValue("pomodoro.sessions_before_long_break", config.sessionsBeforeLongBreak);
+        m_config->SetValue("pomodoro.auto_start_next", config.autoStartNextSession);
+        
+        // Save colors
+        m_config->SetValue("pomodoro.color_high_r", config.colorHigh.r);
+        m_config->SetValue("pomodoro.color_high_g", config.colorHigh.g);
+        m_config->SetValue("pomodoro.color_high_b", config.colorHigh.b);
+        
+        m_config->SetValue("pomodoro.color_medium_r", config.colorMedium.r);
+        m_config->SetValue("pomodoro.color_medium_g", config.colorMedium.g);
+        m_config->SetValue("pomodoro.color_medium_b", config.colorMedium.b);
+        
+        m_config->SetValue("pomodoro.color_low_r", config.colorLow.r);
+        m_config->SetValue("pomodoro.color_low_g", config.colorLow.g);
+        m_config->SetValue("pomodoro.color_low_b", config.colorLow.b);
+        
+        m_config->SetValue("pomodoro.color_critical_r", config.colorCritical.r);
+        m_config->SetValue("pomodoro.color_critical_g", config.colorCritical.g);
+        m_config->SetValue("pomodoro.color_critical_b", config.colorCritical.b);
+        
+        m_config->Save();
+    }
 }

@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
-project(Potensio VERSION 0.1.0 LANGUAGES CXX)
+project(Potensio VERSION 0.1.0 LANGUAGES CXX C)  # Added C language
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -11,6 +13,53 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Find packages
 find_package(OpenGL REQUIRED)
+
+# SQLite setup - FIXED VERSION
+set(SQLITE_DIR ${CMAKE_SOURCE_DIR}/external/sqlite)
+
+# Verify SQLite files exist
+if(NOT EXISTS "${SQLITE_DIR}/sqlite3.c")
+    message(FATAL_ERROR "SQLite source file not found at: ${SQLITE_DIR}/sqlite3.c")
+endif()
+
+if(NOT EXISTS "${SQLITE_DIR}/sqlite3.h")
+    message(FATAL_ERROR "SQLite header file not found at: ${SQLITE_DIR}/sqlite3.h")
+endif()
+
+message(STATUS "Found SQLite at: ${SQLITE_DIR}")
+
+# Create a separate SQLite library
+add_library(sqlite3 STATIC ${SQLITE_DIR}/sqlite3.c)
+
+# Set SQLite to compile as C (not C++)
+set_target_properties(sqlite3 PROPERTIES
+    C_STANDARD 99
+    C_STANDARD_REQUIRED ON
+)
+
+# SQLite compile definitions
+target_compile_definitions(sqlite3 PRIVATE
+    SQLITE_THREADSAFE=1
+    SQLITE_ENABLE_FTS3
+    SQLITE_ENABLE_FTS3_PARENTHESIS
+    SQLITE_ENABLE_RTREE
+    SQLITE_ENABLE_JSON1
+    SQLITE_OMIT_LOAD_EXTENSION
+)
+
+# SQLite include directory
+target_include_directories(sqlite3 PUBLIC ${SQLITE_DIR})
+
+# Disable warnings for SQLite (it's external code)
+if(MSVC)
+    target_compile_options(sqlite3 PRIVATE 
+        /w  # Disable all warnings for SQLite
+    )
+else()
+    target_compile_options(sqlite3 PRIVATE 
+        -w  # Disable all warnings for SQLite
+    )
+endif()
 
 # Dear ImGui setup
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/external/imgui)
@@ -36,6 +85,8 @@ set(APP_SOURCES
     src/core/Kanban/KanbanManager.cpp
     src/core/Todo/TodoManager.cpp
     src/core/Clipboard/ClipboardManager.cpp
+    src/core/Database/DatabaseManager.cpp
+    src/core/Database/PomodoroDatabase.cpp
     src/ui/UIManager.cpp
     src/ui/Components/Sidebar.cpp
     src/ui/Windows/MainWindow.cpp
@@ -49,21 +100,25 @@ set(APP_SOURCES
     resources/app.rc
 )
 
-# Add resource file on Windows (optional)
-if(WIN32)
-    # Temporarily disabled to avoid RC errors
-    # if(EXISTS "${CMAKE_SOURCE_DIR}/resources/app.rc")
-    #     list(APPEND APP_SOURCES resources/app.rc)
-    #     message(STATUS "Added Windows resource file")
-    # else()
-        message(STATUS "Windows resource file disabled - using default icon")
-    # endif()
+# Verify that Database source files exist
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/src/core/Database/DatabaseManager.cpp")
+    message(FATAL_ERROR "DatabaseManager.cpp not found at: ${CMAKE_SOURCE_DIR}/src/core/Database/DatabaseManager.cpp")
 endif()
 
-# Create executable
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/src/core/Database/PomodoroDatabase.cpp")
+    message(FATAL_ERROR "PomodoroDatabase.cpp not found at: ${CMAKE_SOURCE_DIR}/src/core/Database/PomodoroDatabase.cpp")
+endif()
+
+# Add resource file on Windows (optional)
+if(WIN32)
+    message(STATUS "Windows resource file disabled - using default icon")
+endif()
+
+# Create executable with explicit source grouping
 add_executable(Potensio 
     ${APP_SOURCES}
     ${IMGUI_SOURCES}
+    # SQLite is now a separate library, not included here
 )
 
 # Include directories
@@ -72,11 +127,13 @@ target_include_directories(Potensio PRIVATE
     ${IMGUI_DIR}
     ${IMGUI_DIR}/backends
     ${CMAKE_SOURCE_DIR}/external/stb
+    ${SQLITE_DIR}  # Keep this for headers
     resources
 )
 
-# Link libraries
+# Link libraries - IMPORTANT: Added sqlite3 library here
 target_link_libraries(Potensio PRIVATE
+    sqlite3  # This is the key addition
     OpenGL::GL
     gdi32
     shell32
@@ -89,9 +146,16 @@ target_link_libraries(Potensio PRIVATE
     advapi32
 )
 
-# Compiler flags
+# Compiler flags with /FS to fix PDB issues
 if(MSVC)
-    target_compile_options(Potensio PRIVATE /W4)
+    target_compile_options(Potensio PRIVATE /W4 /FS)
+    # Disable specific warnings for ImGui and other external code in main target
+    target_compile_options(Potensio PRIVATE 
+        /wd4996  # Disable deprecated function warnings
+        /wd4244  # Disable conversion warnings
+        /wd4267  # Disable size_t conversion warnings
+    )
+    
     # Enable console for debug builds
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         set_target_properties(Potensio PROPERTIES LINK_FLAGS "/SUBSYSTEM:CONSOLE")
@@ -142,6 +206,11 @@ source_group("Source Files\\Core\\Clipboard" FILES
     src/core/Clipboard/ClipboardManager.cpp
 )
 
+source_group("Source Files\\Core\\Database" FILES 
+    src/core/Database/DatabaseManager.cpp
+    src/core/Database/PomodoroDatabase.cpp
+)
+
 source_group("Source Files\\UI" FILES 
     src/ui/UIManager.cpp
 )
@@ -185,6 +254,11 @@ source_group("Header Files\\Core\\Clipboard" FILES
     src/core/Clipboard/ClipboardManager.h
 )
 
+source_group("Header Files\\Core\\Database" FILES 
+    src/core/Database/DatabaseManager.h
+    src/core/Database/PomodoroDatabase.h
+)
+
 source_group("Header Files\\UI\\Windows" FILES 
     src/ui/Windows/PomodoroWindow.h
     src/ui/Windows/KanbanWindow.h
@@ -198,3 +272,21 @@ source_group("Source Files\\Core\\FileConverter" FILES
 source_group("Header Files\\Core\\FileConverter" FILES 
     src/core/FileConverter/FileConverter.h
 )
+
+source_group("External\\SQLite" FILES 
+    ${SQLITE_DIR}/sqlite3.c
+    ${SQLITE_DIR}/sqlite3.h
+)
+
+source_group("External\\ImGui" FILES 
+    ${IMGUI_SOURCES}
+)
+
+# Print configuration summary
+message(STATUS "=== Potensio Build Configuration ===")
+message(STATUS "SQLite source: ${SQLITE_DIR}/sqlite3.c")
+message(STATUS "SQLite library: sqlite3 (static)")
+message(STATUS "Database sources: DatabaseManager.cpp, PomodoroDatabase.cpp")
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "=====================================")

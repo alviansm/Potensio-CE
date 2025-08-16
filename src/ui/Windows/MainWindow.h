@@ -12,10 +12,10 @@
 #include "core/Todo/TodoManager.h"
 #include "core/Clipboard/ClipboardManager.h"
 #include "core/FileConverter/FileConverter.h"
+#include "core/Timer/PomodoroTimer.h"
 
 // Forward declarations
 class Sidebar;
-class PomodoroTimer;
 class PomodoroWindow;
 class KanbanManager;
 class KanbanWindow;
@@ -23,6 +23,9 @@ class TodoManager;
 class ClipboardManager;
 class ClipboardWindow;
 class AppConfig;
+
+class DatabaseManager;
+class PomodoroDatabase;
 
 enum class ModulePage
 {
@@ -384,6 +387,21 @@ private:
     const char* GetPriorityName(int priority) const;
     const char* GetStatusName(int status) const;
     ImVec4 GetStatusColor(int status) const;
+
+private:
+    // Database members
+    std::shared_ptr<DatabaseManager> m_databaseManager;
+    std::shared_ptr<PomodoroDatabase> m_pomodoroDatabase;
+    
+    // Current active session tracking
+    int m_currentSessionId = -1;
+    
+    // Helper methods
+    bool InitializeDatabase();
+    std::string GetDatabasePath();
+    void LoadPomodoroConfiguration();
+    void SavePomodoroConfiguration(const PomodoroTimer::PomodoroConfig& config);
+    void OnPomodoroSessionStart();
 
 private:
     // Icon textures

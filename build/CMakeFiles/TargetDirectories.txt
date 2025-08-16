@@ -1,3 +1,0 @@
-C:/Users/Alvians/Repository/PotensioApp/build/CMakeFiles/Potensio.dir
-C:/Users/Alvians/Repository/PotensioApp/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/Alvians/Repository/PotensioApp/build/CMakeFiles/ZERO_CHECK.dir
