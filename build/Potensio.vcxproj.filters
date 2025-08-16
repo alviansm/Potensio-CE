@@ -28,6 +28,9 @@
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Todo\TodoManager.cpp">
       <Filter>Source Files\Core\Todo</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Clipboard\ClipboardManager.cpp">
+      <Filter>Source Files\Core\Clipboard</Filter>
+    </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\UIManager.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -44,6 +47,9 @@
       <Filter>Source Files\UI\Windows</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\KanbanWindow.cpp">
+      <Filter>Source Files\UI\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\ClipboardWindow.cpp">
       <Filter>Source Files\UI\Windows</Filter>
     </ClCompile>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsUtils.cpp">
@@ -91,6 +97,9 @@
     </Filter>
     <Filter Include="Source Files\Core">
       <UniqueIdentifier>{0C2DD429-437A-3907-A41C-D964D79B2E78}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core\Clipboard">
+      <UniqueIdentifier>{3613253E-20BD-3085-AD6E-758B5EE1D271}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Core\Kanban">
       <UniqueIdentifier>{AFCE2588-0184-309C-9EAD-90732BAA1BE5}</UniqueIdentifier>

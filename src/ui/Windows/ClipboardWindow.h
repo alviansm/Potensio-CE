@@ -86,7 +86,7 @@ private:
     std::string ShowSaveFileDialog(const std::string& title, const std::string& filter);
     std::string ShowOpenFileDialog(const std::string& title, const std::string& filter);
     
-    // Validation
+    // Validation - MAKE THIS CONST
     bool ValidateSettings() const;
-    void ShowValidationError(const std::string& message);
+    void ShowValidationError(const std::string& message) const; // <-- Add const here
 };

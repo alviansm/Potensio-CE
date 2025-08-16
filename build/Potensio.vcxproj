@@ -330,12 +330,14 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Timer\PomodoroTimer.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Kanban\KanbanManager.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Todo\TodoManager.cpp" />
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\core\Clipboard\ClipboardManager.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\UIManager.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Components\Sidebar.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\MainWindow.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\SettingsWindow.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\PomodoroWindow.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\KanbanWindow.cpp" />
+    <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\ui\Windows\ClipboardWindow.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsUtils.cpp" />
     <ClCompile Include="C:\Users\Alvians\Repository\PotensioApp\src\platform\windows\WindowsHooks.cpp" />
     <ResourceCompile Include="C:\Users\Alvians\Repository\PotensioApp\resources\app.rc" />

@@ -398,7 +398,7 @@ void ClipboardWindow::RenderExcludeApps()
         if (hwnd)
         {
             wchar_t title[256];
-            if (GetWindowText(hwnd, title, sizeof(title) / sizeof(wchar_t)))
+            if (GetWindowTextW(hwnd, title, sizeof(title) / sizeof(wchar_t)))
             {
                 // Convert to UTF-8 and add to exclude list
                 int size = WideCharToMultiByte(CP_UTF8, 0, title, -1, nullptr, 0, nullptr, nullptr);
@@ -782,7 +782,7 @@ bool ClipboardWindow::ValidateSettings() const
     return true;
 }
 
-void ClipboardWindow::ShowValidationError(const std::string& message)
+void ClipboardWindow::ShowValidationError(const std::string& message) const
 {
     // TODO: Show proper error dialog
     Logger::Warning("Validation error: {}", message);

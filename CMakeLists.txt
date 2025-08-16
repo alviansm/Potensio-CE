@@ -35,14 +35,17 @@ set(APP_SOURCES
     src/core/Timer/PomodoroTimer.cpp
     src/core/Kanban/KanbanManager.cpp
     src/core/Todo/TodoManager.cpp
+    src/core/Clipboard/ClipboardManager.cpp
     src/ui/UIManager.cpp
     src/ui/Components/Sidebar.cpp
     src/ui/Windows/MainWindow.cpp
     src/ui/Windows/SettingsWindow.cpp
     src/ui/Windows/PomodoroWindow.cpp
     src/ui/Windows/KanbanWindow.cpp
+    src/ui/Windows/ClipboardWindow.cpp
     src/platform/windows/WindowsUtils.cpp
     src/platform/windows/WindowsHooks.cpp
+    src/core/FileConverter/FileConverter.cpp
     resources/app.rc
 )
 
@@ -107,6 +110,10 @@ if(MSVC)
     set_target_properties(Potensio PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 endif()
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
+    target_link_libraries(Potensio PRIVATE stdc++fs)
+endif()
+
 # Add custom target for organizing source files in IDE
 source_group("Source Files\\App" FILES 
     src/app/Application.cpp
@@ -131,6 +138,10 @@ source_group("Source Files\\Core\\Todo" FILES
     src/core/Todo/TodoManager.cpp
 )
 
+source_group("Source Files\\Core\\Clipboard" FILES 
+    src/core/Clipboard/ClipboardManager.cpp
+)
+
 source_group("Source Files\\UI" FILES 
     src/ui/UIManager.cpp
 )
@@ -144,6 +155,7 @@ source_group("Source Files\\UI\\Windows" FILES
     src/ui/Windows/SettingsWindow.cpp
     src/ui/Windows/PomodoroWindow.cpp
     src/ui/Windows/KanbanWindow.cpp
+    src/ui/Windows/ClipboardWindow.cpp
 )
 
 source_group("Source Files\\Platform\\Windows" FILES 
@@ -169,7 +181,20 @@ source_group("Header Files\\Core\\Todo" FILES
     src/core/Todo/TodoManager.h
 )
 
+source_group("Header Files\\Core\\Clipboard" FILES 
+    src/core/Clipboard/ClipboardManager.h
+)
+
 source_group("Header Files\\UI\\Windows" FILES 
     src/ui/Windows/PomodoroWindow.h
     src/ui/Windows/KanbanWindow.h
+    src/ui/Windows/ClipboardWindow.h
+)
+
+source_group("Source Files\\Core\\FileConverter" FILES 
+    src/core/FileConverter/FileConverter.cpp
+)
+
+source_group("Header Files\\Core\\FileConverter" FILES 
+    src/core/FileConverter/FileConverter.h
 )

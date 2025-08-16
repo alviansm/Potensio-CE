@@ -117,7 +117,7 @@ public:
 
     // Configuration
     void SetConfig(const Clipboard::ClipboardConfig& config);
-    Clipboard::ClipboardConfig GetConfig() const { return m_config; }
+    Clipboard::ClipboardConfig GetConfig() const { return m_clipboardConfig; }
 
     // Callbacks
     void SetOnItemAdded(std::function<void(std::shared_ptr<Clipboard::ClipboardItem>)> callback) 
@@ -202,6 +202,10 @@ private:
     void LoadFromConfig();
     void SaveToConfig() const;
     std::string GenerateItemId() const;
+
+    // Import/Export helpers
+    std::string EscapeDelimited(const std::string& input) const;
+    std::vector<std::string> SplitDelimited(const std::string& input, char delimiter) const;
 
     // Cleanup
     void PerformAutoCleanup();

@@ -3,6 +3,7 @@
 #include "ui/Components/Sidebar.h"
 #include "ui/Windows/PomodoroWindow.h"
 #include "ui/Windows/KanbanWindow.h"
+#include "ui/Windows/ClipboardWindow.h"
 #include "core/Timer/PomodoroTimer.h"
 #include "core/Todo/TodoManager.h"
 #include "core/Logger.h"
@@ -2195,25 +2196,25 @@ void MainWindow::InitializeResources()
 }
 
 // Placeholder methods for other modules
-void MainWindow::RenderClipboardPlaceholder()
-{
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 16));
+// void MainWindow::RenderClipboardPlaceholder()
+// {
+//     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 16));
     
-    ImGui::Text("Clipboard Manager");
-    ImGui::Separator();
-    ImGui::Spacing();
+//     ImGui::Text("Clipboard Manager");
+//     ImGui::Separator();
+//     ImGui::Spacing();
     
-    ImGui::TextWrapped("The Clipboard Manager will be implemented in Sprint 3.");
-    ImGui::Spacing();
-    ImGui::Text("Features coming soon:");
-    ImGui::BulletText("Clipboard history");
-    ImGui::BulletText("Search and filter");
-    ImGui::BulletText("Favorites");
-    ImGui::BulletText("Auto-cleanup");
-    ImGui::BulletText("Quick paste");
+//     ImGui::TextWrapped("The Clipboard Manager will be implemented in Sprint 3.");
+//     ImGui::Spacing();
+//     ImGui::Text("Features coming soon:");
+//     ImGui::BulletText("Clipboard history");
+//     ImGui::BulletText("Search and filter");
+//     ImGui::BulletText("Favorites");
+//     ImGui::BulletText("Auto-cleanup");
+//     ImGui::BulletText("Quick paste");
     
-    ImGui::PopStyleVar();
-}
+//     ImGui::PopStyleVar();
+// }
 
 void MainWindow::RenderBulkRenamePlaceholder()
 {
@@ -3442,5 +3443,540 @@ void MainWindow::RenderDatePicker()
     if (!isOpen)
     {
         m_datePickerState.isOpen = false;
+    }
+}
+
+// =============================================================================
+// CLIPBOARD MODULE IMPLEMENTATION
+// =============================================================================
+
+void MainWindow::RenderClipboardModule()
+{
+    if (!m_clipboardManager)
+    {
+        ImGui::Text("Clipboard Manager not available");
+        return;
+    }
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
+    
+    // Header with search and controls
+    RenderClipboardHeader();
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Main content area with list and preview
+    float listWidth = ImGui::GetContentRegionAvail().x * 0.6f;
+    float previewWidth = ImGui::GetContentRegionAvail().x * 0.4f - 10.0f;
+    
+    // Clipboard items list
+    ImGui::BeginChild("##ClipboardList", ImVec2(listWidth, 0), true);
+    RenderClipboardList();
+    ImGui::EndChild();
+    
+    ImGui::SameLine();
+    
+    // Preview panel
+    if (m_clipboardUIState.showPreview)
+    {
+        ImGui::BeginChild("##ClipboardPreview", ImVec2(previewWidth, 0), true);
+        RenderClipboardPreview();
+        ImGui::EndChild();
+    }
+    
+    ImGui::PopStyleVar();
+}
+
+void MainWindow::RenderClipboardHeader()
+{
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    float buttonAreaWidth = 280.0f;
+    float searchAreaWidth = availableWidth - buttonAreaWidth - 20.0f;
+    
+    // Search area
+    ImGui::BeginChild("##ClipboardHeaderSearch", ImVec2(searchAreaWidth, 30.0f), false, 
+                     ImGuiWindowFlags_NoScrollbar);
+    
+    // Search box
+    char searchBuffer[256];
+    strncpy_s(searchBuffer, m_clipboardUIState.searchQuery.c_str(), sizeof(searchBuffer) - 1);
+    searchBuffer[sizeof(searchBuffer) - 1] = '\0';
+    
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::InputTextWithHint("##search", "🔍 Search clipboard...", searchBuffer, sizeof(searchBuffer)))
+    {
+        m_clipboardUIState.searchQuery = searchBuffer;
+        m_clipboardManager->SetSearchQuery(m_clipboardUIState.searchQuery);
+    }
+    
+    ImGui::EndChild();
+    
+    // Control buttons
+    ImGui::SameLine();
+    
+    float buttonSpacing = 8.0f;
+    float buttonWidth = 60.0f;
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+    
+    // Format filter dropdown
+    const char* formatNames[] = { "All", "Text", "Rich Text", "Images", "Files" };
+    int currentFormat = static_cast<int>(m_clipboardUIState.filterFormat);
+    
+    ImGui::SetNextItemWidth(80.0f);
+    if (ImGui::Combo("##filter", &currentFormat, formatNames, IM_ARRAYSIZE(formatNames)))
+    {
+        m_clipboardUIState.filterFormat = static_cast<Clipboard::ClipboardFormat>(currentFormat);
+        m_clipboardManager->SetFormatFilter(m_clipboardUIState.filterFormat);
+    }
+    
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // Show favorites toggle
+    bool showFavorites = m_clipboardUIState.showFavorites;
+    if (showFavorites)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.6f, 0.2f, 0.8f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.7f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.5f, 0.1f, 1.0f));
+    }
+    
+    if (ImGui::Button("⭐ Fav", ImVec2(buttonWidth, 28.0f)))
+    {
+        m_clipboardUIState.showFavorites = !m_clipboardUIState.showFavorites;
+    }
+    
+    if (showFavorites)
+    {
+        ImGui::PopStyleColor(3);
+    }
+    
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // Clear history button
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.3f, 0.3f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
+    
+    if (ImGui::Button("🗑️ Clear", ImVec2(buttonWidth, 28.0f)))
+    {
+        ClearClipboardHistory();
+    }
+    ImGui::PopStyleColor(3);
+    
+    ImGui::SameLine(0, buttonSpacing);
+    
+    // Settings button
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.6f, 0.6f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+    
+    if (ImGui::Button("⚙️", ImVec2(28.0f, 28.0f)))
+    {
+        m_showClipboardSettings = true;
+    }
+    ImGui::PopStyleColor(3);
+    
+    ImGui::PopStyleVar(); // FrameRounding
+}
+
+void MainWindow::RenderClipboardList()
+{
+    auto history = m_clipboardUIState.showFavorites ? 
+                   m_clipboardManager->GetFavorites() : 
+                   m_clipboardManager->GetHistory();
+    
+    if (history.empty())
+    {
+        ImVec2 centerPos = ImVec2(ImGui::GetContentRegionAvail().x * 0.5f - 80, 100);
+        ImGui::SetCursorPos(centerPos);
+        
+        if (m_clipboardUIState.showFavorites)
+        {
+            ImGui::Text("No favorite items");
+            ImGui::SetCursorPos(ImVec2(centerPos.x - 20, centerPos.y + 20));
+            ImGui::Text("Mark items as favorites to see them here");
+        }
+        else if (!m_clipboardUIState.searchQuery.empty())
+        {
+            ImGui::Text("No items match your search");
+            ImGui::SetCursorPos(ImVec2(centerPos.x - 30, centerPos.y + 20));
+            ImGui::Text("Try a different search term");
+        }
+        else
+        {
+            ImGui::Text("Clipboard history is empty");
+            ImGui::SetCursorPos(ImVec2(centerPos.x - 25, centerPos.y + 20));
+            ImGui::Text("Copy something to get started!");
+        }
+        return;
+    }
+    
+    // Render items
+    for (size_t i = 0; i < history.size(); ++i)
+    {
+        auto item = history[i];
+        bool isSelected = (static_cast<int>(i) == m_clipboardUIState.selectedItemIndex);
+        
+        if (i > 0)
+        {
+            ImGui::Spacing();
+        }
+        
+        RenderClipboardItem(item, static_cast<int>(i), isSelected);
+    }
+}
+
+void MainWindow::RenderClipboardItem(std::shared_ptr<Clipboard::ClipboardItem> item, int index, bool isSelected)
+{
+    if (!item) return;
+    
+    float itemWidth = ImGui::GetContentRegionAvail().x - 8.0f;
+    float itemPadding = 8.0f;
+    float minItemHeight = 60.0f;
+    
+    // Item background color
+    auto formatColor = GetClipboardFormatColor(item->format);
+    ImU32 itemBgColor;
+    
+    if (isSelected)
+    {
+        itemBgColor = IM_COL32(
+            static_cast<int>(formatColor.x * 80 + 50),
+            static_cast<int>(formatColor.y * 80 + 50),
+            static_cast<int>(formatColor.z * 80 + 50),
+            255
+        );
+    }
+    else
+    {
+        itemBgColor = IM_COL32(
+            static_cast<int>(formatColor.x * 40 + 30),
+            static_cast<int>(formatColor.y * 40 + 30),
+            static_cast<int>(formatColor.z * 40 + 30),
+            255
+        );
+    }
+    
+    ImU32 itemBorderColor = IM_COL32(
+        static_cast<int>(formatColor.x * 120 + 60),
+        static_cast<int>(formatColor.y * 120 + 60),
+        static_cast<int>(formatColor.z * 120 + 60),
+        255
+    );
+    
+    // Calculate item height
+    float lineHeight = ImGui::GetTextLineHeight();
+    float itemHeight = itemPadding * 2 + lineHeight; // Title
+    itemHeight += lineHeight + 4; // Preview
+    itemHeight += lineHeight + 4; // Metadata
+    
+    if (itemHeight < minItemHeight)
+        itemHeight = minItemHeight;
+    
+    // Draw item background
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 windowPos = ImGui::GetWindowPos();
+    ImVec2 cursorPos = ImGui::GetCursorPos();
+    
+    ImVec2 itemMin = ImVec2(windowPos.x + cursorPos.x, windowPos.y + cursorPos.y);
+    ImVec2 itemMax = ImVec2(itemMin.x + itemWidth, itemMin.y + itemHeight);
+    
+    // Item shadow
+    ImVec2 shadowOffset = ImVec2(2, 2);
+    drawList->AddRectFilled(
+        ImVec2(itemMin.x + shadowOffset.x, itemMin.y + shadowOffset.y),
+        ImVec2(itemMax.x + shadowOffset.x, itemMax.y + shadowOffset.y),
+        IM_COL32(0, 0, 0, 30), 6.0f
+    );
+    
+    // Item background and border
+    drawList->AddRectFilled(itemMin, itemMax, itemBgColor, 6.0f);
+    drawList->AddRect(itemMin, itemMax, itemBorderColor, 6.0f, 0, isSelected ? 2.0f : 1.0f);
+    
+    // Begin item content
+    ImGui::PushID(item->id.c_str());
+    
+    // Position cursor for content
+    ImGui::SetCursorPos(ImVec2(cursorPos.x + itemPadding, cursorPos.y + itemPadding));
+    
+    // Item title with format icon
+    std::string formatIcon = "📄"; // Default text icon
+    switch (item->format)
+    {
+        case Clipboard::ClipboardFormat::Text: formatIcon = "📄"; break;
+        case Clipboard::ClipboardFormat::RichText: formatIcon = "📝"; break;
+        case Clipboard::ClipboardFormat::Image: formatIcon = "🖼️"; break;
+        case Clipboard::ClipboardFormat::Files: formatIcon = "📁"; break;
+        default: formatIcon = "❓"; break;
+    }
+    
+    ImGui::Text("%s %s", formatIcon.c_str(), item->title.c_str());
+    
+    // Favorite and pin indicators
+    ImGui::SameLine();
+    if (item->isFavorite)
+    {
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "⭐");
+    }
+    if (item->isPinned)
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.8f, 0.2f, 0.2f, 1.0f), "📌");
+    }
+    
+    // Item preview
+    if (!item->preview.empty())
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
+        ImGui::TextWrapped("%s", item->preview.c_str());
+        ImGui::PopStyleColor();
+    }
+    
+    // Item metadata (timestamp, size, source)
+    ImGui::SetCursorPos(ImVec2(cursorPos.x + itemPadding, 
+                              itemMin.y + itemHeight - windowPos.y - lineHeight - itemPadding));
+    
+    std::string timestamp = FormatClipboardTimestamp(item->timestamp);
+    std::string metadata = timestamp + " • " + item->GetSizeString();
+    if (!item->source.empty())
+    {
+        metadata += " • " + item->source;
+    }
+    
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+    ImGui::Text("%s", metadata.c_str());
+    ImGui::PopStyleColor();
+    
+    // Position cursor after item
+    ImGui::SetCursorPos(ImVec2(cursorPos.x, cursorPos.y + itemHeight + 4));
+    
+    // Invisible button for selection
+    ImGui::SetCursorPos(ImVec2(cursorPos.x, cursorPos.y));
+    bool itemClicked = ImGui::InvisibleButton("##itembutton", ImVec2(itemWidth, itemHeight));
+    
+    // Handle selection
+    if (itemClicked)
+    {
+        m_clipboardUIState.selectedItemIndex = index;
+    }
+    
+    // Double-click to copy
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+    {
+        CopyClipboardItem(item);
+    }
+    
+    // Context menu
+    if (ImGui::BeginPopupContextItem())
+    {
+        if (ImGui::MenuItem("📄 Copy to Clipboard"))
+        {
+            CopyClipboardItem(item);
+        }
+        
+        ImGui::Separator();
+        
+        if (ImGui::MenuItem(item->isFavorite ? "⭐ Remove from Favorites" : "⭐ Add to Favorites"))
+        {
+            ToggleClipboardFavorite(item->id);
+        }
+        
+        if (ImGui::MenuItem(item->isPinned ? "📌 Unpin" : "📌 Pin"))
+        {
+            m_clipboardManager->TogglePin(item->id);
+        }
+        
+        ImGui::Separator();
+        
+        if (ImGui::MenuItem("🗑️ Delete", nullptr, false, true))
+        {
+            DeleteClipboardItem(item->id);
+        }
+        
+        ImGui::EndPopup();
+    }
+    
+    ImGui::PopID();
+}
+
+void MainWindow::RenderClipboardPreview()
+{
+    auto history = m_clipboardUIState.showFavorites ? 
+                   m_clipboardManager->GetFavorites() : 
+                   m_clipboardManager->GetHistory();
+    
+    if (m_clipboardUIState.selectedItemIndex < 0 || 
+        m_clipboardUIState.selectedItemIndex >= static_cast<int>(history.size()))
+    {
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No item selected");
+        ImGui::Text("Select an item to preview its content");
+        return;
+    }
+    
+    auto item = history[m_clipboardUIState.selectedItemIndex];
+    if (!item) return;
+    
+    // Preview header
+    ImGui::Text("Preview: %s", item->title.c_str());
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Item details
+    ImGui::Text("Type: %s", GetClipboardFormatName(item->format));
+    ImGui::Text("Size: %s", item->GetSizeString().c_str());
+    ImGui::Text("Time: %s", FormatClipboardTimestamp(item->timestamp).c_str());
+    if (!item->source.empty())
+    {
+        ImGui::Text("Source: %s", item->source.c_str());
+    }
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Content preview
+    switch (item->format)
+    {
+        case Clipboard::ClipboardFormat::Text:
+        case Clipboard::ClipboardFormat::RichText:
+            ImGui::Text("Content:");
+            ImGui::BeginChild("##TextPreview", ImVec2(0, 0), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+            ImGui::TextWrapped("%s", item->content.c_str());
+            ImGui::EndChild();
+            break;
+            
+        case Clipboard::ClipboardFormat::Files:
+            ImGui::Text("Files:");
+            for (const auto& filePath : item->filePaths)
+            {
+                ImGui::BulletText("%s", filePath.c_str());
+            }
+            break;
+            
+        case Clipboard::ClipboardFormat::Image:
+            ImGui::Text("Image:");
+            ImGui::Text("Image preview not yet implemented");
+            // TODO: Render image preview
+            break;
+            
+        default:
+            ImGui::Text("Preview not available for this content type");
+            break;
+    }
+}
+
+// Clipboard helper methods
+void MainWindow::OnClipboardItemAdded(std::shared_ptr<Clipboard::ClipboardItem> item)
+{
+    if (item)
+    {
+        Logger::Debug("Clipboard item added: {}", item->title);
+    }
+}
+
+void MainWindow::OnClipboardItemDeleted(const std::string& id)
+{
+    Logger::Debug("Clipboard item deleted: {}", id);
+    
+    // Reset selection if deleted item was selected
+    auto history = m_clipboardUIState.showFavorites ? 
+                   m_clipboardManager->GetFavorites() : 
+                   m_clipboardManager->GetHistory();
+    
+    if (m_clipboardUIState.selectedItemIndex >= static_cast<int>(history.size()))
+    {
+        m_clipboardUIState.selectedItemIndex = -1;
+    }
+}
+
+void MainWindow::OnClipboardHistoryCleared()
+{
+    Logger::Debug("Clipboard history cleared");
+    m_clipboardUIState.selectedItemIndex = -1;
+}
+
+void MainWindow::CopyClipboardItem(std::shared_ptr<Clipboard::ClipboardItem> item)
+{
+    if (item && m_clipboardManager)
+    {
+        m_clipboardManager->CopyToClipboard(item);
+        Logger::Debug("Copied clipboard item: {}", item->title);
+    }
+}
+
+void MainWindow::DeleteClipboardItem(const std::string& id)
+{
+    if (m_clipboardManager)
+    {
+        m_clipboardManager->DeleteItem(id);
+    }
+}
+
+void MainWindow::ToggleClipboardFavorite(const std::string& id)
+{
+    if (m_clipboardManager)
+    {
+        m_clipboardManager->ToggleFavorite(id);
+    }
+}
+
+void MainWindow::ClearClipboardHistory()
+{
+    if (m_clipboardManager)
+    {
+        m_clipboardManager->ClearHistory();
+    }
+}
+
+const char* MainWindow::GetClipboardFormatName(Clipboard::ClipboardFormat format) const
+{
+    switch (format)
+    {
+        case Clipboard::ClipboardFormat::Text: return "Text";
+        case Clipboard::ClipboardFormat::RichText: return "Rich Text";
+        case Clipboard::ClipboardFormat::Image: return "Image";
+        case Clipboard::ClipboardFormat::Files: return "Files";
+        default: return "Unknown";
+    }
+}
+
+ImVec4 MainWindow::GetClipboardFormatColor(Clipboard::ClipboardFormat format) const
+{
+    switch (format)
+    {
+        case Clipboard::ClipboardFormat::Text: return ImVec4(0.5f, 0.8f, 1.0f, 1.0f); // Light blue
+        case Clipboard::ClipboardFormat::RichText: return ImVec4(0.8f, 0.6f, 1.0f, 1.0f); // Purple
+        case Clipboard::ClipboardFormat::Image: return ImVec4(1.0f, 0.7f, 0.3f, 1.0f); // Orange
+        case Clipboard::ClipboardFormat::Files: return ImVec4(0.6f, 1.0f, 0.4f, 1.0f); // Green
+        default: return ImVec4(0.7f, 0.7f, 0.7f, 1.0f); // Gray
+    }
+}
+
+std::string MainWindow::FormatClipboardTimestamp(const std::chrono::system_clock::time_point& timestamp) const
+{
+    auto now = std::chrono::system_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - timestamp);
+    
+    if (diff.count() < 60)
+    {
+        return "Just now";
+    }
+    else if (diff.count() < 3600)
+    {
+        int minutes = static_cast<int>(diff.count() / 60);
+        return std::to_string(minutes) + "m ago";
+    }
+    else if (diff.count() < 86400)
+    {
+        int hours = static_cast<int>(diff.count() / 3600);
+        return std::to_string(hours) + "h ago";
+    }
+    else
+    {
+        int days = static_cast<int>(diff.count() / 86400);
+        return std::to_string(days) + "d ago";
     }
 }

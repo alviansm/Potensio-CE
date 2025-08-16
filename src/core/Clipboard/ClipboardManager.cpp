@@ -7,7 +7,12 @@
 #include <sstream>
 #include <iomanip>
 #include <fstream>
-#include <json/json.h>
+#include <ctime>
+
+// Windows compatibility defines
+#ifndef CF_DIBV5
+#define CF_DIBV5 17
+#endif
 
 namespace Clipboard
 {
@@ -99,18 +104,18 @@ bool ClipboardManager::Initialize(AppConfig* config)
     LoadFromConfig();
     
     // Create hidden window for clipboard monitoring
-    WNDCLASS wc = {};
+    WNDCLASSW wc = {};
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = GetModuleHandle(nullptr);
     wc.lpszClassName = L"PotensioClipboardWindow";
     
-    if (!RegisterClass(&wc))
+    if (!RegisterClassW(&wc))
     {
         Logger::Error("Failed to register clipboard window class");
         return false;
     }
     
-    m_hwnd = CreateWindowEx(
+    m_hwnd = CreateWindowExW(
         0,
         L"PotensioClipboardWindow",
         L"Potensio Clipboard Monitor",
@@ -334,29 +339,71 @@ std::shared_ptr<Clipboard::ClipboardItem> ClipboardManager::CreateItemFromClipbo
 
 Clipboard::ClipboardFormat ClipboardManager::DetectFormat() const
 {
-    // Check in order of preference
+    // Check for files first (highest priority)
     if (IsClipboardFormatAvailable(CF_HDROP))
         return Clipboard::ClipboardFormat::Files;
     
-    if (IsClipboardFormatAvailable(CF_BITMAP) || IsClipboardFormatAvailable(CF_DIB))
+    // Check for images
+    if (IsClipboardFormatAvailable(CF_BITMAP) || 
+        IsClipboardFormatAvailable(CF_DIB) ||
+        IsClipboardFormatAvailable(CF_DIBV5))
         return Clipboard::ClipboardFormat::Image;
     
+    // Check for rich text formats
+    UINT rtfFormat = RegisterClipboardFormatW(L"Rich Text Format");
+    UINT htmlFormat = RegisterClipboardFormatW(L"HTML Format");
+    
+    if (IsClipboardFormatAvailable(rtfFormat) || IsClipboardFormatAvailable(htmlFormat))
+        return Clipboard::ClipboardFormat::RichText;
+    
+    // Check for Unicode text (preferred)
     if (IsClipboardFormatAvailable(CF_UNICODETEXT))
         return Clipboard::ClipboardFormat::Text;
     
+    // Check for ANSI text
     if (IsClipboardFormatAvailable(CF_TEXT))
         return Clipboard::ClipboardFormat::Text;
-    
-    // Check for rich text format
-    UINT rtfFormat = RegisterClipboardFormat(L"Rich Text Format");
-    if (IsClipboardFormatAvailable(rtfFormat))
-        return Clipboard::ClipboardFormat::RichText;
     
     return Clipboard::ClipboardFormat::Unknown;
 }
 
 std::string ClipboardManager::ExtractTextData() const
 {
+    // Try rich text first
+    UINT rtfFormat = RegisterClipboardFormatW(L"Rich Text Format");
+    if (IsClipboardFormatAvailable(rtfFormat))
+    {
+        HANDLE hData = GetClipboardData(rtfFormat);
+        if (hData)
+        {
+            char* pRtfText = static_cast<char*>(GlobalLock(hData));
+            if (pRtfText)
+            {
+                std::string result(pRtfText);
+                GlobalUnlock(hData);
+                return result;
+            }
+        }
+    }
+    
+    // Try HTML format
+    UINT htmlFormat = RegisterClipboardFormatW(L"HTML Format");
+    if (IsClipboardFormatAvailable(htmlFormat))
+    {
+        HANDLE hData = GetClipboardData(htmlFormat);
+        if (hData)
+        {
+            char* pHtmlText = static_cast<char*>(GlobalLock(hData));
+            if (pHtmlText)
+            {
+                std::string result(pHtmlText);
+                GlobalUnlock(hData);
+                return result;
+            }
+        }
+    }
+    
+    // Fall back to Unicode text
     HANDLE hData = GetClipboardData(CF_UNICODETEXT);
     if (!hData)
     {
@@ -366,15 +413,28 @@ std::string ClipboardManager::ExtractTextData() const
     
     if (hData)
     {
-        wchar_t* pszText = static_cast<wchar_t*>(GlobalLock(hData));
-        if (pszText)
+        if (IsClipboardFormatAvailable(CF_UNICODETEXT))
         {
-            // Convert to UTF-8
-            int size = WideCharToMultiByte(CP_UTF8, 0, pszText, -1, nullptr, 0, nullptr, nullptr);
-            std::string result(size - 1, 0);
-            WideCharToMultiByte(CP_UTF8, 0, pszText, -1, &result[0], size, nullptr, nullptr);
-            GlobalUnlock(hData);
-            return result;
+            wchar_t* pszText = static_cast<wchar_t*>(GlobalLock(hData));
+            if (pszText)
+            {
+                // Convert to UTF-8
+                int size = WideCharToMultiByte(CP_UTF8, 0, pszText, -1, nullptr, 0, nullptr, nullptr);
+                std::string result(size - 1, 0);
+                WideCharToMultiByte(CP_UTF8, 0, pszText, -1, &result[0], size, nullptr, nullptr);
+                GlobalUnlock(hData);
+                return result;
+            }
+        }
+        else
+        {
+            char* pszText = static_cast<char*>(GlobalLock(hData));
+            if (pszText)
+            {
+                std::string result(pszText);
+                GlobalUnlock(hData);
+                return result;
+            }
         }
     }
     
@@ -391,7 +451,7 @@ std::vector<unsigned char> ClipboardManager::ExtractImageData() const
         BITMAPINFO* pBitmapInfo = static_cast<BITMAPINFO*>(GlobalLock(hData));
         if (pBitmapInfo)
         {
-            DWORD dataSize = GlobalSize(hData);
+            DWORD dataSize = static_cast<DWORD>(GlobalSize(hData));
             result.resize(dataSize);
             memcpy(result.data(), pBitmapInfo, dataSize);
             GlobalUnlock(hData);
@@ -409,13 +469,13 @@ std::vector<std::string> ClipboardManager::ExtractFileData() const
     if (hData)
     {
         HDROP hDrop = static_cast<HDROP>(hData);
-        UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, nullptr, 0);
+        UINT fileCount = DragQueryFileW(hDrop, 0xFFFFFFFF, nullptr, 0);
         
         for (UINT i = 0; i < fileCount; ++i)
         {
-            UINT pathLength = DragQueryFile(hDrop, i, nullptr, 0);
+            UINT pathLength = DragQueryFileW(hDrop, i, nullptr, 0);
             std::wstring wPath(pathLength, 0);
-            DragQueryFile(hDrop, i, &wPath[0], pathLength + 1);
+            DragQueryFileW(hDrop, i, &wPath[0], pathLength + 1);
             
             // Convert to UTF-8
             int size = WideCharToMultiByte(CP_UTF8, 0, wPath.c_str(), -1, nullptr, 0, nullptr, nullptr);
@@ -752,7 +812,7 @@ std::string ClipboardManager::GetActiveWindowTitle() const
     if (!hwnd) return "";
     
     wchar_t title[256];
-    if (GetWindowText(hwnd, title, sizeof(title) / sizeof(wchar_t)))
+    if (GetWindowTextW(hwnd, title, sizeof(title) / sizeof(wchar_t)))
     {
         // Convert to UTF-8
         int size = WideCharToMultiByte(CP_UTF8, 0, title, -1, nullptr, 0, nullptr, nullptr);
@@ -843,4 +903,308 @@ void ClipboardManager::SetSearchQuery(const std::string& query)
 void ClipboardManager::SetFormatFilter(Clipboard::ClipboardFormat format)
 {
     m_formatFilter = format;
+}
+
+// Additional missing method implementations
+std::vector<std::shared_ptr<Clipboard::ClipboardItem>> ClipboardManager::GetSearchResults(const std::string& query) const
+{
+    std::vector<std::shared_ptr<Clipboard::ClipboardItem>> results;
+    for (const auto& item : m_history)
+    {
+        if (item->MatchesSearch(query))
+        {
+            results.push_back(item);
+        }
+    }
+    return results;
+}
+
+std::vector<std::shared_ptr<Clipboard::ClipboardItem>> ClipboardManager::GetItemsByFormat(Clipboard::ClipboardFormat format) const
+{
+    std::vector<std::shared_ptr<Clipboard::ClipboardItem>> results;
+    for (const auto& item : m_history)
+    {
+        if (item->format == format)
+        {
+            results.push_back(item);
+        }
+    }
+    return results;
+}
+
+int ClipboardManager::GetItemCountByFormat(Clipboard::ClipboardFormat format) const
+{
+    return static_cast<int>(std::count_if(m_history.begin(), m_history.end(),
+        [format](const std::shared_ptr<Clipboard::ClipboardItem>& item) {
+            return item && item->format == format;
+        }));
+}
+
+void ClipboardManager::PasteItem(std::shared_ptr<Clipboard::ClipboardItem> item)
+{
+    if (!item) return;
+    
+    // Copy to clipboard first
+    CopyToClipboard(item);
+    
+    // Then simulate Ctrl+V paste
+    INPUT inputs[4] = {};
+    
+    // Ctrl down
+    inputs[0].type = INPUT_KEYBOARD;
+    inputs[0].ki.wVk = VK_CONTROL;
+    
+    // V down
+    inputs[1].type = INPUT_KEYBOARD;
+    inputs[1].ki.wVk = 'V';
+    
+    // V up
+    inputs[2].type = INPUT_KEYBOARD;
+    inputs[2].ki.wVk = 'V';
+    inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
+    
+    // Ctrl up
+    inputs[3].type = INPUT_KEYBOARD;
+    inputs[3].ki.wVk = VK_CONTROL;
+    inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+    
+    SendInput(4, inputs, sizeof(INPUT));
+}
+
+void ClipboardManager::ClearOldItems()
+{
+    if (!m_clipboardConfig.autoCleanup) return;
+    
+    auto cutoffTime = std::chrono::system_clock::now() - 
+                     std::chrono::hours(24 * m_clipboardConfig.autoCleanupDays);
+    
+    auto it = m_history.begin();
+    while (it != m_history.end())
+    {
+        if ((*it)->timestamp < cutoffTime && !(*it)->isPinned && !(*it)->isFavorite)
+        {
+            m_itemMap.erase((*it)->id);
+            it = m_history.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
+void ClipboardManager::MoveItem(const std::string& itemId, const std::string& category, int index)
+{
+    // Simple implementation for reordering items
+    auto item = GetItem(itemId);
+    if (!item) return;
+    
+    // Remove from current position
+    auto it = std::find_if(m_history.begin(), m_history.end(),
+        [&itemId](const std::shared_ptr<Clipboard::ClipboardItem>& item) {
+            return item->id == itemId;
+        });
+    
+    if (it != m_history.end())
+    {
+        m_history.erase(it);
+        
+        // Insert at new position
+        if (index >= 0 && index <= static_cast<int>(m_history.size()))
+        {
+            m_history.insert(m_history.begin() + index, item);
+        }
+        else
+        {
+            m_history.push_back(item); // Add to end if invalid index
+        }
+    }
+}
+
+bool ClipboardManager::ExportHistory(const std::string& filePath) const
+{
+    try
+    {
+        std::ofstream file(filePath);
+        if (!file.is_open())
+        {
+            Logger::Error("Failed to open file for export: {}", filePath);
+            return false;
+        }
+        
+        // Simple text format with pipe delimiters
+        file << "# Potensio Clipboard History Export\n";
+        file << "# Version: 1.0\n";
+        file << "# Exported at: " << std::time(nullptr) << "\n";
+        file << "# Format: ID|Title|Preview|Content|Format|Timestamp|Size|Favorite|Pinned|Source\n";
+        file << "#\n";
+        
+        for (const auto& item : m_history)
+        {
+            file << EscapeDelimited(item->id) << "|"
+                 << EscapeDelimited(item->title) << "|"
+                 << EscapeDelimited(item->preview) << "|"
+                 << EscapeDelimited(item->content) << "|"
+                 << static_cast<int>(item->format) << "|"
+                 << std::chrono::duration_cast<std::chrono::seconds>(
+                    item->timestamp.time_since_epoch()).count() << "|"
+                 << item->dataSize << "|"
+                 << (item->isFavorite ? "1" : "0") << "|"
+                 << (item->isPinned ? "1" : "0") << "|"
+                 << EscapeDelimited(item->source) << "\n";
+        }
+        
+        file.close();
+        
+        Logger::Info("Exported {} clipboard items to {}", m_history.size(), filePath);
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        Logger::Error("Exception during export: {}", e.what());
+        return false;
+    }
+}
+
+bool ClipboardManager::ImportHistory(const std::string& filePath)
+{
+    try
+    {
+        std::ifstream file(filePath);
+        if (!file.is_open())
+        {
+            Logger::Error("Failed to open file for import: {}", filePath);
+            return false;
+        }
+        
+        std::string line;
+        int importedCount = 0;
+        
+        while (std::getline(file, line))
+        {
+            // Skip comments and empty lines
+            if (line.empty() || line[0] == '#')
+                continue;
+            
+            // Parse pipe-delimited line
+            std::vector<std::string> parts = SplitDelimited(line, '|');
+            if (parts.size() < 10)
+                continue; // Skip malformed lines
+            
+            auto item = std::make_shared<Clipboard::ClipboardItem>();
+            item->id = parts[0];
+            item->title = parts[1];
+            item->preview = parts[2];
+            item->content = parts[3];
+            item->format = static_cast<Clipboard::ClipboardFormat>(std::stoi(parts[4]));
+            
+            // Convert timestamp
+            auto timestamp_seconds = std::stoll(parts[5]);
+            item->timestamp = std::chrono::system_clock::from_time_t(timestamp_seconds);
+            
+            item->dataSize = std::stoull(parts[6]);
+            item->isFavorite = (parts[7] == "1");
+            item->isPinned = (parts[8] == "1");
+            item->source = parts[9];
+            
+            // Add to history (without triggering callbacks)
+            m_history.push_back(item);
+            m_itemMap[item->id] = item;
+            importedCount++;
+        }
+        
+        file.close();
+        
+        // Enforce history limit after import
+        EnforceHistoryLimit();
+        
+        Logger::Info("Imported {} clipboard items from {}", importedCount, filePath);
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        Logger::Error("Exception during import: {}", e.what());
+        return false;
+    }
+}
+
+std::string ClipboardManager::EscapeDelimited(const std::string& input) const
+{
+    std::string result = input;
+    
+    // Replace problematic characters
+    size_t pos = 0;
+    while ((pos = result.find('|', pos)) != std::string::npos)
+    {
+        result.replace(pos, 1, "\\|");
+        pos += 2;
+    }
+    
+    pos = 0;
+    while ((pos = result.find('\n', pos)) != std::string::npos)
+    {
+        result.replace(pos, 1, "\\n");
+        pos += 2;
+    }
+    
+    pos = 0;
+    while ((pos = result.find('\r', pos)) != std::string::npos)
+    {
+        result.replace(pos, 1, "\\r");
+        pos += 2;
+    }
+    
+    return result;
+}
+
+std::vector<std::string> ClipboardManager::SplitDelimited(const std::string& input, char delimiter) const
+{
+    std::vector<std::string> result;
+    std::stringstream ss(input);
+    std::string item;
+    
+    while (std::getline(ss, item, delimiter))
+    {
+        // Unescape characters
+        size_t pos = 0;
+        while ((pos = item.find("\\|", pos)) != std::string::npos)
+        {
+            item.replace(pos, 2, "|");
+            pos += 1;
+        }
+        
+        pos = 0;
+        while ((pos = item.find("\\n", pos)) != std::string::npos)
+        {
+            item.replace(pos, 2, "\n");
+            pos += 1;
+        }
+        
+        pos = 0;
+        while ((pos = item.find("\\r", pos)) != std::string::npos)
+        {
+            item.replace(pos, 2, "\r");
+            pos += 1;
+        }
+        
+        result.push_back(item);
+    }
+    
+    return result;
+}
+
+void ClipboardManager::PerformAutoCleanup()
+{
+    if (m_clipboardConfig.autoCleanup)
+    {
+        ClearOldItems();
+    }
+}
+
+bool ClipboardManager::IsItemExpired(std::shared_ptr<Clipboard::ClipboardItem> item) const
+{
+    if (!item || !m_clipboardConfig.autoCleanup) return false;
+    
+    auto maxAge = std::chrono::hours(24 * m_clipboardConfig.autoCleanupDays);
+    return item->IsExpired(maxAge);
 }
