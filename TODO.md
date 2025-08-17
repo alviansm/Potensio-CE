@@ -7,11 +7,11 @@
 ### 📂 File Staging
 - [X] Base class implementation  
 - [X] Interface  
-  - [ X Render drag & drop zone  
+  - [X] Render drag & drop zone  
   - [X] Table & Info  
-- [ ] Drag-and-drop implementation (add dropped file to table) [*Work in progress*]
+- [X] Drag-and-drop implementation (add dropped file to table) [*Work in progress*]
 - [ ] Toolbar (minimal)  
-  - [ ] Paste Here  
+  - [ ] Paste Here 
   - [ ] Cut Files  
   - [ ] Bulk Rename  
   - [ ] Clear All Staging  
