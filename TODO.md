@@ -11,7 +11,7 @@
   - [X] Table & Info  
 - [X] Drag-and-drop implementation (add dropped file to table) [*Work in progress*]
 - [ ] Toolbar (minimal)  
-  - [ ] Paste Here 
+  - [X] Paste Here 
   - [ ] Cut Files  
   - [ ] Bulk Rename  
   - [ ] Clear All Staging  

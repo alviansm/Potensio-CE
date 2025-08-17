@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 #include <ctime>  // Added for time_t
+#include <windows.h>
+#include <shellapi.h>
+#include <string>
 
 class Utils
 {
@@ -36,6 +39,7 @@ public:
     static void OpenFileInExplorer(const std::string& path);
     static void OpenUrl(const std::string& url);
     static bool CreateDirectoryRecursive(const std::string& path);
+    static void ShowPasteCompleteNotification(const std::string& folderPath);
     
     // Encoding utilities
     static std::wstring UTF8ToWide(const std::string& utf8);

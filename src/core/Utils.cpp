@@ -5,9 +5,9 @@
 #include <shellapi.h>
 
 // CRITICAL: Undefine Windows macros that conflict with our method names
-#ifdef GetTempPath
-#undef GetTempPath
-#endif
+// #ifdef GetTempPath
+// #undef GetTempPath
+// #endif
 
 #include <filesystem>
 #include <sstream>
@@ -241,6 +241,28 @@ bool Utils::CreateDirectoryRecursive(const std::string& path)
     {
         return false;
     }
+}
+
+void Utils::ShowPasteCompleteNotification(const std::string& folderPath)
+{
+    // Create a hidden window for notification (needed for NOTIFYICONDATA)
+    static HWND hwnd = GetConsoleWindow(); // Or use your main window handle
+
+    NOTIFYICONDATAA nid = { sizeof(nid) };
+    nid.hWnd = hwnd;
+    nid.uID = 1001;
+    nid.uFlags = NIF_INFO;
+    std::string title = "Potensio";
+    std::string message = "Files pasted successfully!\nClick to open folder";
+    strncpy_s(nid.szInfoTitle, title.c_str(), sizeof(nid.szInfoTitle) - 1);
+    strncpy_s(nid.szInfo, message.c_str(), sizeof(nid.szInfo) - 1);
+    nid.dwInfoFlags = NIIF_INFO;
+
+    Shell_NotifyIconA(NIM_ADD, &nid);
+
+    // Optional: handle click to open folder
+    // Simplest: just launch folder after showing the notification
+    ShellExecuteA(nullptr, "open", folderPath.c_str(), nullptr, nullptr, SW_SHOWDEFAULT);
 }
 
 std::wstring Utils::UTF8ToWide(const std::string& utf8)

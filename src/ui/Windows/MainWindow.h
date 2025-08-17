@@ -122,6 +122,9 @@ private:
 
     // File staging
     std::vector<FileItem> m_stagedFiles;
+
+    // File staging utilities
+    std::string BrowseForFolder(HWND hwndOwner = nullptr);
     
     // Pomodoro integration
     std::unique_ptr<PomodoroTimer> m_pomodoroTimer;

@@ -8,18 +8,22 @@
 
 #include "core/Timer/PomodoroTimer.h"
 #include "core/Todo/TodoManager.h"
+#include "core/Database/DatabaseManager.h"
+#include "core/Database/PomodoroDatabase.h"
+
+#include "core/Utils.h"
 #include "core/Logger.h"
 
 #include "app/Application.h"
 #include "app/AppConfig.h"
 
+#include <windows.h>
+#include <ShlObj.h>
+#include <string>
 #include <imgui.h>
 #include <vector>
 #include <algorithm>
 #include <filesystem>
-
-#include "core/Database/DatabaseManager.h"
-#include "core/Database/PomodoroDatabase.h"
 
 #include "resource.h"
 
@@ -1932,6 +1936,29 @@ const std::vector<FileItem>& MainWindow::GetStagedFiles() const
     return m_stagedFiles;
 }
 
+// Private
+std::string MainWindow::BrowseForFolder(HWND hwndOwner)  // no default here
+{
+    char path[MAX_PATH] = {0};
+
+    BROWSEINFO bi = {0};
+    bi.hwndOwner = hwndOwner;
+    bi.lpszTitle = "Select Destination Folder";
+    bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+
+    LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+    if (pidl)
+    {
+        if (SHGetPathFromIDListA(pidl, path))
+        {
+            CoTaskMemFree(pidl);
+            return std::string(path);
+        }
+        CoTaskMemFree(pidl);
+    }
+    return "";
+}
+
 //////////////////////////
 //
 //////////////////////////
@@ -2071,9 +2098,40 @@ void MainWindow::RenderDropoverToolbar()
     if (ImGui::ImageButton(iconPaste, ImVec2(16, 16)))
     {
         Logger::Info("Paste Here clicked");
-        // TODO: Implement paste from clipboard
+
+        std::string destFolder = BrowseForFolder();
+        if (destFolder.empty())
+        {
+            Logger::Info("Paste canceled, no folder selected");
+        }
+        else
+        {
+            for (const auto& file : m_stagedFiles)
+            {
+                std::filesystem::path src(file.fullPath);
+                std::filesystem::path dst = std::filesystem::path(destFolder) / src.filename();
+
+                try
+                {
+                    if (file.isDirectory)
+                    {
+                        std::filesystem::copy(src, dst, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
+                    }
+                    else
+                    {
+                        std::filesystem::copy_file(src, dst, std::filesystem::copy_options::overwrite_existing);
+                    }
+                    Logger::Info("Copied: " + src.string() + " -> " + dst.string());
+                }
+                catch (std::exception& e)
+                {
+                    Logger::Error("Failed to copy " + src.string() + ": " + e.what());
+                }
+            }
+        }
+        Utils::ShowPasteCompleteNotification(destFolder);
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Paste Here");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Paste files to a chosen folder");
     
     ImGui::SameLine();
     if (ImGui::ImageButton(iconCut, ImVec2(16, 16)))
