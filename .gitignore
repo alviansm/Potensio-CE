@@ -1,2 +1,65 @@
-/buid
-.vscode
+# ---- Build Artifacts ----
+/build/
+/out/
+/bin/
+/lib/
+/dist/
+/CMakeFiles/
+/CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# ---- Compiled Binaries ----
+*.exe
+*.dll
+*.lib
+*.so
+*.a
+*.dylib
+
+# ---- Object/Intermediate Files ----
+*.o
+*.obj
+*.pch
+*.pdb
+*.ilk
+
+# ---- Logs & Temp ----
+*.log
+*.tmp
+*.cache
+*.bak
+*.swp
+
+# ---- SQLite ----
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ---- OS Generated ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- IDEs ----
+# VSCode
+.vscode/
+*.code-workspace
+
+# CLion / JetBrains
+.idea/
+
+# Visual Studio
+*.suo
+*.user
+*.vcxproj*
+*.filters
+*.aps
+*.ncb
+*.opendb
+*.VC.db
+
+# ---- Other ----
+# Ignore generated resources (if any)
+resources/generated/
