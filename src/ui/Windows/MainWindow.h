@@ -420,4 +420,11 @@ private:
     ImTextureID iconSettings = nullptr;
     ImTextureID iconCalendar = nullptr;
     ImTextureID iconTask    = nullptr;
+
+    // Additional icons for Pomodoro modules
+    ImTextureID iconPlay = nullptr;
+    ImTextureID iconPause = nullptr;
+    ImTextureID iconReset = nullptr;
+    ImTextureID iconSkip = nullptr;
+    ImTextureID iconStop = nullptr;
 };

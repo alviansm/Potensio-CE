@@ -41,4 +41,11 @@
 #define IDI_STATUS_REVIEW   132
 #define IDI_STATUS_DONE     133
 
+// Pomodoro Icons
+#define IDI_TIMER_PLAY 134
+#define IDI_TIMER_PAUSE 135
+#define IDI_TIMER_RESET 136
+#define IDI_TIMER_SKIP 137
+#define IDI_TIMER_STOP 138
+
 #endif

@@ -38,6 +38,12 @@ IDI_STATUS_PROG RCDATA "icons/kanban/ic-status-prog.png"
 IDI_STATUS_REVIEW RCDATA "icons/kanban/ic-status-review.png"
 IDI_STATUS_DONE RCDATA "icons/kanban/ic-status-done.png"
 
+IDI_TIMER_PLAY RCDATA "icons/pomodoro/icon-play.png"
+IDI_TIMER_PAUSE RCDATA "icons/pomodoro/icon-pause.png"
+IDI_TIMER_RESET RCDATA "icons/pomodoro/icon-reset.png"
+IDI_TIMER_SKIP RCDATA "icons/pomodoro/icon-skip.png"
+IDI_TIMER_STOP RCDATA "icons/pomodoro/icon-stop.png"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION 0,1,0,0
 PRODUCTVERSION 0,1,0,0

@@ -62,6 +62,10 @@ private:
     HWND m_hwnd;
     HDC m_hdc;
     HGLRC m_hglrc;
+
+    // Icon handles
+    HICON m_hIcon = nullptr;
+    HICON m_hIconSmall = nullptr;
     
     // Window state
     bool m_isVisible;

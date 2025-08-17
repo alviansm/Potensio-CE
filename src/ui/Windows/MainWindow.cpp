@@ -87,6 +87,13 @@ MainWindow::~MainWindow()
     UnloadTexture(iconClear);
     UnloadTexture(iconPin);
     UnloadTexture(iconTrigger);
+
+    // Pomodoro icon
+    UnloadTexture(iconPlay);
+    UnloadTexture(iconPause);
+    UnloadTexture(iconReset);
+    UnloadTexture(iconSkip);
+    UnloadTexture(iconStop);
 }
 
 bool MainWindow::Initialize(AppConfig* config)
@@ -1435,51 +1442,42 @@ void MainWindow::RenderPomodoroModule()
 {
     if (!m_pomodoroTimer)
         return;
-    
+
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20, 20));
-    
-    // Header with title and settings button
-    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Use default font, could be larger
-    ImGui::Text("🍅 Pomodoro Timer");
-    ImGui::PopFont();
-    
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - 100);
-    if (ImGui::Button("⚙ Settings"))
+
+    // Main timer display
+    RenderPomodoroTimer();
+
+    ImGui::Spacing();
+
+    // Progress bar
+    RenderPomodoroProgress();
+
+    ImGui::Spacing();
+
+    // Session information
+    RenderPomodoroSessionInfo();
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Control buttons
+    RenderPomodoroControls();
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Quick settings
+    RenderPomodoroQuickSettings();
+
+    ImGui::Spacing();
+    if (ImGui::Button("Settings"))
     {
         m_showPomodoroSettings = true;
     }
-    
-    ImGui::Separator();
-    ImGui::Spacing();
-    
-    // Main timer display
-    RenderPomodoroTimer();
-    
-    ImGui::Spacing();
-    
-    // Progress bar
-    RenderPomodoroProgress();
-    
-    ImGui::Spacing();
-    
-    // Session information
-    RenderPomodoroSessionInfo();
-    
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    
-    // Control buttons
-    RenderPomodoroControls();
-    
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    
-    // Quick settings
-    RenderPomodoroQuickSettings();
-    
+
     ImGui::PopStyleVar();
 }
 
@@ -1600,7 +1598,9 @@ void MainWindow::RenderPomodoroSessionInfo()
 
 void MainWindow::RenderPomodoroControls()
 {
-    float buttonWidth = 100.0f;
+    float buttonWidth = 24.0f;
+    float buttonHeight = 24.0f;
+    ImVec2 buttonSize = ImVec2(buttonWidth, buttonHeight);
     float spacing = 15.0f;
     float totalWidth = 4 * buttonWidth + 3 * spacing;
     float windowWidth = ImGui::GetContentRegionAvail().x;
@@ -1615,7 +1615,7 @@ void MainWindow::RenderPomodoroControls()
     
     if (state == PomodoroTimer::TimerState::Stopped)
     {
-        if (ImGui::Button("▶ Start", ImVec2(buttonWidth, 40)))
+        if (ImGui::ImageButton(iconPlay, buttonSize))
         {
             m_pomodoroTimer->Start();
             OnPomodoroSessionStart();
@@ -1627,12 +1627,12 @@ void MainWindow::RenderPomodoroControls()
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.7f, 0.2f, 0.8f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.8f, 0.3f, 1.0f));
         
-        if (ImGui::Button("⏸ Pause", ImVec2(buttonWidth, 40)))
+        if (ImGui::ImageButton(iconPause, buttonSize))
             m_pomodoroTimer->Pause();
     }
     else if (state == PomodoroTimer::TimerState::Paused)
     {
-        if (ImGui::Button("▶ Resume", ImVec2(buttonWidth, 40)))
+        if (ImGui::ImageButton(iconPlay, buttonSize))
             m_pomodoroTimer->Resume();
     }
     
@@ -1644,7 +1644,7 @@ void MainWindow::RenderPomodoroControls()
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 0.8f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.3f, 0.3f, 1.0f));
     
-    if (ImGui::Button("⏹ Stop", ImVec2(buttonWidth, 40)))
+    if (ImGui::ImageButton(iconStop, buttonSize))
         m_pomodoroTimer->Stop();
     
     ImGui::PopStyleColor(2);
@@ -1660,7 +1660,7 @@ void MainWindow::RenderPomodoroControls()
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.5f, 0.7f, 0.8f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.8f, 1.0f));
     
-    if (ImGui::Button("⏭ Skip", ImVec2(buttonWidth, 40)))
+    if (ImGui::ImageButton(iconSkip, buttonSize))
         m_pomodoroTimer->Skip();
     
     ImGui::PopStyleColor(2);
@@ -1673,7 +1673,7 @@ void MainWindow::RenderPomodoroControls()
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.5f, 0.5f, 0.8f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
     
-    if (ImGui::Button("🔄 Reset", ImVec2(buttonWidth, 40)))
+    if (ImGui::ImageButton(iconReset, buttonSize))
         m_pomodoroTimer->Reset();
     
     ImGui::PopStyleColor(2);
@@ -2295,6 +2295,13 @@ void MainWindow::InitializeResources()
     iconClear   = LoadTextureFromResource(IDI_CLEAR_ICON);
     iconPin   = LoadTextureFromResource(IDI_PIN_ICON);
     iconTrigger   = LoadTextureFromResource(IDI_TRIGGER_ICON);
+
+    // Pomodoro icon
+    iconPlay = LoadTextureFromResource(IDI_TIMER_PLAY);
+    iconPause = LoadTextureFromResource(IDI_TIMER_PAUSE);
+    iconReset = LoadTextureFromResource(IDI_TIMER_RESET);
+    iconSkip = LoadTextureFromResource(IDI_TIMER_SKIP);
+    iconStop = LoadTextureFromResource(IDI_TIMER_STOP);
 }
 
 // Placeholder methods for other modules

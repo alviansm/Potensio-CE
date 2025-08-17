@@ -4,6 +4,7 @@
 #include "app/Application.h"
 #include "app/AppConfig.h"
 #include "core/Logger.h"
+#include "resource.h"
 
 #include <imgui.h>
 #include <imgui_impl_win32.h>
@@ -30,6 +31,11 @@ UIManager::~UIManager()
 
 bool UIManager::Initialize(HINSTANCE hInstance)
 {
+    // Load the icon from resources
+    m_hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MAIN_ICON));
+    m_hIconSmall = (HICON)LoadImage(hInstance, MAKEINTRESOURCE(IDI_MAIN_ICON), 
+                                     IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR);
+
     // Get configuration
     auto app = Application::GetInstance();
     m_config = app ? app->GetConfig() : nullptr;
@@ -261,6 +267,8 @@ bool UIManager::CreateMainWindow(HINSTANCE hInstance)
     wc.hInstance = hInstance;
     wc.hIcon = LoadIcon(hInstance, IDI_APPLICATION);
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hIcon = m_hIcon;
+    wc.hIconSm = m_hIconSmall;
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = WINDOW_CLASS_NAME;
     wc.hIconSm = LoadIcon(hInstance, IDI_APPLICATION);
