@@ -9,7 +9,6 @@
 #include "core/Timer/PomodoroTimer.h"
 #include "core/Todo/TodoManager.h"
 #include "core/Logger.h"
-#include "core/Utils.h"
 
 #include "app/Application.h"
 #include "app/AppConfig.h"
@@ -39,37 +38,6 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
-// File item structure for the dropover interface
-struct FileItem
-{
-    std::string name;
-    std::string fullPath;
-    std::string size;
-    std::string type;
-    std::string modified;
-    bool isDirectory;
-    
-    FileItem(const std::string& path) : fullPath(path)
-    {
-        name = Utils::GetFileName(path);
-        isDirectory = Utils::DirectoryExists(path);
-        
-        if (!isDirectory)
-        {
-            uint64_t sizeBytes = Utils::GetFileSize(path);
-            size = Utils::FormatBytes(sizeBytes);
-            type = Utils::GetFileExtension(path);
-        }
-        else
-        {
-            size = "Folder";
-            type = "Folder";
-        }
-        
-        modified = "Recently"; // Simplified for now
-    }
-};
 
 MainWindow::MainWindow()
 {
@@ -1951,6 +1919,23 @@ ImTextureID MainWindow::LoadTextureFromResource(int resourceID)
     return (ImTextureID)(intptr_t)texture;
 }
 
+//////////////////////////
+// File staging module API
+//////////////////////////
+void MainWindow::AddStagedFile(const std::string& path)
+{
+    m_stagedFiles.emplace_back(FileItem(path));
+}
+
+const std::vector<FileItem>& MainWindow::GetStagedFiles() const
+{
+    return m_stagedFiles;
+}
+
+//////////////////////////
+//
+//////////////////////////
+
 void MainWindow::RenderMenuBar()
 {
     if (ImGui::BeginMenuBar())
@@ -2182,16 +2167,13 @@ void MainWindow::RenderDropoverArea()
 }
 
 void MainWindow::RenderFileList()
-{
-    // Sample files for demonstration (in real implementation, this would be dynamic)
-    static std::vector<FileItem> stagedFiles;
-    
+{   
     // Add sample files for demonstration
-    if (stagedFiles.empty())
+    if (m_stagedFiles.empty())
     {
         // These would be actual files dropped by user
-        stagedFiles.push_back(FileItem("C:\\Windows\\System32\\notepad.exe"));
-        stagedFiles.push_back(FileItem("C:\\Windows\\System32"));
+        m_stagedFiles.push_back(FileItem("C:\\Windows\\System32\\notepad.exe"));
+        m_stagedFiles.push_back(FileItem("C:\\Windows\\System32"));
     }
     
     // Table for file list (like Windows Explorer detail view)
@@ -2207,9 +2189,9 @@ void MainWindow::RenderFileList()
         ImGui::TableHeadersRow();
         
         // Render file entries
-        for (size_t i = 0; i < stagedFiles.size(); ++i)
+        for (size_t i = 0; i < m_stagedFiles.size(); ++i)
         {
-            const FileItem& file = stagedFiles[i];
+            const FileItem& file = m_stagedFiles[i];
             
             ImGui::TableNextRow();
             
@@ -2231,7 +2213,7 @@ void MainWindow::RenderFileList()
             {
                 if (ImGui::MenuItem("Remove from staging"))
                 {
-                    stagedFiles.erase(stagedFiles.begin() + i);
+                    m_stagedFiles.erase(m_stagedFiles.begin() + i);
                     ImGui::EndPopup();
                     break;
                 }
@@ -2262,7 +2244,7 @@ void MainWindow::RenderFileList()
         }
         
         // Empty state
-        if (stagedFiles.empty())
+        if (m_stagedFiles.empty())
         {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
@@ -2278,8 +2260,8 @@ void MainWindow::RenderFileList()
     // Status bar
     ImGui::Spacing();
     ImGui::Separator();
-    ImGui::Text("Files staged: %zu", stagedFiles.size());
-    if (!stagedFiles.empty())
+    ImGui::Text("Files staged: %zu", m_stagedFiles.size());
+    if (!m_stagedFiles.empty())
     {
         ImGui::SameLine();
         ImGui::Text(" | Right-click for options");

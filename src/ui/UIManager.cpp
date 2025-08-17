@@ -86,6 +86,8 @@ bool UIManager::Initialize(HINSTANCE hInstance)
     SetupImGuiStyle();
     m_isInitialized = true;
 
+    DragAcceptFiles(m_hwnd, TRUE);
+
     Logger::Info("UIManager initialized successfully");
     return true;
 }
@@ -436,6 +438,25 @@ LRESULT UIManager::HandleMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         case WM_SHOW_POTENSIO:
             ShowWindow();
             return 0;
+        
+        case WM_DROPFILES:
+            {
+                HDROP hDrop = (HDROP)wParam;
+                UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, NULL, 0);
+
+                for (UINT i = 0; i < fileCount; i++)
+                {
+                    char filePath[MAX_PATH];
+                    DragQueryFile(hDrop, i, filePath, MAX_PATH);
+
+                    // Pass the file path to MainWindow
+                    if (m_mainWindow)
+                        m_mainWindow->AddStagedFile(filePath);
+                }
+
+                DragFinish(hDrop);
+                return 0;
+            }
     }
 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);

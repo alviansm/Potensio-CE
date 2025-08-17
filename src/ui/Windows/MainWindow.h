@@ -14,6 +14,9 @@
 #include "core/FileConverter/FileConverter.h"
 #include "core/Timer/PomodoroTimer.h"
 
+// Utilities
+#include "core/Utils.h"
+
 // Forward declarations
 class Sidebar;
 class PomodoroWindow;
@@ -48,6 +51,37 @@ enum class SettingsCategory
     About
 };
 
+// File item structure for the dropover interface
+struct FileItem
+{
+    std::string name;
+    std::string fullPath;
+    std::string size;
+    std::string type;
+    std::string modified;
+    bool isDirectory;
+    
+    FileItem(const std::string& path) : fullPath(path)
+    {
+        name = Utils::GetFileName(path);
+        isDirectory = Utils::DirectoryExists(path);
+        
+        if (!isDirectory)
+        {
+            uint64_t sizeBytes = Utils::GetFileSize(path);
+            size = Utils::FormatBytes(sizeBytes);
+            type = Utils::GetFileExtension(path);
+        }
+        else
+        {
+            size = "Folder";
+            type = "Folder";
+        }
+        
+        modified = "Recently"; // Simplified for now
+    }
+};
+
 class MainWindow
 {
 public:
@@ -74,11 +108,20 @@ public:
     static unsigned char* LoadPNGFromResource(int resourceID, int* out_width, int* out_height);
     static ImTextureID LoadTextureFromResource(int resourceID);
 
+    /**
+     * @note API for file staging module
+     */
+    void AddStagedFile(const std::string& path);
+    const std::vector<FileItem>& GetStagedFiles() const;
+
 private:
     std::unique_ptr<Sidebar> m_sidebar;
     ModulePage m_currentModule = ModulePage::Dashboard;
     bool m_alwaysOnTop = false;
     AppConfig* m_config = nullptr;
+
+    // File staging
+    std::vector<FileItem> m_stagedFiles;
     
     // Pomodoro integration
     std::unique_ptr<PomodoroTimer> m_pomodoroTimer;
