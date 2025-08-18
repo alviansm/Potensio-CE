@@ -11,10 +11,13 @@
   - [X] Table & Info  
 - [X] Drag-and-drop implementation (add dropped file to table) [*Work in progress*]
 - [ ] Toolbar (minimal)  
-  - [X] Paste Here 
-  - [ ] Cut Files  
-  - [ ] Bulk Rename  
-  - [ ] Clear All Staging  
+  - [X] Paste Here *(18/08/2025)*
+  - [X] Cut Files *(18/08/2025)*
+  - [X] Bulk Rename   *(18/08/2025)*
+  - [X] Clear All Staging  *(18/08/2025)*
+  - [ ] Move to recycle bin (implemented, but there seem to be bug)
+  - [ ] Pin Window 
+  - [ ] Toggle trigger (keyboard shortcut & wiggle trigger)
 
 ### ⏳ Pomodoro
 - [X] Base class implementation  

@@ -1959,6 +1959,152 @@ std::string MainWindow::BrowseForFolder(HWND hwndOwner)  // no default here
     return "";
 }
 
+bool MainWindow::CopyFileWithProgress(
+    const std::filesystem::path &src, const std::filesystem::path &dst,
+    std::function<void(float)> progressCallback) 
+{
+  const size_t bufferSize = 1024 * 1024; // 1 MB buffer
+  std::ifstream in(src, std::ios::binary);
+  std::ofstream out(dst, std::ios::binary);
+
+  if (!in || !out)
+    return false;
+
+  in.seekg(0, std::ios::end);
+  size_t totalSize = in.tellg();
+  in.seekg(0, std::ios::beg);
+
+  size_t copied = 0;
+  std::vector<char> buffer(bufferSize);
+
+  while (in) {
+    in.read(buffer.data(), bufferSize);
+    std::streamsize readBytes = in.gcount();
+    out.write(buffer.data(), readBytes);
+    copied += readBytes;
+
+    if (progressCallback)
+      progressCallback(static_cast<float>(copied) / totalSize);
+  }
+
+  return true;
+}
+
+bool MainWindow::MoveFileOrDirWithProgress(
+    const std::filesystem::path &src, const std::filesystem::path &dst,
+    std::function<void(float)> progressCallback) 
+{
+  try {
+    // Try atomic rename first
+    std::filesystem::rename(src, dst);
+    if (progressCallback)
+      progressCallback(1.0f); // finished
+    return true;
+  } catch (...) {
+    // Fallback to copy + delete
+    if (std::filesystem::is_directory(src)) {
+      size_t totalFiles =
+          std::distance(std::filesystem::recursive_directory_iterator(src),
+                        std::filesystem::recursive_directory_iterator{});
+      size_t processedFiles = 0;
+
+      for (auto &entry : std::filesystem::recursive_directory_iterator(src)) {
+        std::filesystem::path relative = entry.path().lexically_relative(src);
+        std::filesystem::path target = dst / relative;
+
+        if (entry.is_directory())
+          std::filesystem::create_directories(target);
+        else
+          CopyFileWithProgress(entry.path(), target,
+                               nullptr); // we can refine for per-file progress
+
+        processedFiles++;
+        if (progressCallback)
+          progressCallback(static_cast<float>(processedFiles) / totalFiles);
+      }
+
+      std::filesystem::remove_all(src);
+      if (progressCallback)
+        progressCallback(1.0f);
+    } else {
+      CopyFileWithProgress(src, dst, progressCallback);
+      std::filesystem::remove(src);
+    }
+    return true;
+  }
+}
+
+bool MainWindow::IsCriticalFileOrDir(const std::string &path) 
+{ 
+    return IsSystemPath(path) || IsProtectedFile(path);
+}
+
+bool MainWindow::IsSystemPath(const std::string &path) 
+{ 
+    char systemDir[MAX_PATH] = {0};
+  if (GetSystemDirectoryA(systemDir, MAX_PATH) == 0)
+    return false;
+
+  std::string lowerPath = path;
+  std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
+                 ::tolower);
+  std::string lowerSystemDir = systemDir;
+  std::transform(lowerSystemDir.begin(), lowerSystemDir.end(),
+                 lowerSystemDir.begin(), ::tolower);
+
+  // Check if the path is inside the system directory
+  return lowerPath.find(lowerSystemDir) == 0;
+}
+
+bool MainWindow::IsProtectedFile(const std::string &path) 
+{ 
+    DWORD attrs = GetFileAttributesA(path.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+    return false;
+
+    return (attrs & FILE_ATTRIBUTE_SYSTEM) || (attrs & FILE_ATTRIBUTE_READONLY);
+}
+
+void MainWindow::MoveToRecycleBin(
+    const std::vector<std::filesystem::path> &files)
+{
+  // Check staged files first
+  for (auto &f : files) {
+    if (IsCriticalFileOrDir(f.string())) {
+      Logger::Error("Attempted to delete critical system file: " + f.string());
+      // TODO: Show warning popup in ImGui
+      return;
+    }
+  }
+
+#ifdef _WIN32
+  // Concatenate all paths separated by '\0' and double-terminate
+  std::wstring fileList;
+  for (auto &f : files) {
+    fileList += f.wstring();
+    fileList.push_back(L'\0');
+  }
+  fileList.push_back(L'\0');
+
+  SHFILEOPSTRUCTW fileOp = {0};
+  fileOp.wFunc = FO_DELETE;
+  fileOp.pFrom = fileList.c_str();
+  fileOp.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT;
+  // FOF_ALLOWUNDO = send to Recycle Bin
+  // NOCONFIRMATION = no "are you sure?"
+  // SILENT = no UI dialogs
+
+  int result = SHFileOperationW(&fileOp);
+  if (result == 0) {
+    Logger::Info("Files moved to Recycle Bin successfully.");
+    // Optional: Show Windows toast notification
+  } else {
+    Logger::Error("Failed to move files to Recycle Bin. Code: " +
+                  std::to_string(result));
+  }
+#endif
+}
+
 //////////////////////////
 //
 //////////////////////////
@@ -2095,78 +2241,251 @@ void MainWindow::RenderDropoverToolbar()
     // File operations toolbar with icons
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 6));
     
-    if (ImGui::ImageButton(iconPaste, ImVec2(16, 16)))
-    {
-        Logger::Info("Paste Here clicked");
+    /*
+    * @note Paste (Copy)
+    */
+    ImGui::SameLine();
+    if (ImGui::ImageButton(iconPaste, ImVec2(16, 16)) && !m_pasteInProgress) {
+      Logger::Info("Paste Files clicked");
 
-        std::string destFolder = BrowseForFolder();
-        if (destFolder.empty())
-        {
-            Logger::Info("Paste canceled, no folder selected");
-        }
-        else
-        {
-            for (const auto& file : m_stagedFiles)
-            {
-                std::filesystem::path src(file.fullPath);
-                std::filesystem::path dst = std::filesystem::path(destFolder) / src.filename();
+      std::string destFolder = BrowseForFolder();
+      if (destFolder.empty()) {
+        Logger::Info("Paste canceled, no folder selected");
+      } else {
+        m_pasteInProgress = true;
+        m_pasteProgress = 0.0f;
 
-                try
-                {
-                    if (file.isDirectory)
-                    {
-                        std::filesystem::copy(src, dst, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
-                    }
-                    else
-                    {
-                        std::filesystem::copy_file(src, dst, std::filesystem::copy_options::overwrite_existing);
-                    }
-                    Logger::Info("Copied: " + src.string() + " -> " + dst.string());
-                }
-                catch (std::exception& e)
-                {
-                    Logger::Error("Failed to copy " + src.string() + ": " + e.what());
-                }
-            }
+        for (auto &file : m_stagedFiles) {
+          if (IsCriticalFileOrDir(file.fullPath)) {
+            Logger::Error("Cannot paste critical system file/folder: " +
+                          file.fullPath);
+            continue;
+          }
+
+          std::filesystem::path src(file.fullPath);
+          std::filesystem::path dst =
+              std::filesystem::path(destFolder) / src.filename();
+
+          CopyFileWithProgress(src, dst, [&](float progress) {
+            m_pasteProgress = progress; // update progress
+          });
+
+          Logger::Info("Copied: " + src.string() + " -> " + dst.string());
+
+          // 🔄 Update staged file to new location
+          file.fullPath = dst.string();
+          file.name = Utils::GetFileName(dst.string());
+          file.isDirectory = Utils::DirectoryExists(dst.string());
+          if (!file.isDirectory) {
+            uint64_t sizeBytes = Utils::GetFileSize(dst.string());
+            file.size = Utils::FormatBytes(sizeBytes);
+            file.type = Utils::GetFileExtension(dst.string());
+          } else {
+            file.size = "Folder";
+            file.type = "Folder";
+          }
+          file.modified = "Recently"; // or refresh from metadata
         }
+
+        m_pasteInProgress = false;
+        m_pasteProgress = 0.0f;
+
+        // Windows native notification
         Utils::ShowPasteCompleteNotification(destFolder);
+      }
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Paste files to a chosen folder");
-    
-    ImGui::SameLine();
-    if (ImGui::ImageButton(iconCut, ImVec2(16, 16)))
-    {
-        Logger::Info("Cut Files clicked");
-        // TODO: Implement cut selected files
-    }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cut Files");
 
-    ImGui::SameLine();
-    if (ImGui::ImageButton(iconRename, ImVec2(16, 16)))
-    {
-        Logger::Info("Bulk Rename clicked");
-        // TODO: Open bulk rename dialog
+    if (m_pasteInProgress) {
+      ImGui::ProgressBar(m_pasteProgress, ImVec2(-1, 0), "Pasting files...");
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Bulk Rename");
+
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Paste Files");
+    
+    /*
+    * @note Paste (Cut)
+    */ 
+    ImGui::SameLine();
+    if (ImGui::ImageButton(iconCut, ImVec2(16, 16)) && !m_cutInProgress) {
+      Logger::Info("Cut Files clicked");
+
+      std::string destFolder = BrowseForFolder();
+      if (destFolder.empty()) {
+        Logger::Info("Cut canceled, no folder selected");
+      } else {
+        m_cutInProgress = true;
+        m_cutProgress = 0.0f;
+
+        for (auto &file : m_stagedFiles) {
+          if (IsCriticalFileOrDir(file.fullPath)) {
+            Logger::Error("Cannot cut critical system file/folder: " +
+                          file.fullPath);
+            continue;
+          }
+
+          std::filesystem::path src(file.fullPath);
+          std::filesystem::path dst =
+              std::filesystem::path(destFolder) / src.filename();
+
+          MoveFileOrDirWithProgress(src, dst, [&](float progress) {
+            m_cutProgress = progress; // update progress
+          });
+
+          Logger::Info("Moved: " + src.string() + " -> " + dst.string());
+
+          // 🔄 Update staged file to new location
+          file.fullPath = dst.string();
+          file.name = Utils::GetFileName(dst.string());
+          file.isDirectory = Utils::DirectoryExists(dst.string());
+          if (!file.isDirectory) {
+            uint64_t sizeBytes = Utils::GetFileSize(dst.string());
+            file.size = Utils::FormatBytes(sizeBytes);
+            file.type = Utils::GetFileExtension(dst.string());
+          } else {
+            file.size = "Folder";
+            file.type = "Folder";
+          }
+          file.modified = "Recently";
+        }
+
+        m_cutInProgress = false;
+        m_cutProgress = 0.0f;
+
+        //ShowPasteCompleteNotification(destFolder);
+        Utils::ShowPasteCompleteNotification(destFolder);
+      }
+    }
+
+    if (m_cutInProgress) {
+      ImGui::ProgressBar(m_cutProgress, ImVec2(-1, 0), "Cutting files...");
+    }
+
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Cut Files");
+
+    /*
+    * @note Rename
+    */
+    ImGui::SameLine();
+    if (ImGui::ImageButton(iconRename, ImVec2(16, 16))) {
+      Logger::Info("Bulk Rename clicked");
+      showBulkRenamePopup = true;
+      renameBuffer[0] = '\0'; // reset input buffer
+    }
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Bulk Rename");
+
+    // Show modal popup
+    if (showBulkRenamePopup)
+      ImGui::OpenPopup("Bulk Rename");
+
+    if (ImGui::BeginPopupModal("Bulk Rename", &showBulkRenamePopup,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::Text("Enter new base name:");
+      ImGui::InputText("##renameInput", renameBuffer,
+                       IM_ARRAYSIZE(renameBuffer));
+
+      if (ImGui::Button("OK")) {
+        renameError.clear();
+
+        if (strlen(renameBuffer) == 0) {
+          renameError = "Base name cannot be empty.";
+        } else if (m_stagedFiles.empty()) {
+          renameError = "No files staged.";
+        } else {
+          // Check if all staged files are in the same directory
+          std::filesystem::path firstDir =
+              std::filesystem::path(m_stagedFiles[0].fullPath).parent_path();
+          bool sameDir = true;
+          for (const auto &file : m_stagedFiles) {
+            if (std::filesystem::path(file.fullPath).parent_path() !=
+                firstDir) {
+              sameDir = false;
+              break;
+            }
+          }
+
+          if (!sameDir) {
+            renameError = "Files must be in the same directory.";
+          } else {
+            // Perform bulk rename
+            int counter = 1;
+            for (const auto &file : m_stagedFiles) {
+              std::filesystem::path oldPath = file.fullPath;
+              std::filesystem::path newPath =
+                  firstDir /
+                  (std::string(renameBuffer) + "-" + std::to_string(counter) +
+                   oldPath.extension().string());
+
+              try {
+                std::filesystem::rename(oldPath, newPath);
+                Logger::Info("Renamed " + oldPath.string() + " -> " +
+                             newPath.string());
+              } catch (const std::exception &ex) {
+                Logger::Error("Failed to rename " + oldPath.string() + ": " +
+                              ex.what());
+              }
+              counter++;
+            }
+            showBulkRenamePopup = false; // close popup
+          }
+        }
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Cancel")) {
+        showBulkRenamePopup = false;
+      }
+
+      if (!renameError.empty()) {
+        ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", renameError.c_str());
+      }
+
+      ImGui::EndPopup();
+    }
     
     ImGui::SameLine();
     ImGui::Spacing();
     ImGui::SameLine();
 
+    /*
+    * @note Clear
+    */
     if (ImGui::ImageButton(iconClear, ImVec2(16, 16)))
     {
         Logger::Info("Clear All clicked");
-        // TODO: Clear all files from dropover
+        m_stagedFiles.clear();
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Clear All");
     
+    /*
+    * @note Move to recycle bin
+    */
     ImGui::SameLine();
-    if (ImGui::ImageButton(iconTrash, ImVec2(16, 16)))
-    {
-        Logger::Info("Recycle Bin clicked");
-        // TODO: Implement delete selected files
+    if (ImGui::ImageButton(iconTrash, ImVec2(16, 16))) {
+      // Assuming FileItem has a member `std::filesystem::path path;`
+      std::vector<std::filesystem::path> paths;
+      paths.reserve(m_stagedFiles.size());
+
+      bool hasCriticalFileOrDir = false;
+
+      for (const auto &item : m_stagedFiles) {
+        paths.push_back(
+            item.fullPath); // or item.GetPath() if you have a getter
+        if (IsCriticalFileOrDir(item.fullPath))
+          hasCriticalFileOrDir = true;
+      }
+
+      // Now you can call
+      if (!hasCriticalFileOrDir) // cross-check first
+      {
+        MoveToRecycleBin(paths);
+      } else {
+        Logger::Warning("Attempted to delete critical files!");
+        // TODO: Show warning dialog to user
+      }
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Recycle Bin");
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Recycle Bin");
 
     ImGui::SameLine();
     ImGui::Spacing();
@@ -2230,8 +2549,8 @@ void MainWindow::RenderFileList()
     if (m_stagedFiles.empty())
     {
         // These would be actual files dropped by user
-        m_stagedFiles.push_back(FileItem("C:\\Windows\\System32\\notepad.exe"));
-        m_stagedFiles.push_back(FileItem("C:\\Windows\\System32"));
+        //m_stagedFiles.push_back(FileItem("C:\\Windows\\System32\\notepad.exe"));
+        //m_stagedFiles.push_back(FileItem("C:\\Windows\\System32"));
     }
     
     // Table for file list (like Windows Explorer detail view)

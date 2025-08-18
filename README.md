@@ -28,24 +28,8 @@ cmake --build . --config Debug
 
 ## Roadmap
 
-### Core Modules
-
-- [x] Base interface
-- [ ] File Staging implementation
-- [ ] Database integration
-- [ ] Pomodoro Timer (DB integration)
-- [ ] Kanban (DB integration)
-- [ ] To-Do (DB integration)
-- [ ] Clipboard Manager (DB integration)
-- [ ] Image Converter
-- [ ] Image Compressor
-- [ ] PDF Compressor
-
-### Future Development
-
-- [ ] Activity Monitoring
-- [ ] Sync API
+See TODO.md
 
 ## Credits
 
-Project initiated by Alviansyah Maulana Iskandar ([https://github.com/alviansm](https://github.com/alviansm))
+Project initiated by ([Alviansyah Maulana Iskandar](https://github.com/alviansm)).

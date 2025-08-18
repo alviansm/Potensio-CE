@@ -4,6 +4,9 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <filesystem>
+#include <functional>
+#include <fstream>
 
 #include "imgui.h"
 
@@ -120,11 +123,29 @@ private:
     bool m_alwaysOnTop = false;
     AppConfig* m_config = nullptr;
 
+    float m_pasteProgress = 0.0f;
+    bool m_pasteInProgress = false;
+    float m_cutProgress = 0.0f;
+    bool m_cutInProgress = false;
+    bool showBulkRenamePopup = false;
+    char renameBuffer[256] = "";
+    std::string renameError;
+
     // File staging
     std::vector<FileItem> m_stagedFiles;
 
     // File staging utilities
     std::string BrowseForFolder(HWND hwndOwner = nullptr);
+    bool CopyFileWithProgress(const std::filesystem::path &src,
+                              const std::filesystem::path &dst,
+                              std::function<void(float)> progressCallback);
+    bool MoveFileOrDirWithProgress(const std::filesystem::path &src,
+                                   const std::filesystem::path &dst,
+                                   std::function<void(float)> progressCallback);
+    bool IsCriticalFileOrDir(const std::string &path);
+    bool IsSystemPath(const std::string &path);
+    bool IsProtectedFile(const std::string &path);
+    void MoveToRecycleBin(const std::vector<std::filesystem::path> &files);
     
     // Pomodoro integration
     std::unique_ptr<PomodoroTimer> m_pomodoroTimer;
