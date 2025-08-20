@@ -1,0 +1,3 @@
+[submodule "external/wintoast"]
+	path = external/wintoast
+	url = https://github.com/mohabouje/WinToast.git
