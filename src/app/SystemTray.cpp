@@ -117,6 +117,7 @@ LRESULT CALLBACK SystemTray::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
         CREATESTRUCT* cs = reinterpret_cast<CREATESTRUCT*>(lParam);
         tray = static_cast<SystemTray*>(cs->lpCreateParams);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(tray));
+        DragAcceptFiles(hwnd, TRUE);
     }
     else
     {
@@ -130,6 +131,25 @@ LRESULT CALLBACK SystemTray::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
             case WM_TRAYICON:
                 switch (lParam)
                 {
+                      case WM_DROPFILES: {
+                        HDROP hDrop = reinterpret_cast<HDROP>(wParam);
+                        char filePath[MAX_PATH];
+                        UINT fileCount = DragQueryFileA(hDrop, 0xFFFFFFFF, nullptr, 0);
+
+                        for (UINT i = 0; i < fileCount; i++) {
+                          DragQueryFileA(hDrop, i, filePath, MAX_PATH);
+                          Logger::Info("Dropped file: {}", filePath);
+
+                          // Wake up and show main window
+                          if (Application::GetInstance())
+                            Application::GetInstance()->ShowMainWindow();
+
+                          // You can now forward `filePath` to your app logic
+                        }
+
+                        DragFinish(hDrop);
+                        return 0;
+                      }
                     case WM_LBUTTONUP:
                         tray->OnTrayIconClicked();
                         break;

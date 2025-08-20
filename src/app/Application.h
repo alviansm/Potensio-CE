@@ -10,6 +10,8 @@
 class UIManager;
 class SystemTray;
 class AppConfig;
+class MouseTracker;
+
 
 class Application
 {
@@ -60,6 +62,8 @@ public:
 private:
     // Static instance for singleton access
     static Application* s_instance;
+
+    static HHOOK g_mouseHook;
     
     // Application state
     HINSTANCE m_hInstance = nullptr;
@@ -82,6 +86,8 @@ private:
     void HandlePomodoroHotkey();
     void HandleQuickCaptureHotkey();
     void HandleShowTodayTasksHotkey();
+
+    static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam);
     
     // Settings change callbacks
     void OnSettingsChanged();

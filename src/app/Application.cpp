@@ -5,10 +5,12 @@
 #include "ui/UIManager.h"
 #include "core/Logger.h"
 #include "platform/windows/WindowsHooks.h"
+#include "app/MouseTracker.h"
 #include <chrono>
 
 // Static instance
 Application* Application::s_instance = nullptr;
+HHOOK Application::g_mouseHook = nullptr;
 
 Application::Application()
 {
@@ -51,6 +53,8 @@ bool Application::Initialize(HINSTANCE hInstance)
         Logger::Error("Failed to initialize hotkeys");
         return false;
     }
+
+    g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, nullptr, 0);
     
     // Apply settings-based configurations
     ApplyStartupSettings();
@@ -122,6 +126,9 @@ void Application::Shutdown()
     
     // Unregister hotkeys
     UnregisterSettingsHotkeys();
+
+    if (g_mouseHook)
+      UnhookWindowsHookEx(g_mouseHook);
     
     // Cleanup in reverse order
     WindowsHooks::Cleanup();
@@ -579,6 +586,31 @@ void Application::HandleShowTodayTasksHotkey()
     
     // TODO: Switch to Todo module and show today's tasks
 }
+
+LRESULT CALLBACK Application::LowLevelMouseProc(int nCode, WPARAM wParam,
+                                                LPARAM lParam) {
+  if (nCode == HC_ACTION) {
+    auto *p = reinterpret_cast<MSLLHOOKSTRUCT *>(lParam);
+
+    switch (wParam) {
+    case WM_LBUTTONDOWN:
+      MouseTracker::Get().OnDragStart(p->pt);
+      break;
+
+    case WM_MOUSEMOVE:
+      if (GetAsyncKeyState(VK_LBUTTON) & 0x8000)
+        MouseTracker::Get().OnMouseMove(p->pt);
+      break;
+
+    case WM_LBUTTONUP:
+      MouseTracker::Get().OnDragEnd();
+      break;
+    }
+  }
+
+  return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
+}
+
 
 // Settings change notification
 void Application::OnSettingsChanged()

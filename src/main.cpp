@@ -3,7 +3,15 @@
 #include <iostream>
 #include "app/Application.h"
 #include "core/Logger.h"
+#include "core/Notify.h"
 #include <tchar.h>
+
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.UI.Notifications.h>
+#include <shobjidl.h>  
+#include <propvarutil.h>  
+#include <propkey.h>  
+#include <shobjidl_core.h>  
 
 // Mutex the app
 #define POTENSIO_MUTEX_NAME _T("Potensio_SingleInstance_Mutex")
@@ -16,6 +24,10 @@ HWND FindPotensioWindow()
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, int /*nCmdShow*/)
 {
+//   winrt::init_apartment();
+    
+    // Notify::Initialize(L"com.alvians.potensio");
+
     // Create named mutex to enforce single instance
     HANDLE hMutex = CreateMutex(NULL, FALSE, POTENSIO_MUTEX_NAME);
     if (GetLastError() == ERROR_ALREADY_EXISTS)
@@ -61,41 +73,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
         return -1;
     }
 }
-// int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, int /*nCmdShow*/)
-// {
-//     // Initialize logger
-//     Logger::Initialize();
-//     Logger::Info("Potensio starting up...");
-
-//     try 
-//     {
-//         // Create and run application
-//         Application app;
-//         if (!app.Initialize(hInstance))
-//         {
-//             Logger::Error("Failed to initialize application");
-//             return -1;
-//         }
-
-//         // Main application loop
-//         int result = app.Run();
-        
-//         Logger::Info("Potensio shutting down...");
-//         return result;
-//     }
-//     catch (const std::exception& e)
-//     {
-//         Logger::Error("Unhandled exception: {}", e.what());
-//         MessageBoxA(nullptr, e.what(), "Potensio - Fatal Error", MB_ICONERROR);
-//         return -1;
-//     }
-//     catch (...)
-//     {
-//         Logger::Error("Unknown exception occurred");
-//         MessageBoxA(nullptr, "An unknown error occurred", "Potensio - Fatal Error", MB_ICONERROR);
-//         return -1;
-//     }
-// }
 
 // Console entry point for debug builds
 int main()

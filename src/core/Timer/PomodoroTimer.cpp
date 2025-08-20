@@ -228,7 +228,7 @@ PomodoroTimer::PomodoroConfig::ColorRange PomodoroTimer::GetCurrentColor() const
     
     // Normal color based on progress
     float progress = GetProgressPercentage();
-    
+
     if (progress > 0.9f)
         return m_config.colorHigh;
     else if (progress > 0.5f)

@@ -1,9 +1,10 @@
-#include "ui/UIManager.h"
+﻿#include "ui/UIManager.h"
 #include "ui/Windows/MainWindow.h"
 #include "ui/Windows/SettingsWindow.h"
 #include "app/Application.h"
 #include "app/AppConfig.h"
 #include "core/Logger.h"
+#include "FileDropTarget.h"
 #include "resource.h"
 
 #include <imgui.h>
@@ -87,6 +88,8 @@ bool UIManager::Initialize(HINSTANCE hInstance)
     m_isInitialized = true;
 
     DragAcceptFiles(m_hwnd, TRUE);
+    //CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    //RegisterDragDrop(m_hwnd, new FileDropTarget(this));
 
     Logger::Info("UIManager initialized successfully");
     return true;
@@ -129,6 +132,9 @@ void UIManager::Shutdown()
         ReleaseDC(m_hwnd, m_hdc);
         m_hdc = nullptr;
     }
+
+    RevokeDragDrop(m_hwnd);
+    CoUninitialize();
 
     // Destroy window
     if (m_hwnd)
@@ -191,15 +197,40 @@ void UIManager::Render()
     SwapBuffers(m_hdc);
 }
 
-void UIManager::ShowWindow()
-{
-    if (m_hwnd)
-    {
-        ::ShowWindow(m_hwnd, SW_SHOW);
-        SetForegroundWindow(m_hwnd);
-        m_isVisible = true;
-    }
+
+void UIManager::ShowWindow() {
+  if (!m_hwnd)
+    return;
+
+  if (IsIconic(m_hwnd)) {
+    // If minimized → restore
+    ::ShowWindow(m_hwnd, SW_RESTORE);
+  } else {
+    // If already visible → ensure it’s shown
+    ::ShowWindow(m_hwnd, SW_SHOW);
+  }
+
+  // Force bring to foreground
+  ForceToForeground(m_hwnd);
+
+  // Backup calls (just in case)
+  ::BringWindowToTop(m_hwnd);
+  ::SetForegroundWindow(m_hwnd);
+
+  m_isVisible = true;
 }
+
+
+//void UIManager::ShowWindow() {
+//  if (m_hwnd) {
+//    ::ShowWindow(m_hwnd,
+//                 SW_RESTORE); // use RESTORE instead of SHOW for minimized case
+//    ::ShowWindow(m_hwnd, SW_SHOW); // ensure visible if hidden
+//    SetForegroundWindow(m_hwnd);
+//    m_isVisible = true;
+//  }
+//}
+
 
 void UIManager::HideWindow()
 {
@@ -213,6 +244,19 @@ void UIManager::HideWindow()
 bool UIManager::IsWindowVisible() const
 {
     return m_isVisible && m_hwnd && ::IsWindowVisible(m_hwnd);
+}
+
+void UIManager::ForceToForeground(HWND hwnd) {
+  DWORD foreThread = GetWindowThreadProcessId(GetForegroundWindow(), nullptr);
+  DWORD appThread = GetCurrentThreadId();
+
+  if (foreThread != appThread) {
+    AttachThreadInput(foreThread, appThread, TRUE);
+    SetForegroundWindow(hwnd);
+    AttachThreadInput(foreThread, appThread, FALSE);
+  } else {
+    SetForegroundWindow(hwnd);
+  }
 }
 
 void UIManager::SetWindowInfo(const WindowInfo& info)
@@ -411,53 +455,86 @@ LRESULT CALLBACK UIManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPAR
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-LRESULT UIManager::HandleMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    // Let ImGui handle the message first
-    if (ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
-        return true;
+LRESULT UIManager::HandleMessage(HWND hwnd, UINT uMsg, WPARAM wParam,
+                                 LPARAM lParam) {
+  if (ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
+    return true;
 
-    switch (uMsg)
-    {
-        case WM_SIZE:
-            if (wParam != SIZE_MINIMIZED)
-            {
-                // Handle window resize
-                Logger::Debug("Window resized");
-            }
-            return 0;
+  switch (uMsg) {
+  case WM_DROPFILES: {
+    HDROP hDrop = (HDROP)wParam;
+    UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, NULL, 0);
 
-        case WM_CLOSE:
-            HideWindow();
-            return 0;
-
-        case WM_DESTROY:
-            PostQuitMessage(0);
-            return 0;
-
-        case WM_SHOW_POTENSIO:
-            ShowWindow();
-            return 0;
-        
-        case WM_DROPFILES:
-            {
-                HDROP hDrop = (HDROP)wParam;
-                UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, NULL, 0);
-
-                for (UINT i = 0; i < fileCount; i++)
-                {
-                    char filePath[MAX_PATH];
-                    DragQueryFile(hDrop, i, filePath, MAX_PATH);
-
-                    // Pass the file path to MainWindow
-                    if (m_mainWindow)
-                        m_mainWindow->AddStagedFile(filePath);
-                }
-
-                DragFinish(hDrop);
-                return 0;
-            }
+    for (UINT i = 0; i < fileCount; i++) {
+      char filePath[MAX_PATH];
+      DragQueryFile(hDrop, i, filePath, MAX_PATH);
+      if (m_mainWindow)
+        m_mainWindow->AddStagedFile(filePath);
     }
+    DragFinish(hDrop);
 
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    // Start shake detection
+    m_draggingFile = true;
+    m_lastDirection = 0;
+    m_shakeCount = 0;
+    m_lastShakeTime = GetTickCount();
+    GetCursorPos(&m_lastMousePos);
+    return 0;
+  }
+
+  case WM_MOUSEMOVE: {
+    if (m_draggingFile) {
+      POINT p;
+      GetCursorPos(&p);
+      int dx = p.x - m_lastMousePos.x;
+
+      if (abs(dx) > 20) // movement threshold
+      {
+        int direction = (dx > 0) ? 1 : -1;
+        DWORD now = GetTickCount();
+
+        // Reset if too much time has passed
+        if (now - m_lastShakeTime > 1000) {
+          m_shakeCount = 0;
+        }
+
+        // Count direction change
+        if (m_lastDirection != 0 && direction != m_lastDirection) {
+          m_shakeCount++;
+          m_lastShakeTime = now;
+        }
+
+        m_lastDirection = direction;
+        m_lastMousePos = p;
+
+        // Trigger after 4 shakes
+        if (m_shakeCount >= 4) {
+          ShowWindow(); // your wrapper
+          m_draggingFile = false;
+        }
+      }
+    }
+    break;
+  }
+
+  case WM_LBUTTONUP: // drag ended
+  {
+    m_draggingFile = false;
+    break;
+  }
+
+  case WM_CLOSE:
+    HideWindow();
+    return 0;
+
+  case WM_DESTROY:
+    PostQuitMessage(0);
+    return 0;
+
+  case WM_SHOW_POTENSIO:
+    ShowWindow();
+    return 0;
+  }
+
+  return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }

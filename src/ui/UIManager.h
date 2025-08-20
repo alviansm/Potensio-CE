@@ -38,6 +38,7 @@ public:
     void ShowWindow();
     void HideWindow();
     bool IsWindowVisible() const;
+    void ForceToForeground(HWND hwnd);
 
     // Window state
     void SetWindowInfo(const WindowInfo& info);
@@ -72,6 +73,13 @@ private:
     bool m_isInitialized;
     WindowInfo m_windowInfo;
     
+    // Drag & Drop and Wiggle Trigger
+    bool m_draggingFile = false;
+    POINT m_lastMousePos = {};
+    int m_lastDirection = 0; // -1 = left, +1 = right, 0 = none
+    int m_shakeCount = 0;
+    DWORD m_lastShakeTime = 0;
+
     // UI Components
     std::unique_ptr<MainWindow> m_mainWindow;
     std::unique_ptr<SettingsWindow> m_settingsWindow;

@@ -29,7 +29,7 @@ endif()
 message(STATUS "Found SQLite at: ${SQLITE_DIR}")
 
 # Create a separate SQLite library
-add_library(sqlite3 STATIC ${SQLITE_DIR}/sqlite3.c)
+add_library(sqlite3 STATIC ${SQLITE_DIR}/sqlite3.c "src/ui/FileDropTarget.h" "src/app/MouseTracker.h" "src/core/Notify.h" "src/core/Notify.cpp")
 
 # Set SQLite to compile as C (not C++)
 set_target_properties(sqlite3 PROPERTIES
@@ -119,7 +119,7 @@ add_executable(Potensio
     ${APP_SOURCES}
     ${IMGUI_SOURCES}
     # SQLite is now a separate library, not included here
-)
+ "src/ui/FileDropTarget.h" "src/app/MouseTracker.h" "src/core/Notify.h" "src/core/Notify.cpp")
 
 # Include directories
 target_include_directories(Potensio PRIVATE
@@ -144,6 +144,7 @@ target_link_libraries(Potensio PRIVATE
     uuid
     comdlg32
     advapi32
+    runtimeobject.lib
 )
 
 # Compiler flags with /FS to fix PDB issues

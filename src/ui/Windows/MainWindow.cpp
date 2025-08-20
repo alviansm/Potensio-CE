@@ -12,6 +12,7 @@
 #include "core/Database/PomodoroDatabase.h"
 
 #include "core/Utils.h"
+#include "core/Notify.h"
 #include "core/Logger.h"
 
 #include "app/Application.h"
@@ -1589,6 +1590,7 @@ void MainWindow::RenderPomodoroControls()
     {
         if (ImGui::ImageButton(iconPlay, buttonSize))
         {
+            // Notify::Toast(L"Pomodoro Started!", L"Good luck with your task!");
             m_pomodoroTimer->Start();
             OnPomodoroSessionStart();
         }
