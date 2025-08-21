@@ -178,7 +178,7 @@ LRESULT CALLBACK SystemTray::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
                         break;
                     case MENU_ABOUT:
                         MessageBoxA(nullptr, 
-                            "Potensio v0.1.0 - Sprint 1\nAll-in-one productivity suite\n\nBuilt with Dear ImGui and C++\n\nFeatures: Dropover, File Management, System Tray", 
+                            "Potensio v0.1.0 - Sprint 1\nproductivity suite\n\nBuilt with Dear ImGui and C++\n\nFeatures: Dropover, File Management, System Tray", 
                             "About Potensio", 
                             MB_ICONINFORMATION);
                         break;

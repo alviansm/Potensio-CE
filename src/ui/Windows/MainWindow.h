@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <functional>
 #include <fstream>
+#include <cstdlib>
 
 #include "imgui.h"
 
@@ -32,6 +33,8 @@ class AppConfig;
 
 class DatabaseManager;
 class PomodoroDatabase;
+class KanbanDatabase;
+class TodoDatabase;
 
 enum class ModulePage
 {
@@ -146,6 +149,10 @@ private:
     bool IsSystemPath(const std::string &path);
     bool IsProtectedFile(const std::string &path);
     void MoveToRecycleBin(const std::vector<std::filesystem::path> &files);
+
+    // File staging context menu
+    void OpenFile(const std::string &path);
+    void ShowInExplorer(const std::string &path);
     
     // Pomodoro integration
     std::unique_ptr<PomodoroTimer> m_pomodoroTimer;
@@ -287,6 +294,7 @@ private:
     
     // Content area rendering
     void RenderMenuBar();
+    void RenderExitPopup();
     void RenderContentArea();
 
     // Settings Module - Main Interface
@@ -333,6 +341,7 @@ private:
     void RenderPomodoroProgress();
     void RenderPomodoroSessionInfo();
     void RenderPomodoroQuickSettings();
+    void RenderPomodoroNotifications();
     
     // Pomodoro helpers
     void OnPomodoroSessionComplete(int sessionType);
@@ -459,7 +468,10 @@ private:
     // Database members
     std::shared_ptr<DatabaseManager> m_databaseManager;
     std::shared_ptr<PomodoroDatabase> m_pomodoroDatabase;
+    std::shared_ptr<KanbanDatabase> m_kanbanDatabase;
     
+    bool m_exitPopupOpen = false;
+
     // Current active session tracking
     int m_currentSessionId = -1;
     

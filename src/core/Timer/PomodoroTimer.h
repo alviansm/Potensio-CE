@@ -23,6 +23,14 @@ public:
         LongBreak
     };
 
+    struct NotifyPomodoro {
+      bool hasNotify10;
+      bool hasNotify50;
+      bool hasNotify90;
+      bool hasNotifyTimeup;
+      bool hasNotifyStart;
+    };
+
     struct PomodoroConfig
     {
         int workDurationMinutes = 25;
@@ -53,6 +61,7 @@ public:
         std::chrono::seconds remaining;
         std::chrono::seconds pausedTime;
         bool isActive;
+        NotifyPomodoro notify;
     };
 
 public:
@@ -73,7 +82,9 @@ public:
 
     // State queries
     TimerState GetState() const { return m_state; }
+    NotifyPomodoro& GetNotifications();
     SessionInfo GetCurrentSession() const;
+    SessionType& GetCurrentSessionType();
     float GetProgressPercentage() const;
     std::string GetFormattedTimeRemaining() const;
     std::string GetSessionDescription() const;
@@ -105,6 +116,7 @@ private:
     PomodoroConfig m_config;
     TimerState m_state;
     SessionType m_currentSessionType;
+    NotifyPomodoro m_notifications; // To prevent send notification on each render
     
     int m_currentSession;
     int m_completedSessions;

@@ -44,6 +44,11 @@ IDI_TIMER_RESET RCDATA "icons/pomodoro/icon-reset.png"
 IDI_TIMER_SKIP RCDATA "icons/pomodoro/icon-skip.png"
 IDI_TIMER_STOP RCDATA "icons/pomodoro/icon-stop.png"
 
+SOUND_POMODORO_END RCDATA "sfx/pomodoro_end.mp3"
+SOUND_BREAK_END RCDATA "sfx/break_end.mp3"
+SOUND_SUCCESS RCDATA "sfx/success.mp3"
+SOUND_NOTIFICATION RCDATA "sfx/notification.mp3"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION 0,1,0,0
 PRODUCTVERSION 0,1,0,0
@@ -57,8 +62,8 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "Potensio Development"
-            VALUE "FileDescription", "Potensio - All-in-One Productivity Suite"
+            VALUE "Alvians", "Potensio Development"
+            VALUE "FileDescription", "Potensio - Productivity Suite"
             VALUE "FileVersion", "0.1.0.0"
             VALUE "InternalName", "Potensio"
             VALUE "LegalCopyright", "Copyright (C) 2025"

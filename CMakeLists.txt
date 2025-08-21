@@ -17,6 +17,9 @@ find_package(OpenGL REQUIRED)
 # SQLite setup - FIXED VERSION
 set(SQLITE_DIR ${CMAKE_SOURCE_DIR}/external/sqlite)
 
+# WinToast setup
+set(WINTOAST_DIR ${CMAKE_SOURCE_DIR}/external/wintoast)
+
 # Verify SQLite files exist
 if(NOT EXISTS "${SQLITE_DIR}/sqlite3.c")
     message(FATAL_ERROR "SQLite source file not found at: ${SQLITE_DIR}/sqlite3.c")
@@ -28,8 +31,23 @@ endif()
 
 message(STATUS "Found SQLite at: ${SQLITE_DIR}")
 
-# Create a separate SQLite library
-add_library(sqlite3 STATIC ${SQLITE_DIR}/sqlite3.c "src/ui/FileDropTarget.h" "src/app/MouseTracker.h" "src/core/Notify.h" "src/core/Notify.cpp")
+# Verify WinToast files exist
+if(NOT EXISTS "${WINTOAST_DIR}/src/wintoastlib.cpp")
+    message(FATAL_ERROR "WinToast source file not found at: ${WINTOAST_DIR}/src/wintoastlib.cpp")
+endif()
+
+if(NOT EXISTS "${WINTOAST_DIR}/include/wintoastlib.h")
+    message(FATAL_ERROR "WinToast header file not found at: ${WINTOAST_DIR}/include/wintoastlib.h")
+endif()
+
+message(STATUS "Found WinToast at: ${WINTOAST_DIR}")
+
+# Create a separate SQLite library - REMOVED INCORRECT FILES
+add_library(sqlite3 STATIC ${SQLITE_DIR}/sqlite3.c)
+
+# Create WinToast library
+add_library(wintoast STATIC
+    ${WINTOAST_DIR}/src/wintoastlib.cpp)
 
 # Set SQLite to compile as C (not C++)
 set_target_properties(sqlite3 PROPERTIES
@@ -50,14 +68,39 @@ target_compile_definitions(sqlite3 PRIVATE
 # SQLite include directory
 target_include_directories(sqlite3 PUBLIC ${SQLITE_DIR})
 
+# WinToast setup
+target_include_directories(wintoast PUBLIC ${WINTOAST_DIR}/include)
+
+# Link dependencies for WinToast (needs Windows Runtime APIs)
+if(WIN32)
+    target_link_libraries(wintoast PUBLIC
+        user32
+        shell32
+        ole32
+        runtimeobject
+    )
+    
+    # Add Windows-specific compile definitions for WinToast
+    target_compile_definitions(wintoast PRIVATE
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX
+    )
+endif()
+
 # Disable warnings for SQLite (it's external code)
 if(MSVC)
     target_compile_options(sqlite3 PRIVATE 
         /w  # Disable all warnings for SQLite
     )
+    target_compile_options(wintoast PRIVATE 
+        /w  # Disable all warnings for WinToast
+    )
 else()
     target_compile_options(sqlite3 PRIVATE 
         -w  # Disable all warnings for SQLite
+    )
+    target_compile_options(wintoast PRIVATE 
+        -w  # Disable all warnings for WinToast
     )
 endif()
 
@@ -73,7 +116,7 @@ set(IMGUI_SOURCES
     ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
 )
 
-# Application sources
+# Application sources - MOVED Notify.cpp HERE where it belongs
 set(APP_SOURCES
     src/main.cpp
     src/app/Application.cpp
@@ -81,6 +124,8 @@ set(APP_SOURCES
     src/app/SystemTray.cpp
     src/core/Logger.cpp
     src/core/Utils.cpp
+    
+    src/core/Notify.cpp
     src/core/Timer/PomodoroTimer.cpp
     src/core/Kanban/KanbanManager.cpp
     src/core/Todo/TodoManager.cpp
@@ -114,12 +159,11 @@ if(WIN32)
     message(STATUS "Windows resource file disabled - using default icon")
 endif()
 
-# Create executable with explicit source grouping
+# Create executable with explicit source grouping - REMOVED DUPLICATE HEADERS
 add_executable(Potensio 
     ${APP_SOURCES}
     ${IMGUI_SOURCES}
-    # SQLite is now a separate library, not included here
- "src/ui/FileDropTarget.h" "src/app/MouseTracker.h" "src/core/Notify.h" "src/core/Notify.cpp")
+ "src/core/Timer/Messages.h" "src/core/Database/KanbanDatabase.h" "src/core/Database/KanbanDatabase.cpp")
 
 # Include directories
 target_include_directories(Potensio PRIVATE
@@ -127,13 +171,15 @@ target_include_directories(Potensio PRIVATE
     ${IMGUI_DIR}
     ${IMGUI_DIR}/backends
     ${CMAKE_SOURCE_DIR}/external/stb
-    ${SQLITE_DIR}  # Keep this for headers
+    ${SQLITE_DIR}
+    ${WINTOAST_DIR}/include  # This is crucial for finding wintoastlib.h
     resources
 )
 
 # Link libraries - IMPORTANT: Added sqlite3 library here
 target_link_libraries(Potensio PRIVATE
-    sqlite3  # This is the key addition
+    sqlite3
+    wintoast  # Link the WinToast library
     OpenGL::GL
     gdi32
     shell32
@@ -144,7 +190,6 @@ target_link_libraries(Potensio PRIVATE
     uuid
     comdlg32
     advapi32
-    runtimeobject.lib
 )
 
 # Compiler flags with /FS to fix PDB issues
@@ -189,6 +234,8 @@ source_group("Source Files\\App" FILES
 source_group("Source Files\\Core" FILES 
     src/core/Logger.cpp
     src/core/Utils.cpp
+    src/core/DesktopNotificationManagerCompat.cpp
+    src/core/Notify.cpp
 )
 
 source_group("Source Files\\Core\\Timer" FILES 
@@ -239,6 +286,10 @@ source_group("Header Files\\App" FILES
     src/app/SystemTray.h
 )
 
+source_group("Header Files\\Core" FILES 
+    src/core/Notify.h
+)
+
 source_group("Header Files\\Core\\Timer" FILES 
     src/core/Timer/PomodoroTimer.h
 )
@@ -283,10 +334,17 @@ source_group("External\\ImGui" FILES
     ${IMGUI_SOURCES}
 )
 
+source_group("External\\WinToast" FILES 
+    ${WINTOAST_DIR}/src/wintoastlib.cpp
+    ${WINTOAST_DIR}/include/wintoastlib.h
+)
+
 # Print configuration summary
 message(STATUS "=== Potensio Build Configuration ===")
 message(STATUS "SQLite source: ${SQLITE_DIR}/sqlite3.c")
 message(STATUS "SQLite library: sqlite3 (static)")
+message(STATUS "WinToast source: ${WINTOAST_DIR}/src/wintoastlib.cpp")
+message(STATUS "WinToast library: wintoast (static)")
 message(STATUS "Database sources: DatabaseManager.cpp, PomodoroDatabase.cpp")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")

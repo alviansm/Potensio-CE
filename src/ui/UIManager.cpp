@@ -3,6 +3,7 @@
 #include "ui/Windows/SettingsWindow.h"
 #include "app/Application.h"
 #include "app/AppConfig.h"
+#include "core/Notify.h"
 #include "core/Logger.h"
 #include "FileDropTarget.h"
 #include "resource.h"
@@ -329,7 +330,7 @@ bool UIManager::CreateMainWindow(HINSTANCE hInstance)
     m_hwnd = CreateWindowEx(
         WS_EX_APPWINDOW,
         WINDOW_CLASS_NAME,
-        "Potensio - Productivity Suite",
+        "Potensio - Productivity Suite (Experimental)",
         WS_OVERLAPPEDWINDOW,
         m_windowInfo.x, m_windowInfo.y,
         m_windowInfo.width, m_windowInfo.height,
@@ -524,6 +525,7 @@ LRESULT UIManager::HandleMessage(HWND hwnd, UINT uMsg, WPARAM wParam,
   }
 
   case WM_CLOSE:
+    Notify::show(L"Potensio", L"Potensio running on background. Click File -> Exit to kill.");
     HideWindow();
     return 0;
 

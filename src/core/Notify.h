@@ -1,12 +1,29 @@
 #pragma once
+#include "resource.h" // Include your resource header
 #include <string>
-#include <windows.data.xml.dom.h>
+#include <wintoastlib.h>
 
-class Notify {
+class Notify : public WinToastLib::IWinToastHandler {
 public:
-  static void Initialize(const std::wstring &appId);
-  static void Toast(const std::wstring &title, const std::wstring &message);
+  // Static method for easy usage with string filename
+  static void show(const std::wstring &title, const std::wstring &message,
+                   const std::wstring &customSoundFile = L"");
+
+  // Static method for easy usage with resource ID
+  static void show(const std::wstring &title, const std::wstring &message,
+                   int resourceId);
+
+  // IWinToastHandler overrides
+  void toastActivated() const override;
+  void toastActivated(int actionIndex) const override;
+  void toastActivated(std::wstring response) const override;
+  void toastDismissed(WinToastDismissalReason state) const override;
+  void toastFailed() const override;
 
 private:
-  static std::wstring s_appId;
+  // Helper methods for sound handling
+  static std::wstring getExecutablePath();
+  static std::wstring getSoundPath(const std::wstring &soundFileName);
+  static std::wstring extractResourceToTemp(int resourceId);
+  static bool fileExists(const std::wstring &path);
 };

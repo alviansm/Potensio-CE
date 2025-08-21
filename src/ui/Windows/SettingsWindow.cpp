@@ -355,7 +355,7 @@ void SettingsWindow::RenderAboutSection()
     ImGui::Spacing();
     
     // Version info
-    ImGui::Text("Version: 0.1.0 - Sprint 1");
+    ImGui::Text("Version: 0.1.0 - Experimental");
     ImGui::Text("Build Date: %s", __DATE__);
     ImGui::Spacing();
     

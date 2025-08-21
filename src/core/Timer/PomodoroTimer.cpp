@@ -117,8 +117,12 @@ void PomodoroTimer::SetConfig(const PomodoroConfig& config)
     Logger::Debug("Pomodoro configuration updated");
 }
 
-PomodoroTimer::SessionInfo PomodoroTimer::GetCurrentSession() const
-{
+PomodoroTimer::NotifyPomodoro& PomodoroTimer::GetNotifications() 
+{ 
+    return m_notifications; 
+}
+
+PomodoroTimer::SessionInfo PomodoroTimer::GetCurrentSession() const {
     SessionInfo info;
     info.type = m_currentSessionType;
     info.sessionNumber = m_currentSession;
@@ -126,6 +130,7 @@ PomodoroTimer::SessionInfo PomodoroTimer::GetCurrentSession() const
     info.duration = m_sessionDuration;
     info.pausedTime = m_sessionPausedTime;
     info.isActive = (m_state == TimerState::Running || m_state == TimerState::Paused);
+    info.notify = m_notifications;
     
     if (m_state == TimerState::Running)
     {
@@ -154,6 +159,10 @@ PomodoroTimer::SessionInfo PomodoroTimer::GetCurrentSession() const
     }
     
     return info;
+}
+
+PomodoroTimer::SessionType &PomodoroTimer::GetCurrentSessionType() {
+  return m_currentSessionType;
 }
 
 float PomodoroTimer::GetProgressPercentage() const
@@ -272,6 +281,15 @@ void PomodoroTimer::StartNewSession()
     m_sessionPausedTime = std::chrono::seconds(0);
     m_sessionDuration = GetSessionDuration(m_currentSessionType);
     m_state = TimerState::Running;
+    
+    NotifyPomodoro newNotifications;
+    newNotifications.hasNotify10 = false;
+    newNotifications.hasNotify50 = false;
+    newNotifications.hasNotify90 = false;
+    newNotifications.hasNotifyStart = false;
+    newNotifications.hasNotifyTimeup = false;
+
+    m_notifications = newNotifications;
     
     Logger::Info("Started {} - Duration: {} minutes", 
                 GetSessionDescription(), 

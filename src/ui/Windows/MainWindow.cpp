@@ -7,9 +7,12 @@
 #include "ui/Windows/ClipboardWindow.h"
 
 #include "core/Timer/PomodoroTimer.h"
+#include "core/Timer/Messages.h"
 #include "core/Todo/TodoManager.h"
+
 #include "core/Database/DatabaseManager.h"
 #include "core/Database/PomodoroDatabase.h"
+#include "core/Database/KanbanDatabase.h"
 
 #include "core/Utils.h"
 #include "core/Notify.h"
@@ -374,6 +377,7 @@ void MainWindow::Render()
     
     // Render menubar
     RenderMenuBar();
+    RenderExitPopup();
     
     // Sidebar
     if (m_sidebar)
@@ -1452,6 +1456,8 @@ void MainWindow::RenderPomodoroModule()
     }
 
     ImGui::PopStyleVar();
+
+    RenderPomodoroNotifications();
 }
 
 void MainWindow::RenderPomodoroTimer()
@@ -1590,10 +1596,11 @@ void MainWindow::RenderPomodoroControls()
     {
         if (ImGui::ImageButton(iconPlay, buttonSize))
         {
-            // Notify::Toast(L"Pomodoro Started!", L"Good luck with your task!");
             m_pomodoroTimer->Start();
             OnPomodoroSessionStart();
         }
+        if (ImGui::IsItemHovered())
+          ImGui::SetTooltip("Start");
     }
     else if (state == PomodoroTimer::TimerState::Running)
     {
@@ -1602,12 +1609,18 @@ void MainWindow::RenderPomodoroControls()
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.8f, 0.3f, 1.0f));
         
         if (ImGui::ImageButton(iconPause, buttonSize))
-            m_pomodoroTimer->Pause();
+        {       
+          m_pomodoroTimer->Pause();
+        } 
+        if (ImGui::IsItemHovered())
+          ImGui::SetTooltip("Pause");
     }
     else if (state == PomodoroTimer::TimerState::Paused)
     {
         if (ImGui::ImageButton(iconPlay, buttonSize))
             m_pomodoroTimer->Resume();
+        if (ImGui::IsItemHovered())
+          ImGui::SetTooltip("Resume");
     }
     
     ImGui::PopStyleColor(2);
@@ -1619,7 +1632,11 @@ void MainWindow::RenderPomodoroControls()
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.3f, 0.3f, 1.0f));
     
     if (ImGui::ImageButton(iconStop, buttonSize))
-        m_pomodoroTimer->Stop();
+    {
+      m_pomodoroTimer->Stop();
+    }
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Stop");
     
     ImGui::PopStyleColor(2);
     
@@ -1649,7 +1666,9 @@ void MainWindow::RenderPomodoroControls()
     
     if (ImGui::ImageButton(iconReset, buttonSize))
         m_pomodoroTimer->Reset();
-    
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Reset");
+
     ImGui::PopStyleColor(2);
 }
 
@@ -1725,23 +1744,7 @@ void MainWindow::RenderPomodoroQuickSettings()
             ImGui::SetTooltip("Automatically start the next session when current one ends");
         }
         
-        ImGui::Columns(1);
-        
-        // if (configChanged) // Legacy code
-        // {
-        //     m_pomodoroTimer->SetConfig(config);
-            
-        //     // Save to config file
-        //     if (m_config)
-        //     {
-        //         m_config->SetValue("pomodoro.work_duration", config.workDurationMinutes);
-        //         m_config->SetValue("pomodoro.short_break", config.shortBreakMinutes);
-        //         m_config->SetValue("pomodoro.long_break", config.longBreakMinutes);
-        //         m_config->SetValue("pomodoro.total_sessions", config.totalSessions);
-        //         m_config->SetValue("pomodoro.auto_start_next", config.autoStartNextSession);
-        //         m_config->Save();
-        //     }
-        // }
+        ImGui::Columns(1);       
 
         if (configChanged)
         {
@@ -1751,6 +1754,46 @@ void MainWindow::RenderPomodoroQuickSettings()
             SavePomodoroConfiguration(config);
         }
     }
+}
+
+void MainWindow::RenderPomodoroNotifications() {
+  float progress = m_pomodoroTimer->GetProgressPercentage();
+  auto &notif = m_pomodoroTimer->GetNotifications();
+
+  PomodoroTimer::SessionType& sessionType = m_pomodoroTimer->GetCurrentSessionType();
+  bool isWork = false;
+  switch (sessionType) {
+      case PomodoroTimer::SessionType::Work:
+        isWork = true;
+        break;
+      default:
+        isWork = false;
+        break;
+  }
+  if (!isWork) return;
+
+  if (progress <= 0.9f && !notif.hasNotify10) {
+    Notify::show(L"Pomodoro Running", Pomodoro::Message::getProgress10(),
+                 SOUND_NOTIFICATION);
+    notif.hasNotify10 = true;
+  } else if (progress <= 0.5f && !notif.hasNotify50) {
+    Notify::show(L"Pomodoro Running", Pomodoro::Message::getProgress50(),
+                 SOUND_NOTIFICATION);
+    notif.hasNotify50 = true;
+  } else if (progress <= 0.1f && !notif.hasNotify90) {
+    Notify::show(L"Pomodoro Running", Pomodoro::Message::getProgress90(),
+                 SOUND_NOTIFICATION);
+    notif.hasNotify90 = true;
+  } else if (progress >= 0.99f && !notif.hasNotifyStart) {
+    Notify::show(L"Pomodoro Running", Pomodoro::Message::getPomodoroStarted(),
+                 SOUND_NOTIFICATION);
+    notif.hasNotifyStart = true;
+  } else if (progress == 0.0f && !notif.hasNotifyTimeup) {
+    Notify::show(L"Pomodoro Running",
+                 Pomodoro::Message::getSingleSessionCompleted(),
+                 SOUND_NOTIFICATION);
+    notif.hasNotifyTimeup = true;
+  }
 }
 
 // Pomodoro Event Handlers
@@ -2107,6 +2150,35 @@ void MainWindow::MoveToRecycleBin(
 #endif
 }
 
+void MainWindow::OpenFile(const std::string &path) {
+#if defined(_WIN32)
+  std::string command = "start \"\" \"" + path + "\"";
+  system(command.c_str());
+#elif defined(__APPLE__)
+  std::string command = "open \"" + path + "\"";
+  system(command.c_str());
+#else // Linux/Unix
+  std::string command = "xdg-open \"" + path + "\"";
+  system(command.c_str());
+#endif
+}
+
+void MainWindow::ShowInExplorer(const std::string &path) 
+{
+#if defined(_WIN32)
+  std::string command = "explorer /select,\"" + path + "\"";
+  system(command.c_str());
+#elif defined(__APPLE__)
+  std::string command = "open -R \"" + path + "\"";
+  system(command.c_str());
+#else // Linux/Unix
+  // Just open the folder containing the file
+  std::string dir = Utils::GetDirectoryName(path);
+  std::string command = "xdg-open \"" + dir + "\"";
+  system(command.c_str());
+#endif
+}
+
 //////////////////////////
 //
 //////////////////////////
@@ -2118,27 +2190,30 @@ void MainWindow::RenderMenuBar()
         // File Menu
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("New Session", "Ctrl+N"))
+            if (ImGui::BeginMenu("Export data"))
             {
-                Logger::Info("New Session clicked");
-                // TODO: Implement new session
-            }
-            
-            if (ImGui::MenuItem("Open...", "Ctrl+O"))
-            {
-                Logger::Info("Open clicked");
-                // TODO: Implement file open dialog
-            }
+                if (ImGui::MenuItem("Pomodoro"))
+                { 
+                    /* handle csv export */ 
+                }
+                if (ImGui::MenuItem("Kanban")) 
+                { 
+                    /* handle json export */ 
+                }
+                if (ImGui::MenuItem("Todo")) 
+                { 
+                    /* handle xml export */ 
+                }
+
+                ImGui::EndMenu();
+            }            
             
             ImGui::Separator();
             
             if (ImGui::MenuItem("Exit"))
             {
                 Logger::Info("Exit clicked from menu");
-                if (Application::GetInstance())
-                {
-                    Application::GetInstance()->RequestExit();
-                }
+                m_exitPopupOpen = true;
             }
             
             ImGui::EndMenu();
@@ -2221,6 +2296,52 @@ void MainWindow::RenderMenuBar()
         }
         
         ImGui::EndMenuBar();
+    }
+}
+
+void MainWindow::RenderExitPopup()
+{
+    if (m_exitPopupOpen)
+      ImGui::OpenPopup("Exit Confirmation");
+
+    // The popup will only render if it was opened with ImGui::OpenPopup()
+    if (ImGui::BeginPopupModal("Exit Confirmation", &m_exitPopupOpen, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Do you want to close to tray or fully exit?");
+        ImGui::Separator();
+
+        if (ImGui::Button("Close to Tray"))
+        {
+            Logger::Info("Closing to tray");   
+            Notify::show(L"Potensio", L"Potensio running on background");                 
+            ImGui::CloseCurrentPopup();
+            m_exitPopupOpen = false;
+            if (Application::GetInstance())
+            {
+                Application::GetInstance()->HideMainWindow();
+            }
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Exit"))
+        {
+            Logger::Info("Exiting application");
+            ImGui::CloseCurrentPopup();
+            m_exitPopupOpen = false;
+            if (Application::GetInstance())
+                Application::GetInstance()->RequestExit();            
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Cancel"))
+        {
+            ImGui::CloseCurrentPopup();
+            m_exitPopupOpen = false;
+        }
+
+        ImGui::EndPopup();
     }
 }
 
@@ -2588,25 +2709,21 @@ void MainWindow::RenderFileList()
             }
             
             // Context menu for files
-            if (ImGui::BeginPopupContextItem())
-            {
-                if (ImGui::MenuItem("Remove from staging"))
-                {
-                    m_stagedFiles.erase(m_stagedFiles.begin() + i);
-                    ImGui::EndPopup();
-                    break;
-                }
-                if (ImGui::MenuItem("Open"))
-                {
-                    Logger::Info("Opening file: {}", file.fullPath);
-                    // TODO: Open file
-                }
-                if (ImGui::MenuItem("Show in Explorer"))
-                {
-                    Logger::Info("Showing in explorer: {}", file.fullPath);
-                    // TODO: Show in explorer
-                }
+            if (ImGui::BeginPopupContextItem()) {
+              if (ImGui::MenuItem("Remove from staging")) {
+                m_stagedFiles.erase(m_stagedFiles.begin() + i);
                 ImGui::EndPopup();
+                break;
+              }
+              if (ImGui::MenuItem("Open")) {
+                Logger::Info("Opening file: {}", file.fullPath);
+                OpenFile(file.fullPath);
+              }
+              if (ImGui::MenuItem("Show in Explorer")) {
+                Logger::Info("Showing in explorer: {}", file.fullPath);
+                ShowInExplorer(file.fullPath);
+              }
+              ImGui::EndPopup();
             }
             
             // Size column
@@ -6266,6 +6383,10 @@ bool MainWindow::InitializeDatabase()
         Logger::Error("Failed to initialize Pomodoro database");
         return false;
     }
+
+    // Initialize Kanban database
+
+    // Initialize Todos database
     
     Logger::Info("Database initialized successfully");
     return true;

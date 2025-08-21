@@ -9,23 +9,36 @@
 - [X] Interface  
   - [X] Render drag & drop zone  
   - [X] Table & Info  
-- [X] Drag-and-drop implementation (add dropped file to table) [*Work in progress*]
-- [ ] Toolbar (minimal)  
-  - [X] Paste Here *(18/08/2025)*
-  - [X] Cut Files *(18/08/2025)*
-  - [X] Bulk Rename   *(18/08/2025)*
-  - [X] Clear All Staging  *(18/08/2025)*
-  - [ ] Move to recycle bin (implemented, but there seem to be bug)
-  - [ ] Pin Window 
-  - [ ] Toggle trigger (keyboard shortcut & wiggle trigger)
-
+  - [X] Wiggle to Trigger 
+- [X] Drag-and-drop implementation (add dropped file to table)
+- [X] Toolbar (minimal)  
+  - [X] Paste Here
+  - [X] Cut Files
+  - [X] Bulk Rename
+  - [X] Clear All Staging
+  - [X] Move to recycle bin (implemented, but there seem to be bug)
+  - [-] Pin Window - PENDING
+  - [-] Toggle trigger (keyboard shortcut & wiggle trigger) - PENDING
+- [X] Right click file-staging (Context Menu)
+  - [X] Remove From Staging
+  - [X] Open *NOTE: SLOW!*
+  - [X] Open in Explorer *NOTE: SLOW!*
+	
 ### ⏳ Pomodoro
 - [X] Base class implementation  
 - [X] Basic pomodoro logic  
 - [X] Interface implementation  
 - [X] DB class implementation  
-- [ ] Windows native notification (basic cycle/percentage)  
+- [X] Windows native notification (basic cycle/percentage)  
+- [ ] Notification management
 - [ ] Settings persistence  
+
+### 🗂️ Kanban
+- [X] Base class implementation  
+- [X] Base interface implementation  
+- [X] Base Kanban logic implementation  
+- [ ] DB class writing  
+- [ ] DB ↔ Kanban data integration  
 
 ### ✅ Todo
 - [X] Base class implementation  
@@ -33,14 +46,6 @@
 - [X] Basic Todo logic  
 - [ ] DB class writing  
 - [ ] DB ↔ Todo data integration  
-
-### 📋 Clipboard Manager
-- [X] Base class implementation  
-- [X] Interface implementation  
-- [X] Basic clipboard logic  
-- [ ] Change to per-day clipboard data  
-- [ ] DB class writing  
-- [ ] DB ↔ Clipboard integration  
 
 ### ⚙️ Settings
 - [X] Base class implementation  
@@ -51,17 +56,24 @@
 ### 🧰 Toolbar (Essential)
 - [ ] File → Exit  
 - [ ] Tools → Settings  
+- [ ] Tools → Open Log Folder
+
+### 🛠️ Tooling & CI
+- [ ] Disable temporary pending task
+- [ ] Set up GitHub Actions / GitLab CI  
+- [ ] Code signing  via SignPath
 
 ---
 
 ## 📦 Phase 2 — MVP+ (Productivity Expansion, ~6 weeks)
 
-### 🗂️ Kanban
+### 📋 Clipboard Manager
 - [X] Base class implementation  
-- [X] Base interface implementation  
-- [X] Base Kanban logic implementation  
+- [X] Interface implementation  
+- [X] Basic clipboard logic  
+- [ ] Change to per-day clipboard data  
 - [ ] DB class writing  
-- [ ] DB ↔ Kanban data integration  
+- [ ] DB ↔ Clipboard integration  
 
 ### 🖼️ File Converter & Compressor
 - [X] Base class implementation  
@@ -85,10 +97,6 @@
 ---
 
 ## 🎨 Phase 3 — Polishing & Distribution (~1–2 months)
-
-### 🛠️ Tooling & CI
-- [ ] Set up GitHub Actions / GitLab CI  
-- [ ] Code signing  
 
 ### 📖 Documentation
 - [ ] Add `README.md` with usage/build instructions  

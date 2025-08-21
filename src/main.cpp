@@ -24,9 +24,6 @@ HWND FindPotensioWindow()
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, int /*nCmdShow*/)
 {
-//   winrt::init_apartment();
-    
-    // Notify::Initialize(L"com.alvians.potensio");
 
     // Create named mutex to enforce single instance
     HANDLE hMutex = CreateMutex(NULL, FALSE, POTENSIO_MUTEX_NAME);
@@ -55,6 +52,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
             Logger::Error("Failed to initialize application");
             return -1;
         }
+
+        app.ShowMainWindow();
 
         int result = app.Run();
         Logger::Info("Potensio shutting down...");
