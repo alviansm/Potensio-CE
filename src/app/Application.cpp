@@ -222,35 +222,33 @@ bool Application::InitializeHotkeys()
 {
     try
     {
-        // Initialize hooks system
         if (!WindowsHooks::Initialize())
         {
             Logger::Warning("Failed to initialize Windows hooks system");
             return false;
         }
-        
-        // Register default hotkey: Ctrl+Shift+P using callback method
-        UINT modifiers = MOD_CONTROL | MOD_SHIFT;
-        UINT vk = 'P';
-        
-        // Use callback method instead of hook proc
-        auto hotkeyCallback = []() {
-            if (s_instance)
+
+        // Only register if enabled
+        if (m_hotkeysEnabled)
+        {
+            UINT modifiers = MOD_CONTROL | MOD_SHIFT;
+            UINT vk = 'Q';
+
+            auto hotkeyCallback = []() {
+                if (s_instance)
+                    s_instance->HandleGlobalHotkey();
+            };
+
+            if (!WindowsHooks::RegisterHotkeyCallback(1, modifiers, vk, hotkeyCallback))
             {
-                s_instance->HandleGlobalHotkey();
+                Logger::Warning("Failed to register global hotkey Ctrl+Shift+Q");
             }
-        };
-        
-        if (!WindowsHooks::RegisterHotkeyCallback(1, modifiers, vk, hotkeyCallback))
-        {
-            Logger::Warning("Failed to register global hotkey Ctrl+Shift+P");
-            // Don't fail initialization for hotkey registration failure
+            else
+            {
+                Logger::Info("Global hotkey Ctrl+Shift+Q registered successfully");
+            }
         }
-        else
-        {
-            Logger::Info("Global hotkey Ctrl+Shift+P registered successfully");
-        }
-        
+
         return true;
     }
     catch (const std::exception& e)
@@ -259,6 +257,7 @@ bool Application::InitializeHotkeys()
         return false;
     }
 }
+
 
 void Application::HandleGlobalHotkey()
 {
@@ -384,7 +383,7 @@ void Application::RegisterSettingsHotkeys()
     // Unregister existing hotkeys first
     UnregisterSettingsHotkeys();
     
-    std::string defaultGlobal("Ctrl+Shift+P");
+    std::string defaultGlobal("Ctrl+Shift+Q");
     std::string defaultPomodoro("Ctrl+Alt+P");
     std::string defaultCapture("Ctrl+Shift+C");
     std::string defaultTasks("Ctrl+Shift+T");
@@ -471,7 +470,7 @@ bool Application::ParseHotkeyString(const std::string& hotkeyStr, UINT& modifier
     modifiers = 0;
     vk = 0;
     
-    // Simple parser for hotkey strings like "Ctrl+Shift+P"
+    // Simple parser for hotkey strings like "Ctrl+Shift+Q"
     std::string str = hotkeyStr;
     
     // Check for modifiers
@@ -660,4 +659,33 @@ void Application::UpdateHotkeys()
 void Application::UpdateSettingsFromConfig()
 {
     OnSettingsChanged();
+}
+
+void Application::EnableHotkeys(bool enable)
+{
+    if (m_hotkeysEnabled == enable)
+        return; // nothing to do
+
+    m_hotkeysEnabled = enable;
+
+    UINT modifiers = MOD_CONTROL | MOD_SHIFT;
+    UINT vk = 'Q';
+
+    if (enable)
+    {
+        auto hotkeyCallback = []() {
+            if (s_instance)
+                s_instance->HandleGlobalHotkey();
+        };
+
+        if (WindowsHooks::RegisterHotkeyCallback(1, modifiers, vk, hotkeyCallback))
+            Logger::Info("Global hotkey Ctrl+Shift+Q enabled");
+        else
+            Logger::Warning("Failed to re-enable hotkey");
+    }
+    else
+    {
+        WindowsHooks::UnregisterHotkey(1); // assumes you have this implemented
+        Logger::Info("Global hotkey Ctrl+Shift+Q disabled");
+    }
 }

@@ -54,6 +54,7 @@ public:
     void UpdateHotkeys();
     void ApplySystemSettings();
     void UpdateSettingsFromConfig();
+    void EnableHotkeys(bool enable);
     
     // Hotkey callback registration
     void RegisterSettingsHotkeys();
@@ -64,6 +65,7 @@ private:
     static Application* s_instance;
 
     static HHOOK g_mouseHook;
+    bool m_hotkeysEnabled = true;
     
     // Application state
     HINSTANCE m_hInstance = nullptr;

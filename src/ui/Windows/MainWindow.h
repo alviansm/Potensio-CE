@@ -30,6 +30,7 @@ class TodoManager;
 class ClipboardManager;
 class ClipboardWindow;
 class AppConfig;
+class UIManager;
 
 class DatabaseManager;
 class PomodoroDatabase;
@@ -125,6 +126,8 @@ private:
     ModulePage m_currentModule = ModulePage::Dashboard;
     bool m_alwaysOnTop = false;
     AppConfig* m_config = nullptr;
+
+    bool m_shortcutsEnabled = true;
 
     float m_pasteProgress = 0.0f;
     bool m_pasteInProgress = false;
@@ -256,7 +259,7 @@ private:
         bool compactMode = false;
         
         // Hotkey settings
-        char globalHotkeyBuffer[64] = "Ctrl+Shift+P";
+        char globalHotkeyBuffer[64] = "Ctrl+Shift+Q";
         char pomodoroStartBuffer[64] = "Ctrl+Alt+P";
         char quickCaptureBuffer[64] = "Ctrl+Shift+C";
         char showTodayTasksBuffer[64] = "Ctrl+Shift+T";
@@ -295,6 +298,7 @@ private:
     // Content area rendering
     void RenderMenuBar();
     void RenderExitPopup();
+    void RenderAboutPopup();
     void RenderContentArea();
 
     // Settings Module - Main Interface
@@ -465,12 +469,15 @@ private:
     ImVec4 GetStatusColor(int status) const;
 
 private:
+    UIManager* m_uiManager;
+
     // Database members
     std::shared_ptr<DatabaseManager> m_databaseManager;
     std::shared_ptr<PomodoroDatabase> m_pomodoroDatabase;
     std::shared_ptr<KanbanDatabase> m_kanbanDatabase;
     
     bool m_exitPopupOpen = false;
+    bool m_showAboutDialog = false;
 
     // Current active session tracking
     int m_currentSessionId = -1;

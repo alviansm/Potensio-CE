@@ -206,7 +206,7 @@ void AppConfig::SetDefaults()
     m_config["window.height"] = 700;
     m_config["window.maximized"] = false;
     
-    // Hotkey defaults (Ctrl+Shift+P)
+    // Hotkey defaults (Ctrl+Shift+Q)
     m_config["hotkeys.toggleWindow.enabled"] = true;
     m_config["hotkeys.toggleWindow.modifiers"] = 6; // MOD_CONTROL | MOD_SHIFT
     m_config["hotkeys.toggleWindow.key"] = 80; // 'P'

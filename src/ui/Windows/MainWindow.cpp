@@ -1,6 +1,8 @@
 // MainWindow.cpp - Updated with Pomodoro Integration
 #include "MainWindow.h"
 
+#include "ui/UIManager.h"
+
 #include "ui/Components/Sidebar.h"
 #include "ui/Windows/PomodoroWindow.h"
 #include "ui/Windows/KanbanWindow.h"
@@ -378,7 +380,8 @@ void MainWindow::Render()
     // Render menubar
     RenderMenuBar();
     RenderExitPopup();
-    
+    RenderAboutPopup();
+
     // Sidebar
     if (m_sidebar)
     {
@@ -2222,29 +2225,40 @@ void MainWindow::RenderMenuBar()
         // Window Menu
         if (ImGui::BeginMenu("Window"))
         {
-            if (ImGui::MenuItem("Always on Top", nullptr, m_alwaysOnTop))
-            {
-                m_alwaysOnTop = !m_alwaysOnTop;
-                Logger::Info("Always on Top toggled: {}", m_alwaysOnTop);
-                // TODO: Implement always on top functionality
-            }
+            // if (ImGui::MenuItem("Always on Top", nullptr, &m_alwaysOnTop))
+            // {
+            //     Logger::Info("Always on Top toggled: {}", m_alwaysOnTop);
+
+            //     HWND hwnd = m_uiManager->GetHWND();
+            //     if (m_alwaysOnTop)
+            //     {
+            //         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+            //                     SWP_NOMOVE | SWP_NOSIZE);
+            //     }
+            //     else
+            //     {
+            //         SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+            //                     SWP_NOMOVE | SWP_NOSIZE);
+            //     }
+            // }
             
             if (ImGui::MenuItem("Minimize to Tray"))
             {
                 Logger::Info("Minimize to Tray clicked");
+                Notify::show(L"Potensio", L"Potensio running on background. Click File -> Exit to kill.");
                 if (Application::GetInstance())
                 {
                     Application::GetInstance()->HideMainWindow();
                 }
             }
             
-            ImGui::Separator();
+            // ImGui::Separator();
             
-            if (ImGui::MenuItem("Reset Layout"))
-            {
-                Logger::Info("Reset Layout clicked");
-                // TODO: Reset window layout
-            }
+            // if (ImGui::MenuItem("Reset Layout"))
+            // {
+            //     Logger::Info("Reset Layout clicked");
+            //     // TODO: Reset window layout
+            // }
             
             ImGui::EndMenu();
         }
@@ -2252,18 +2266,32 @@ void MainWindow::RenderMenuBar()
         // Tools Menu
         if (ImGui::BeginMenu("Tools"))
         {
-            if (ImGui::MenuItem("Settings", "F12"))
-            {
-                Logger::Info("Settings clicked from menu");
-                // TODO: Open settings window
-            }
+            // if (ImGui::MenuItem("Settings", "F12"))
+            // {
+            //     Logger::Info("Settings clicked from menu");
+            //     // TODO: Open settings window
+            // }
             
-            ImGui::Separator();
+            // ImGui::Separator();
             
             if (ImGui::MenuItem("Open Log Folder"))
             {
                 Logger::Info("Open Log Folder clicked");
-                // TODO: Open log folder in explorer
+
+                // Open the "logs" folder in Explorer
+                HINSTANCE result = ShellExecuteA(
+                    nullptr,            // HWND hwnd
+                    "open",             // Operation
+                    "explorer.exe",     // File (program to run)
+                    "logs",             // Parameters (open this path)
+                    nullptr,            // Default directory
+                    SW_SHOWNORMAL       // Show command
+                );
+
+                if ((INT_PTR)result <= 32)
+                {
+                    Logger::Error("Failed to open log folder");
+                }
             }
             
             ImGui::EndMenu();
@@ -2275,13 +2303,27 @@ void MainWindow::RenderMenuBar()
             if (ImGui::MenuItem("User Guide"))
             {
                 Logger::Info("User Guide clicked");
-                // TODO: Open user guide
+
+                // Open website in default browser
+                HINSTANCE result = ShellExecute(
+                    NULL,
+                    "open",
+                    "https://alvians.com", // TODO: change this later
+                    NULL,
+                    NULL,
+                    SW_SHOWNORMAL
+                );
+
+                if ((INT_PTR)result <= 32) {
+                    Logger::Error("Failed to open user guide website");
+                }
             }
-            
-            if (ImGui::MenuItem("Keyboard Shortcuts"))
+
+            if (ImGui::MenuItem("Toggle Shortcuts", nullptr, m_shortcutsEnabled))
             {
-                Logger::Info("Keyboard Shortcuts clicked");
-                // TODO: Show shortcuts dialog
+                m_shortcutsEnabled = !m_shortcutsEnabled;
+                Logger::Info(m_shortcutsEnabled ? "Keyboard Shortcuts enabled" : "Keyboard Shortcuts disabled");
+                Application::GetInstance()->EnableHotkeys(m_shortcutsEnabled);
             }
             
             ImGui::Separator();
@@ -2289,7 +2331,7 @@ void MainWindow::RenderMenuBar()
             if (ImGui::MenuItem("About Potensio"))
             {
                 Logger::Info("About clicked from menu");
-                // TODO: Show about dialog
+                m_showAboutDialog = true; // toggle the dialog on
             }
             
             ImGui::EndMenu();
@@ -2340,6 +2382,29 @@ void MainWindow::RenderExitPopup()
             ImGui::CloseCurrentPopup();
             m_exitPopupOpen = false;
         }
+
+        ImGui::EndPopup();
+    }
+}
+
+void MainWindow::RenderAboutPopup()
+{
+    if (m_showAboutDialog)
+      ImGui::OpenPopup("About Potensio");
+
+    if (ImGui::BeginPopupModal("About Potensio", &m_showAboutDialog, ImGuiWindowFlags_AlwaysAutoResize))
+    {        
+        ImGui::Text("Potensio Application");
+        ImGui::Separator();
+        ImGui::Text("Version: %s", "0.1.0 (Experimental)");
+        ImGui::Text("Author: %s", "Alvians Maulana");
+        ImGui::TextWrapped("A lightweight all-in-one desktop productivity app with Pomodoro, Kanban, To-Do, Clipboard Manager, and file tools. Built in C++ with Dear ImGui.");
+        
+        if (ImGui::Button("OK"))
+        {
+            ImGui::CloseCurrentPopup();
+            m_showAboutDialog = false;
+        }        
 
         ImGui::EndPopup();
     }
@@ -5698,7 +5763,7 @@ void MainWindow::RenderHotkeySettings()
     if (ImGui::Button("🔄 Reset Hotkeys", ImVec2(120, 0)))
     {
         // Reset to defaults
-        strcpy_s(m_settingsUIState.globalHotkeyBuffer, "Ctrl+Shift+P");
+        strcpy_s(m_settingsUIState.globalHotkeyBuffer, "Ctrl+Shift+Q");
         strcpy_s(m_settingsUIState.pomodoroStartBuffer, "Ctrl+Alt+P");
         strcpy_s(m_settingsUIState.quickCaptureBuffer, "Ctrl+Shift+C");
         strcpy_s(m_settingsUIState.showTodayTasksBuffer, "Ctrl+Shift+T");

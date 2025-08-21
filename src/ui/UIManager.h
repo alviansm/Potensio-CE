@@ -39,6 +39,8 @@ public:
     void HideWindow();
     bool IsWindowVisible() const;
     void ForceToForeground(HWND hwnd);
+    HWND GetHWND() const { return m_hwnd; }
+    void setHWND(const HWND& hwnd) { m_hwnd = hwnd; }
 
     // Window state
     void SetWindowInfo(const WindowInfo& info);

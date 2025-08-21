@@ -70,14 +70,14 @@ void Logger::Log(Level level, const std::string& message)
     OutputDebugStringA((logLine + "\n").c_str());
     
     // Could also log to file here if needed
-    /*
+    
     std::ofstream logFile("logs/potensio.log", std::ios::app);
     if (logFile.is_open())
     {
         logFile << logLine << std::endl;
         logFile.close();
     }
-    */
+    
 }
 
 std::string Logger::GetLevelString(Level level)

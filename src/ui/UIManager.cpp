@@ -443,6 +443,7 @@ LRESULT CALLBACK UIManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPAR
     {
         CREATESTRUCT* pCreate = reinterpret_cast<CREATESTRUCT*>(lParam);
         UIManager* pUIManager = reinterpret_cast<UIManager*>(pCreate->lpCreateParams);
+        pUIManager->setHWND(hwnd);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pUIManager));
         return 0;
     }
