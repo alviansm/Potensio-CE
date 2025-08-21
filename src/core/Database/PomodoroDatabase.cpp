@@ -184,6 +184,8 @@ bool PomodoroDatabase::SaveConfiguration(const PomodoroTimer::PomodoroConfig& co
         );
     )";
 
+    Logger::Debug("TEST: ", config.workDurationMinutes);
+
     return m_dbManager->ExecuteSQL(sql, [&config](sqlite3_stmt* stmt) {
         sqlite3_bind_int(stmt, 1, config.workDurationMinutes);
         sqlite3_bind_int(stmt, 2, config.shortBreakMinutes);
@@ -227,6 +229,7 @@ bool PomodoroDatabase::LoadConfiguration(PomodoroTimer::PomodoroConfig& config)
     )";
 
     bool found = false;
+    
     bool success = m_dbManager->ExecuteQuery(sql, [&config, &found](sqlite3_stmt* stmt) {
         config.workDurationMinutes = sqlite3_column_int(stmt, 0);
         config.shortBreakMinutes = sqlite3_column_int(stmt, 1);
