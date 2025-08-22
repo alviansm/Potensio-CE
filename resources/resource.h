@@ -54,4 +54,15 @@
 #define SOUND_SUCCESS 141
 #define SOUND_NOTIFICATION 142
 
+// Additional Kanban Icons
+#define IDI_KANBAN_EDIT            143
+#define IDI_KANBAN_DELETE          144
+#define IDI_KANBAN_DUEDATE         145
+#define IDI_KANBAN_PRIORITY        146
+#define IDI_KANBAN_SETTING         147
+#define IDI_KANBAN_PRIORITY_LOW    148
+#define IDI_KANBAN_PRIORITY_MEDIUM 149
+#define IDI_KANBAN_PRIORITY_HIGH   150
+#define IDI_KANBAN_PRIORITY_URGENT 151
+
 #endif

@@ -68,11 +68,11 @@ void KanbanWindow::RenderSettingsWindow()
                 ImGui::EndTabItem();
             }
             
-            if (ImGui::BeginTabItem("Appearance"))
-            {
-                RenderAppearanceSettings();
-                ImGui::EndTabItem();
-            }
+            // if (ImGui::BeginTabItem("Appearance"))
+            // {
+            //     RenderAppearanceSettings();
+            //     ImGui::EndTabItem();
+            // }
             
             if (ImGui::BeginTabItem("Statistics"))
             {
@@ -80,40 +80,39 @@ void KanbanWindow::RenderSettingsWindow()
                 ImGui::EndTabItem();
             }
             
-            if (ImGui::BeginTabItem("Import/Export"))
-            {
-                RenderImportExport();
-                ImGui::EndTabItem();
-            }
+            // if (ImGui::BeginTabItem("Import/Export"))
+            // {
+            //     RenderImportExport();
+            //     ImGui::EndTabItem();
+            // }
             
             ImGui::EndTabBar();
         }
         
         ImGui::Separator();
         
-        // Action buttons
-        if (ImGui::Button("Apply & Save"))
-        {
-            SaveSettings();
-            m_settingsChanged = false;
-        }
+        // // Action buttons
+        // if (ImGui::Button("Apply & Save"))
+        // {
+        //     SaveSettings();
+        //     m_settingsChanged = false;
+        // }
         
-        ImGui::SameLine();
-        if (ImGui::Button("Reset to Defaults"))
-        {
-            ResetToDefaults();
-        }
+        // ImGui::SameLine();
+        // if (ImGui::Button("Reset to Defaults"))
+        // {
+        //     ResetToDefaults();
+        // }
         
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
-        {
-            LoadSettings(); // Reload from saved settings
-            m_settingsChanged = false;
-            m_isVisible = false;
-        }
+        // ImGui::SameLine();
+        // if (ImGui::Button("Cancel"))
+        // {
+        //     LoadSettings(); // Reload from saved settings
+        //     m_settingsChanged = false;
+        //     m_isVisible = false;
+        // }
         
-        ImGui::SameLine();
-        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - 50);
+        // ImGui::SameLine();
         if (ImGui::Button("Close"))
         {
             m_isVisible = false;
@@ -457,12 +456,12 @@ void KanbanWindow::RenderStatistics()
         // TODO: Export statistics to file
     }
     
-    ImGui::SameLine();
-    if (ImGui::Button("Clear All Statistics"))
-    {
-        Logger::Info("Clear statistics requested");
-        // TODO: Clear statistics
-    }
+    // ImGui::SameLine();
+    // if (ImGui::Button("Clear All Statistics"))
+    // {
+    //     Logger::Info("Clear statistics requested");
+    //     // TODO: Clear statistics
+    // }
 }
 
 void KanbanWindow::RenderProjectList()

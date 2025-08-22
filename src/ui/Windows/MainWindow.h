@@ -513,4 +513,15 @@ private:
     ImTextureID iconReset = nullptr;
     ImTextureID iconSkip = nullptr;
     ImTextureID iconStop = nullptr;
+
+    // Additional icons for Kanban modules
+    ImTextureID iconEditKanban = nullptr;
+    ImTextureID iconDeleteKanban = nullptr;
+    ImTextureID iconDueDateKanban = nullptr;
+    ImTextureID iconPriorityKanban = nullptr;
+    ImTextureID iconSettingKanban = nullptr;
+    ImTextureID iconPriorityLowKanban = nullptr;
+    ImTextureID iconPriorityMediumKanban = nullptr;
+    ImTextureID iconPriorityHighKanban = nullptr;
+    ImTextureID iconPriorityUrgentKanban = nullptr;
 };

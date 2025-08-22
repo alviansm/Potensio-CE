@@ -1102,21 +1102,21 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
     
     // Priority and metadata on the bottom - responsive format
     ImGui::SetCursorPos(ImVec2(cursorPos.x + cardPadding, cardMin.y + cardContentHeight - windowPos.y - lineHeight - cardPadding));
-    
+
     // Priority and metadata - adjust format for narrow cards
     if (cardWidth < 80.0f)
     {
         // Use priority symbols for very narrow cards
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(priorityColor.r, priorityColor.g, priorityColor.b, 1.0f));
-        ImGui::Text("●");
+        // ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(priorityColor.r, priorityColor.g, priorityColor.b, 1.0f));
+        ImGui::Image(iconPriorityKanban, ImVec2(16, 16));
         ImGui::PopStyleColor();
         
         // Due date as just an icon for narrow cards
         if (!card->dueDate.empty())
         {
             ImGui::SameLine();
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
-            ImGui::Text("📅");
+            // ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
+            ImGui::Image(iconDueDateKanban, ImVec2(12, 12));
             ImGui::PopStyleColor();
         }
     }
@@ -1131,32 +1131,50 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
             int priorityIndex = static_cast<int>(card->priority);
             if (priorityIndex >= 0 && priorityIndex < 4)
             {
-                ImGui::Text("● %s", shortPriorityNames[priorityIndex]);
+                if (shortPriorityNames[priorityIndex] == "Low")
+                    ImGui::Image(iconPriorityLowKanban, ImVec2(12, 12));
+                else if (shortPriorityNames[priorityIndex] == "Med")                
+                    ImGui::Image(iconPriorityMediumKanban, ImVec2(12, 12));                
+                else if (shortPriorityNames[priorityIndex] == "High")                
+                    ImGui::Image(iconPriorityHighKanban, ImVec2(12, 12));                
+                else if (shortPriorityNames[priorityIndex] == "Urg")                
+                    ImGui::Image(iconPriorityUrgentKanban, ImVec2(12, 12));                
+                ImGui::SameLine();
+                ImGui::Text(shortPriorityNames[priorityIndex]);
             }
             else
             {
-                ImGui::Text("● Med"); // Fallback
+                ImGui::Image(iconPriorityKanban, ImVec2(12, 12));
             }
         }
         else
         {
             // Full priority names for wider cards
-            ImGui::Text("● %s", GetPriorityName(static_cast<int>(card->priority)));
+            // ImGui::Image(iconPriorityKanban, ImVec2(16, 16));
+            if (GetPriorityName(static_cast<int>(card->priority)) == "Low")
+                ImGui::Image(iconPriorityLowKanban, ImVec2(16, 16));
+            else if (GetPriorityName(static_cast<int>(card->priority)) == "Medium")
+                ImGui::Image(iconPriorityMediumKanban, ImVec2(16, 16));
+            else if (GetPriorityName(static_cast<int>(card->priority)) == "High")
+                ImGui::Image(iconPriorityHighKanban, ImVec2(16, 16));
+            else if (GetPriorityName(static_cast<int>(card->priority)) == "Urgent")
+                ImGui::Image(iconPriorityUrgentKanban, ImVec2(16, 16));
+            ImGui::SameLine();
+            ImGui::Text(GetPriorityName(static_cast<int>(card->priority)));
         }
         ImGui::PopStyleColor();
         
         // Due date handling
         if (!card->dueDate.empty())
         {
-            ImGui::SameLine();
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
             if (cardWidth < 120.0f)
             {
-                ImGui::Text("📅");
+                ImGui::Image(iconDueDateKanban, ImVec2(12, 12)); // Only icon
             }
             else
             {
-                ImGui::Text("📅 %s", card->dueDate.c_str());
+                ImGui::Text("%s", card->dueDate.c_str()); // Text next to icon
             }
             ImGui::PopStyleColor();
         }
@@ -1207,18 +1225,30 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
     // Context menu
     if (ImGui::BeginPopupContextItem())
     {
-        if (ImGui::MenuItem("✏️ Edit"))
+        ImVec2 iconSize = ImVec2(16, 16); // Adjust size as needed
+
+        // --- Edit ---
+        ImGui::PushID("edit_card");
+        ImGui::Image(iconEditKanban, iconSize);
+        ImGui::SameLine();
+        if (ImGui::Selectable("Edit"))
         {
             StartEditingCard(card);
         }
-        
+        ImGui::PopID();
+
         ImGui::Separator();
-        
-        if (ImGui::MenuItem("🗑️ Delete", nullptr, false, true))
+
+        // --- Delete ---
+        ImGui::PushID("delete_card");
+        ImGui::Image(iconDeleteKanban, iconSize);
+        ImGui::SameLine();
+        if (ImGui::Selectable("Delete"))
         {
             m_kanbanManager->DeleteCard(card->id);
         }
-        
+        ImGui::PopID();
+
         ImGui::EndPopup();
     }
     
@@ -1328,7 +1358,6 @@ void MainWindow::RenderCardEditDialog()
         }
         
         ImGui::SameLine();
-        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - 100);
         if (ImGui::Button("Delete", ImVec2(100, 0)))
         {
             // Delete the card
@@ -2846,6 +2875,17 @@ void MainWindow::InitializeResources()
     iconReset = LoadTextureFromResource(IDI_TIMER_RESET);
     iconSkip = LoadTextureFromResource(IDI_TIMER_SKIP);
     iconStop = LoadTextureFromResource(IDI_TIMER_STOP);
+
+    // Kanban icon
+    iconEditKanban        = LoadTextureFromResource(IDI_KANBAN_EDIT);
+    iconDeleteKanban      = LoadTextureFromResource(IDI_KANBAN_DELETE);
+    iconDueDateKanban     = LoadTextureFromResource(IDI_KANBAN_DUEDATE);
+    iconPriorityKanban    = LoadTextureFromResource(IDI_KANBAN_PRIORITY);
+    iconSettingKanban     = LoadTextureFromResource(IDI_KANBAN_SETTING);
+    iconPriorityLowKanban    = LoadTextureFromResource(IDI_KANBAN_PRIORITY_LOW);
+    iconPriorityMediumKanban = LoadTextureFromResource(IDI_KANBAN_PRIORITY_MEDIUM);
+    iconPriorityHighKanban   = LoadTextureFromResource(IDI_KANBAN_PRIORITY_HIGH);
+    iconPriorityUrgentKanban = LoadTextureFromResource(IDI_KANBAN_PRIORITY_URGENT);
 }
 
 // Placeholder methods for other modules

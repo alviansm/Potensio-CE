@@ -49,6 +49,16 @@ SOUND_BREAK_END RCDATA "sfx/break_end.mp3"
 SOUND_SUCCESS RCDATA "sfx/success.mp3"
 SOUND_NOTIFICATION RCDATA "sfx/notification.mp3"
 
+IDI_KANBAN_EDIT RCDATA "icons/kanban/ic-edit.png"
+IDI_KANBAN_DELETE RCDATA "icons/kanban/ic-delete.png"
+IDI_KANBAN_DUEDATE RCDATA "icons/kanban/ic-duedate.png"
+IDI_KANBAN_PRIORITY RCDATA "icons/kanban/ic-priority.png"
+IDI_KANBAN_SETTING RCDATA "icons/kanban/ic-settings.png"
+IDI_KANBAN_PRIORITY_LOW RCDATA "icons/kanban/ic-priority-low.png"
+IDI_KANBAN_PRIORITY_MEDIUM RCDATA "icons/kanban/ic-priority-medium.png"
+IDI_KANBAN_PRIORITY_HIGH RCDATA "icons/kanban/ic-priority-high.png"
+IDI_KANBAN_PRIORITY_URGENT RCDATA "icons/kanban/ic-priority-urgent.png"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION 0,1,0,0
 PRODUCTVERSION 0,1,0,0
