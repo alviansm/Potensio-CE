@@ -72,6 +72,17 @@ MainWindow::~MainWindow()
     UnloadTexture(iconReset);
     UnloadTexture(iconSkip);
     UnloadTexture(iconStop);
+
+    // Kanban icons    
+    UnloadTexture(iconEditKanban);
+    UnloadTexture(iconDeleteKanban);
+    UnloadTexture(iconDueDateKanban);
+    UnloadTexture(iconPriorityKanban);
+    UnloadTexture(iconSettingKanban);
+    UnloadTexture(iconPriorityLowKanban);
+    UnloadTexture(iconPriorityMediumKanban);
+    UnloadTexture(iconPriorityHighKanban);
+    UnloadTexture(iconPriorityUrgentKanban);
 }
 
 bool MainWindow::Initialize(AppConfig* config)
@@ -162,39 +173,6 @@ bool MainWindow::Initialize(AppConfig* config)
     
     // Connect settings window to manager
     m_kanbanSettingsWindow->SetKanbanManager(m_kanbanManager.get());
-    
-    // Load Pomodoro configuration
-    // if (config)
-    // {
-    //     PomodoroTimer::PomodoroConfig pomodoroConfig;
-        
-    //     // Load from config
-    //     pomodoroConfig.workDurationMinutes = config->GetValue("pomodoro.work_duration", 25);
-    //     pomodoroConfig.shortBreakMinutes = config->GetValue("pomodoro.short_break", 5);
-    //     pomodoroConfig.longBreakMinutes = config->GetValue("pomodoro.long_break", 15);
-    //     pomodoroConfig.totalSessions = config->GetValue("pomodoro.total_sessions", 8);
-    //     pomodoroConfig.sessionsBeforeLongBreak = config->GetValue("pomodoro.sessions_before_long_break", 4);
-    //     pomodoroConfig.autoStartNextSession = config->GetValue("pomodoro.auto_start_next", true); // Load auto-start setting
-        
-    //     // Load colors
-    //     pomodoroConfig.colorHigh.r = config->GetValue("pomodoro.color_high_r", 0.0f);
-    //     pomodoroConfig.colorHigh.g = config->GetValue("pomodoro.color_high_g", 1.0f);
-    //     pomodoroConfig.colorHigh.b = config->GetValue("pomodoro.color_high_b", 0.0f);
-        
-    //     pomodoroConfig.colorMedium.r = config->GetValue("pomodoro.color_medium_r", 1.0f);
-    //     pomodoroConfig.colorMedium.g = config->GetValue("pomodoro.color_medium_g", 1.0f);
-    //     pomodoroConfig.colorMedium.b = config->GetValue("pomodoro.color_medium_b", 0.0f);
-        
-    //     pomodoroConfig.colorLow.r = config->GetValue("pomodoro.color_low_r", 1.0f);
-    //     pomodoroConfig.colorLow.g = config->GetValue("pomodoro.color_low_g", 0.5f);
-    //     pomodoroConfig.colorLow.b = config->GetValue("pomodoro.color_low_b", 0.0f);
-        
-    //     pomodoroConfig.colorCritical.r = config->GetValue("pomodoro.color_critical_r", 1.0f);
-    //     pomodoroConfig.colorCritical.g = config->GetValue("pomodoro.color_critical_g", 0.0f);
-    //     pomodoroConfig.colorCritical.b = config->GetValue("pomodoro.color_critical_b", 0.0f);
-        
-    //     m_pomodoroTimer->SetConfig(pomodoroConfig);
-    // }
 
     /**
      * @note Clipboard Module
@@ -6491,6 +6469,13 @@ bool MainWindow::InitializeDatabase()
     }
 
     // Initialize Kanban database
+    m_kanbanDatabase = std::make_shared<KanbanDatabase>(m_databaseManager);
+
+    if (!m_kanbanDatabase->Initialize())
+    {
+        Logger::Error("Failed to initialize Kanban database");
+        return false;
+    }
 
     // Initialize Todos database
     
