@@ -149,6 +149,13 @@ namespace Kanban
         name = boardName;
     }
 
+    void Board::AddColumn(const Kanban::Column& column)
+    {
+        auto newColumn = std::make_unique<Column>(column);
+        columns.push_back(std::move(newColumn));
+        modifiedAt = std::chrono::system_clock::now();
+    }
+
     void Board::AddColumn(const std::string& name)
     {
         auto column = std::make_unique<Column>(name);
@@ -306,6 +313,15 @@ namespace Kanban
     Project::Project(const std::string& projectName) : Project()
     {
         name = projectName;
+    }
+
+    void Project::AddBoard(const std::shared_ptr<Board>& board)
+    {
+        if (board)
+        {
+            boards.push_back(std::make_unique<Board>(*board)); // Deep copy
+            modifiedAt = std::chrono::system_clock::now();
+        }
     }
 
     void Project::AddBoard(const std::string& name)
@@ -514,6 +530,28 @@ void KanbanManager::SetCurrentProject(const std::string& projectId)
         
         Logger::Debug("Switched to project: {}", project->name);
         NotifyProjectChanged(project);
+    }
+}
+
+void KanbanManager::setCurrentProjects(const std::vector<std::shared_ptr<Kanban::Project>>& projects)
+{
+    m_projects.clear();
+    for (const auto& project : projects)
+    {
+        if (project)
+        {
+            m_projects.push_back(std::make_unique<Kanban::Project>(*project));
+        }
+    }
+    
+    // Set current project to the first one if available
+    if (!m_projects.empty())
+    {
+        m_currentProjectId = m_projects[0]->id;
+        if (!m_projects[0]->boards.empty())
+        {
+            m_currentBoardId = m_projects[0]->boards[0]->id;
+        }
     }
 }
 

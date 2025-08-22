@@ -476,6 +476,11 @@ private:
     std::shared_ptr<PomodoroDatabase> m_pomodoroDatabase;
     std::shared_ptr<KanbanDatabase> m_kanbanDatabase;
     
+    // Settings management
+    bool m_openCreateProjectPopup = false;
+    char m_projectNameBuffer[128] = "";
+    bool m_nameExistsError = false;
+
     bool m_exitPopupOpen = false;
     bool m_showAboutDialog = false;
 

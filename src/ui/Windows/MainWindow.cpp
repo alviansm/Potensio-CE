@@ -135,6 +135,77 @@ bool MainWindow::Initialize(AppConfig* config)
     {
         Logger::Warning("Failed to initialize Kanban settings window");
     }
+
+    // Load all projects
+    std::vector<std::shared_ptr<Kanban::Project>> projects = m_kanbanDatabase->GetAllProjects();    
+
+    // Load all boards related to the projects
+    std::vector<std::shared_ptr<Kanban::Board>> boards = m_kanbanDatabase->GetAllBoards();
+    Logger::Debug("Masuk 1: Loaded " + std::to_string(boards.size()) + " boards from database");
+    for (const auto& project : projects)
+    {
+        if (project)
+        {
+            auto projectBoards = m_kanbanDatabase->GetBoardsByProject(project->id);
+            Logger::Debug("Masuk 2: Project ID: " + project->id + ", Boards Count: " + std::to_string(projectBoards.size()));
+            for (auto& board : projectBoards)
+            {
+                if (board)
+                {
+                    project->AddBoard(board);
+                    Logger::Debug("Masuk 2: Board ID: " + board->id + ", Name: " + board->name);
+                    Logger::Debug("Masuk 2: Project boards size: " 
+                        + std::to_string(project->boards.size()) 
+                        + ", Project Name: " + project->name);
+                }
+            }
+
+            // Load all columns for each board
+            for (const auto& board : project->boards)
+            {
+                if (board)
+                {
+                    auto columns = m_kanbanDatabase->GetColumnsByBoard(board->id);
+                    Logger::Debug("Masuk 2: Board ID: " + board->id + ", Columns Count: " + std::to_string(columns.size()));
+                    for (const auto& column : columns)
+                    {   
+                        board->AddColumn(column);
+                        Logger::Debug("Masuk 2: Column ID: " + column.id + ", Name: " + column.name);
+                    }
+                }
+            }
+        }
+    }
+
+    // Log loaded projects and boards and columns and cards -> Denote the project name and board name, with their sizes
+    Logger::Debug("Masuk 3: Total Projects Loaded: " + std::to_string(projects.size()));
+    for (const auto& project : projects)
+    {
+        if (project)
+        {
+            Logger::Debug("Masuk 3: Project ID: " + project->id + ", Name: " + project->name 
+                + ", Boards Count: " + std::to_string(project->boards.size()));
+            for (const auto& board : project->boards)
+            {
+                if (board)
+                {
+                    Logger::Debug("Masuk 3: Board ID: " + board->id + ", Name: " + board->name 
+                        + ", Columns Count: " + std::to_string(board->columns.size()));
+                    for (const auto& column : board->columns)
+                    {
+                        if (column)
+                        {
+                            Logger::Debug("Masuk 3: Column ID: " + column->id + ", Name: " + column->name 
+                                + ", Cards Count: " + std::to_string(column->cards.size()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Set current projects in Kanban manager
+    m_kanbanManager->setCurrentProjects(projects);
     
     // Set up Kanban callbacks
     m_kanbanManager->SetOnCardUpdated([this](std::shared_ptr<Kanban::Card> card) {
@@ -618,11 +689,98 @@ void MainWindow::RenderKanbanHeader()
     
     if (ImGui::Button("+ Project", ImVec2(buttonWidth, 28.0f)))
     {
-        // Quick create project
-        static int projectCounter = 1;
-        std::string projectName = "Project " + std::to_string(projectCounter++);
-        m_kanbanManager->CreateProject(projectName);
+        m_openCreateProjectPopup = true;
+        m_nameExistsError = false;
+        m_projectNameBuffer[0] = '\0'; // reset input
+        ImGui::OpenPopup("Create Project");
     }
+
+    if (ImGui::BeginPopupModal("Create Project", &m_openCreateProjectPopup, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Enter a unique project name:");
+        ImGui::InputText("##ProjectName", m_projectNameBuffer, IM_ARRAYSIZE(m_projectNameBuffer));
+
+        if (m_nameExistsError)
+        {
+            ImGui::TextColored(ImVec4(1, 0, 0, 1), "A project with this name already exists!");
+        }
+
+        if (ImGui::Button("Create", ImVec2(120, 0)))
+        {
+            std::string projectName = m_projectNameBuffer;
+
+            // Check for empty name
+            if (projectName.empty())
+            {
+                m_nameExistsError = true;
+            }
+            else
+            {
+                // Check uniqueness
+                const auto& projects = m_kanbanManager->GetProjects();
+                bool exists = std::any_of(projects.begin(), projects.end(),
+                    [&](const auto& proj) { return proj->name == projectName; });
+
+                if (exists)
+                {
+                    m_nameExistsError = true;
+                }
+                else
+                {
+                    // Create project
+                    m_kanbanManager->CreateProject(projectName);
+
+                    // Add to DB
+                    const auto& updatedProjects = m_kanbanManager->GetProjects();
+                    if (!updatedProjects.empty())
+                    {
+                        auto lastProject = updatedProjects.back().get();
+                        m_kanbanDatabase->CreateProject(*lastProject);
+
+                        // Save Board to DB
+                        auto lastBoard = lastProject->boards.back().get();
+                        if (!lastProject->boards.empty())
+                        {
+                            m_kanbanDatabase->CreateBoard(*lastBoard, lastProject->id);
+                            Logger::Debug("New project and board created: " + lastProject->name + " / " + lastBoard->name);
+                        }
+                        else
+                        {
+                            Logger::Debug("New project created without boards: " + lastProject->name);
+                        }
+
+                        // Save Column to DB
+                        if (!lastProject->boards.empty() && !lastProject->boards.back()->columns.empty())
+                        {
+                            // Loop all columns in the last board
+                            for (const auto& column : lastProject->boards.back()->columns)
+                            {
+                                if (column)
+                                {
+                                    m_kanbanDatabase->CreateColumn(*column, lastBoard->id);
+                                    Logger::Debug("New column created: " + column->name + " in board: " + lastBoard->name);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Logger::Debug("No columns created for the new board: " + lastBoard->name);
+                        }
+                    }
+
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+        {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+
     ImGui::PopStyleColor(3);
     
     ImGui::SameLine(0, buttonSpacing);
@@ -641,6 +799,24 @@ void MainWindow::RenderKanbanHeader()
         static int boardCounter = 1;
         std::string boardName = "Board " + std::to_string(boardCounter++);
         m_kanbanManager->CreateBoard(boardName);
+
+        // Save board to DB
+        if (currentProject)
+        {
+            Logger::Debug("Masuk 1: " + currentProject->id);
+            auto newBoard = m_kanbanManager->GetCurrentProject()->boards.back().get(); // Get last created board
+            if (newBoard)
+            {
+                if (m_kanbanDatabase->CreateBoard(*newBoard, currentProject->id))
+                {
+                    Logger::Debug("Masuk 2: Board created and saved to database: " + newBoard->name);
+                }
+                else
+                {
+                    Logger::Debug("Masuk 2: Last Error" + m_databaseManager->GetLastError());
+                }
+            }
+        }
     }
     ImGui::PopStyleColor(3);
     
@@ -892,7 +1068,7 @@ void MainWindow::RenderQuickAddCard(const std::string& columnId, float maxWidth)
         if (ImGui::Button(buttonText.c_str(), ImVec2(buttonWidth, 24.0f)))
         {
             quickAddActive[columnId] = true;
-            quickAddTexts[columnId] = "";
+            quickAddTexts[columnId] = "";            
         }
         
         ImGui::PopStyleVar();
@@ -927,6 +1103,13 @@ void MainWindow::RenderQuickAddCard(const std::string& columnId, float maxWidth)
             m_kanbanManager->CreateCard(columnId, buffer);
             quickAddActive[columnId] = false;
             quickAddTexts[columnId] = "";
+
+            // Save to DB -> bool CreateCard(const Kanban::Card& card, const std::string& columnId);
+            // auto newCard = m_kanbanManager->GetCurrentBoard()->GetColumn(columnId)->GetLastCard();
+            // if (newCard)
+            // {
+            //     m_kanbanDatabase->CreateCard(*newCard, columnId);
+            // }
         }
         
         // Cancel on escape or click outside

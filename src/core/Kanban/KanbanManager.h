@@ -81,6 +81,17 @@ namespace Kanban
 
         Column();
         Column(const std::string& columnName);
+        Column(const Column& other)
+            : id(other.id),
+            name(other.name),
+            headerColor(other.headerColor),
+            cardLimit(other.cardLimit),
+            isCollapsed(other.isCollapsed)
+        {
+            // std::shared_ptr<Card> is copyable → shallow copy (shared ownership)
+            cards = other.cards;
+        }
+
         
         // Card management
         void AddCard(std::shared_ptr<Card> card);
@@ -106,8 +117,25 @@ namespace Kanban
 
         Board();
         Board(const std::string& boardName);
+        Board(const Board& other)
+            : id(other.id),
+            name(other.name),
+            description(other.description),
+            createdAt(other.createdAt),
+            modifiedAt(other.modifiedAt),
+            isActive(other.isActive)
+        {
+            columns.reserve(other.columns.size());
+            for (const auto& col : other.columns)
+            {
+                if (col)
+                    columns.push_back(std::make_unique<Column>(*col)); // deep copy
+            }
+        }
+
         
         // Column management
+        void AddColumn(const Kanban::Column& column);
         void AddColumn(const std::string& name);
         void RemoveColumn(const std::string& columnId);
         void MoveColumn(int fromIndex, int toIndex);
@@ -139,8 +167,25 @@ namespace Kanban
 
         Project();
         Project(const std::string& projectName);
+        Project(const Project& other)
+            : id(other.id),
+            name(other.name),
+            description(other.description),
+            createdAt(other.createdAt),
+            modifiedAt(other.modifiedAt),
+            isActive(other.isActive)
+        {
+            boards.reserve(other.boards.size());
+            for (const auto& b : other.boards)
+            {
+                if (b)
+                    boards.push_back(std::make_unique<Board>(*b)); // deep copy
+            }
+        }
+
         
         // Board management
+        void AddBoard(const std::shared_ptr<Board>& board);
         void AddBoard(const std::string& name);
         void RemoveBoard(const std::string& boardId);
         Board* FindBoard(const std::string& boardId);
@@ -185,6 +230,7 @@ public:
     Kanban::Project* FindProject(const std::string& projectId);
     void SetCurrentProject(const std::string& projectId);
     const std::vector<std::unique_ptr<Kanban::Project>>& GetProjects() const { return m_projects; }
+    void setCurrentProjects(const std::vector<std::shared_ptr<Kanban::Project>>& projects);
 
     // Board management
     void CreateBoard(const std::string& name, const std::string& description = "");

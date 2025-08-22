@@ -85,7 +85,7 @@ bool KanbanDatabase::CreateBoardsTable()
             is_active INTEGER DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             modified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            FOREIGN KEY (project_id) REFERENCES kanban_projects(id) ON DELETE CASCADE
         );
   )";
 
@@ -106,7 +106,7 @@ bool KanbanDatabase::CreateColumnsTable()
             card_limit INTEGER DEFAULT -1,
             is_collapsed INTEGER DEFAULT 0,
             column_order INTEGER DEFAULT 0,
-            FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
+            FOREIGN KEY (board_id) REFERENCES kanban_boards(id) ON DELETE CASCADE
         );
   )";
 
@@ -132,7 +132,7 @@ bool KanbanDatabase::CreateCardsTable()
             card_order INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             modified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (column_id) REFERENCES columns(id) ON DELETE CASCADE
+            FOREIGN KEY (column_id) REFERENCES kanban_columns(id) ON DELETE CASCADE
         );
   )";
 
@@ -158,8 +158,8 @@ bool KanbanDatabase::CreateCardsTagsNormalizationTable()
             card_id TEXT,
             tag_id INTEGER,
             PRIMARY KEY (card_id, tag_id),
-            FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
-            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+            FOREIGN KEY (card_id) REFERENCES kanban_cards(id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES kanban_tags(id) ON DELETE CASCADE
         );
   )";
 
@@ -426,6 +426,17 @@ bool KanbanDatabase::CreateBoard(const Kanban::Board& board, const std::string& 
         VALUES (?, ?, ?, ?, ?, ?, ?)
     )";
 
+    // Debug all
+    Logger::Debug("Masuk 3: " + sql);
+    Logger::Debug("Masuk 3: Board ID: " + board.id);
+    Logger::Debug("Masuk 3: Project ID: " + projectId);
+    Logger::Debug("Masuk 3: Board Name: " + board.name);
+    Logger::Debug("Masuk 3: Board Description: " + board.description);
+    Logger::Debug("Masuk 3: Board Active: " + std::to_string(board.isActive));
+    Logger::Debug("Masuk 3: Board Created At: " + TimePointToString(board.createdAt));
+    Logger::Debug("Masuk 3: Board Modified At: " + TimePointToString(board.modifiedAt));
+    Logger::Debug("Masuk 3: Board Columns Count: " + std::to_string(board.columns.size()));
+
     return m_dbManager->ExecuteSQL(sql, [&board, &projectId, this](sqlite3_stmt* stmt) {
         sqlite3_bind_text(stmt, 1, board.id.c_str(), -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, projectId.c_str(), -1, SQLITE_STATIC);
@@ -507,16 +518,16 @@ std::vector<std::shared_ptr<Kanban::Board>> KanbanDatabase::GetAllBoards()
     )";
 
     m_dbManager->ExecuteQuery(sql, [&boards, this](sqlite3_stmt* stmt) -> bool {
-        Kanban::Board board;
-        board.id = sqlite3_column_text(stmt, 0) ? (char*)sqlite3_column_text(stmt, 0) : "";
-        board.name = sqlite3_column_text(stmt, 1) ? (char*)sqlite3_column_text(stmt, 1) : "";
-        board.description = sqlite3_column_text(stmt, 2) ? (char*)sqlite3_column_text(stmt, 2) : "";
-        board.isActive = sqlite3_column_int(stmt, 3) == 1;
-        board.createdAt = StringToTimePoint(sqlite3_column_text(stmt, 4) ? (char*)sqlite3_column_text(stmt, 4) : "");
-        board.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 5) ? (char*)sqlite3_column_text(stmt, 5) : "");
+        auto board = std::make_shared<Kanban::Board>();
+        board->id = sqlite3_column_text(stmt, 0) ? (char*)sqlite3_column_text(stmt, 0) : "";
+        board->name = sqlite3_column_text(stmt, 1) ? (char*)sqlite3_column_text(stmt, 1) : "";
+        board->description = sqlite3_column_text(stmt, 2) ? (char*)sqlite3_column_text(stmt, 2) : "";
+        board->isActive = sqlite3_column_int(stmt, 3) == 1;
+        board->createdAt = StringToTimePoint(sqlite3_column_text(stmt, 4) ? (char*)sqlite3_column_text(stmt, 4) : "");
+        board->modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 5) ? (char*)sqlite3_column_text(stmt, 5) : "");
 
-        LoadColumnsForBoard(board);
-        boards.push_back(std::make_shared<Kanban::Board>(std::move(board)));
+        LoadColumnsForBoard(*board);
+        boards.push_back(std::move(board));
         return true; // Continue processing
     });
 
