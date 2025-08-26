@@ -30,15 +30,23 @@
 - [X] Interface implementation  
 - [X] DB class implementation  
 - [X] Windows native notification (basic cycle/percentage)  
-- [ ] Notification management
-- [ ] Settings persistence  
+- [X] Notification management
+- [X] Settings persistence  
 
 ### 🗂️ Kanban
 - [X] Base class implementation  
 - [X] Base interface implementation  
 - [X] Base Kanban logic implementation  
-- [ ] DB class writing  
+- [X] DB class writing  
 - [ ] DB ↔ Kanban data integration  
+  - [X] `Project` load on `MainWindow` initialization
+  - [X] `Project` save on `+ Project`
+  - [X] `Board` load on `MainWindow` initialization
+  - [X] `Board` save on `+ Board`. Note: Saved but the default column isn't saved properly
+  - [X] `Card` load on `MainWindow` initialization
+  - [X] `Card` save on `Add Card`
+  - [ ] Bug in card load in the render-size. In initialization, it's correctly loaded based on the DB
+
 
 ### ✅ Todo
 - [X] Base class implementation  
@@ -62,10 +70,6 @@
 - [ ] Disable temporary pending task
 - [ ] Set up GitHub Actions / GitLab CI  
 - [ ] Code signing  via SignPath
-
----
-
-## 📦 Phase 2 — MVP+ (Productivity Expansion, ~6 weeks)
 
 ### 📋 Clipboard Manager
 - [X] Base class implementation  
@@ -94,10 +98,6 @@
 - [ ] Tools → Open Log Folder  
 - [ ] Help → User Guide, Keyboard Shortcuts, About Potensio  
 
----
-
-## 🎨 Phase 3 — Polishing & Distribution (~1–2 months)
-
 ### 📖 Documentation
 - [ ] Add `README.md` with usage/build instructions  
 - [ ] Add `CONTRIBUTING.md` for contributors  
@@ -106,12 +106,3 @@
 ### 🚀 Packaging & Cross-Platform
 - [ ] Cross-platform support (Linux / macOS)  
 - [ ] Package project as `.deb`, `.rpm`, or `.msi`  
-
----
-
-✨ **Timeline Recap**  
-- **Phase 1 (MVP):** ~6 weeks → Core features usable.  
-- **Phase 2 (MVP+):** ~6 weeks → Extra productivity modules.  
-- **Phase 3 (Polish):** ~1–2 months → CI, docs, packaging, cross-platform.  
-
-Total: **~4–5 months** to reach polished cross-platform release (with 1–2 hrs/day).  

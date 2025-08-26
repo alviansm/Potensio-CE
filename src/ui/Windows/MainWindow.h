@@ -477,6 +477,10 @@ private:
     std::shared_ptr<KanbanDatabase> m_kanbanDatabase;
     
     // Settings management
+    bool m_openBoardPopup = false;
+    char m_boardNameBuffer[128] = ""; // buffer for input
+    std::string m_errorMessageBoard;
+
     bool m_openCreateProjectPopup = false;
     char m_projectNameBuffer[128] = "";
     bool m_nameExistsError = false;

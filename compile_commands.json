@@ -1,0 +1,206 @@
+[
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_JSON1 -DSQLITE_ENABLE_RTREE -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_THREADSAFE=1 -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -std=gnu99 -w -o CMakeFiles\\sqlite3.dir\\external\\sqlite\\sqlite3.c.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\sqlite\\sqlite3.c",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\sqlite\\sqlite3.c",
+  "output": "CMakeFiles\\sqlite3.dir\\external\\sqlite\\sqlite3.c.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -DNOMINMAX -DWIN32_LEAN_AND_MEAN -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -std=gnu++17 -w -o CMakeFiles\\wintoast.dir\\external\\wintoast\\src\\wintoastlib.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\wintoast\\src\\wintoastlib.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\wintoast\\src\\wintoastlib.cpp",
+  "output": "CMakeFiles\\wintoast.dir\\external\\wintoast\\src\\wintoastlib.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\main.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\main.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\main.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\main.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\app\\Application.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\app\\Application.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\app\\Application.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\app\\Application.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\app\\AppConfig.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\app\\AppConfig.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\app\\AppConfig.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\app\\AppConfig.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\app\\SystemTray.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\app\\SystemTray.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\app\\SystemTray.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\app\\SystemTray.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Logger.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Logger.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Logger.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Logger.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Utils.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Utils.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Utils.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Utils.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Notify.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Notify.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Notify.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Notify.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Timer\\PomodoroTimer.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Timer\\PomodoroTimer.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Timer\\PomodoroTimer.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Timer\\PomodoroTimer.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Kanban\\KanbanManager.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Kanban\\KanbanManager.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Kanban\\KanbanManager.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Kanban\\KanbanManager.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Todo\\TodoManager.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Todo\\TodoManager.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Todo\\TodoManager.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Todo\\TodoManager.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Clipboard\\ClipboardManager.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Clipboard\\ClipboardManager.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Clipboard\\ClipboardManager.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Clipboard\\ClipboardManager.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Database\\DatabaseManager.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Database\\DatabaseManager.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Database\\DatabaseManager.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Database\\DatabaseManager.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Database\\PomodoroDatabase.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Database\\PomodoroDatabase.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Database\\PomodoroDatabase.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Database\\PomodoroDatabase.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\ui\\UIManager.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\UIManager.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\UIManager.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\ui\\UIManager.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\ui\\Components\\Sidebar.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Components\\Sidebar.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Components\\Sidebar.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\ui\\Components\\Sidebar.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\MainWindow.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\MainWindow.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\MainWindow.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\MainWindow.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\SettingsWindow.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\SettingsWindow.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\SettingsWindow.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\SettingsWindow.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\PomodoroWindow.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\PomodoroWindow.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\PomodoroWindow.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\PomodoroWindow.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\KanbanWindow.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\KanbanWindow.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\KanbanWindow.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\KanbanWindow.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\ClipboardWindow.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\ClipboardWindow.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\ui\\Windows\\ClipboardWindow.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\ui\\Windows\\ClipboardWindow.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\platform\\windows\\WindowsUtils.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\platform\\windows\\WindowsUtils.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\platform\\windows\\WindowsUtils.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\platform\\windows\\WindowsUtils.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\platform\\windows\\WindowsHooks.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\platform\\windows\\WindowsHooks.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\platform\\windows\\WindowsHooks.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\platform\\windows\\WindowsHooks.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\FileConverter\\FileConverter.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\FileConverter\\FileConverter.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\FileConverter\\FileConverter.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\FileConverter\\FileConverter.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\windres.exe -O coff -I C:/Users/Alvians/Repository/PotensioApp/src -I C:/Users/Alvians/Repository/PotensioApp/external/imgui -I C:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -I C:/Users/Alvians/Repository/PotensioApp/external/stb -I C:/Users/Alvians/Repository/PotensioApp/external/sqlite -I C:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -I C:/Users/Alvians/Repository/PotensioApp/resources C:\\Users\\Alvians\\Repository\\PotensioApp\\resources\\app.rc CMakeFiles\\Potensio.dir\\resources\\app.rc.obj",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\resources\\app.rc",
+  "output": "CMakeFiles\\Potensio.dir\\resources\\app.rc.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\external\\imgui\\imgui.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\external\\imgui\\imgui.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\external\\imgui\\imgui_demo.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui_demo.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui_demo.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\external\\imgui\\imgui_demo.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\external\\imgui\\imgui_draw.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui_draw.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui_draw.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\external\\imgui\\imgui_draw.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\external\\imgui\\imgui_tables.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui_tables.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui_tables.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\external\\imgui\\imgui_tables.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\external\\imgui\\imgui_widgets.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui_widgets.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\imgui_widgets.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\external\\imgui\\imgui_widgets.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\external\\imgui\\backends\\imgui_impl_win32.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\backends\\imgui_impl_win32.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\backends\\imgui_impl_win32.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\external\\imgui\\backends\\imgui_impl_win32.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\external\\imgui\\backends\\imgui_impl_opengl3.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\backends\\imgui_impl_opengl3.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\external\\imgui\\backends\\imgui_impl_opengl3.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\external\\imgui\\backends\\imgui_impl_opengl3.cpp.obj"
+},
+{
+  "directory": "C:/Users/Alvians/Repository/PotensioApp/build",
+  "command": "C:\\Strawberry\\c\\bin\\c++.exe -IC:/Users/Alvians/Repository/PotensioApp/src -IC:/Users/Alvians/Repository/PotensioApp/external/imgui -IC:/Users/Alvians/Repository/PotensioApp/external/imgui/backends -IC:/Users/Alvians/Repository/PotensioApp/external/stb -IC:/Users/Alvians/Repository/PotensioApp/external/sqlite -IC:/Users/Alvians/Repository/PotensioApp/external/wintoast/include -IC:/Users/Alvians/Repository/PotensioApp/resources -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\Potensio.dir\\src\\core\\Database\\KanbanDatabase.cpp.obj -c C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Database\\KanbanDatabase.cpp",
+  "file": "C:\\Users\\Alvians\\Repository\\PotensioApp\\src\\core\\Database\\KanbanDatabase.cpp",
+  "output": "CMakeFiles\\Potensio.dir\\src\\core\\Database\\KanbanDatabase.cpp.obj"
+}
+]

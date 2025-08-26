@@ -1,13 +1,11 @@
 // src/main.cpp
 #include <windows.h>
-#include <iostream>
 #include "app/Application.h"
 #include "core/Logger.h"
-#include "core/Notify.h"
 #include <tchar.h>
 
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.UI.Notifications.h>
+// #include <winrt/Windows.Foundation.h>
+// #include <winrt/Windows.UI.Notifications.h>
 #include <shobjidl.h>  
 #include <propvarutil.h>  
 #include <propkey.h>  
@@ -26,7 +24,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 {
 
     // Create named mutex to enforce single instance
+
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wunused-variable"
     HANDLE hMutex = CreateMutex(NULL, FALSE, POTENSIO_MUTEX_NAME);
+    #pragma clang diagnostic pop
+
     if (GetLastError() == ERROR_ALREADY_EXISTS)
     {
         // Another instance running — bring it to front
