@@ -91,31 +91,17 @@ void KanbanWindow::RenderSettingsWindow()
         
         ImGui::Separator();
         
-        // // Action buttons
-        // if (ImGui::Button("Apply & Save"))
-        // {
-        //     SaveSettings();
-        //     m_settingsChanged = false;
-        // }
-        
-        // ImGui::SameLine();
-        // if (ImGui::Button("Reset to Defaults"))
-        // {
-        //     ResetToDefaults();
-        // }
-        
-        // ImGui::SameLine();
-        // if (ImGui::Button("Cancel"))
-        // {
-        //     LoadSettings(); // Reload from saved settings
-        //     m_settingsChanged = false;
-        //     m_isVisible = false;
-        // }
         
         // ImGui::SameLine();
         if (ImGui::Button("Close"))
         {
+            windowOpen = false;
             m_isVisible = false;
+            if (m_settingsChanged)
+            {
+                SaveSettings();
+                m_settingsChanged = false;
+            }
         }
     }
     else
@@ -161,6 +147,8 @@ void KanbanWindow::RenderProjectManagement()
         m_dialogs.showDeleteProjectConfirm = true;
         m_dialogs.targetId = currentProject->id;
         m_dialogs.targetName = currentProject->name;
+
+        ImGui::OpenPopup("Delete Project");
     }
     
     ImGui::Spacing();
@@ -211,16 +199,93 @@ void KanbanWindow::RenderProjectManagement()
         }
         ImGui::End();
     }
-    
-    // Delete confirmation
-    if (m_dialogs.showDeleteProjectConfirm)
+
+    // Edit project dialog
+    if (m_dialogs.showEditProjectDialog)
     {
-        if (RenderConfirmationDialog("Delete Project", 
-            ("Are you sure you want to delete project '" + m_dialogs.targetName + "'?").c_str()))
+        ImGui::SetNextWindowSize(ImVec2(DIALOG_WIDTH, DIALOG_HEIGHT), ImGuiCond_Always);
+        if (ImGui::Begin("Edit Project", &m_dialogs.showEditProjectDialog, ImGuiWindowFlags_Modal))
         {
-            m_kanbanManager->DeleteProject(m_dialogs.targetId);
-            m_dialogs.showDeleteProjectConfirm = false;
+            static char nameBuffer[256] = "";
+            static char descBuffer[512] = "";
+            
+            // Initialize buffers on first open
+            if (nameBuffer[0] == '\0' && m_tempProject.isValid)
+            {
+                strncpy(nameBuffer, m_tempProject.name.c_str(), sizeof(nameBuffer));
+                strncpy(descBuffer, m_tempProject.description.c_str(), sizeof(descBuffer));
+            }
+            
+            ImGui::Text("Edit Project");
+            ImGui::Separator();
+            
+            ImGui::Text("Name:");
+            ImGui::InputText("##ProjectName", nameBuffer, sizeof(nameBuffer));
+            
+            ImGui::Text("Description:");
+            ImGui::InputTextMultiline("##ProjectDesc", descBuffer, sizeof(descBuffer), ImVec2(-1, 100));
+            
+            ImGui::Spacing();
+            
+            bool canSave = strlen(nameBuffer) > 0;
+            if (!canSave) ImGui::BeginDisabled();
+            
+            if (ImGui::Button("Save"))
+            {
+                if (currentProject)
+                {
+                    currentProject->name = nameBuffer;
+                    currentProject->description = descBuffer;
+                    m_kanbanManager->UpdateProject(*currentProject);
+                }
+                m_dialogs.showEditProjectDialog = false;
+                nameBuffer[0] = '\0';
+                descBuffer[0] = '\0';
+                m_tempProject = TempProjectData(); // Reset
+            }
+            
+            if (!canSave) ImGui::EndDisabled();
+            
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                m_dialogs.showEditProjectDialog = false;
+                nameBuffer[0] = '\0';
+                descBuffer[0] = '\0';
+                m_tempProject = TempProjectData(); // Reset
+            }
         }
+        ImGui::End();
+    }
+    
+    // Delete confirmation (Manual creation)
+    if (ImGui::BeginPopupModal("Delete Project", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Are you sure you want to delete the project '%s'?\nThis action cannot be undone.", m_dialogs.targetName.c_str());
+        ImGui::Separator();
+        
+        if (ImGui::Button("Delete"))
+        {
+            if (!m_dialogs.targetId.empty())
+            {
+                m_kanbanManager->DeleteProject(m_dialogs.targetId);
+            }
+            m_dialogs.showDeleteProjectConfirm = false;
+            m_dialogs.targetId.clear();
+            m_dialogs.targetName.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel"))
+        {
+            m_dialogs.showDeleteProjectConfirm = false;
+            m_dialogs.targetId.clear();
+            m_dialogs.targetName.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
     }
 }
 
@@ -245,7 +310,51 @@ void KanbanWindow::RenderBoardSettings()
     if (ImGui::Button("New Board"))
     {
         m_dialogs.showNewBoardDialog = true;
-        m_tempBoard = TempBoardData(); // Reset
+        m_tempBoard = TempBoardData(); // Resets
+    }
+
+    // New Board dialog
+    if (m_dialogs.showNewBoardDialog)
+    {
+        ImGui::SetNextWindowSize(ImVec2(DIALOG_WIDTH, DIALOG_HEIGHT), ImGuiCond_Always);
+        if (ImGui::Begin("New Board", &m_dialogs.showNewBoardDialog, ImGuiWindowFlags_Modal))
+        {
+            static char nameBuffer[256] = "";
+            static char descBuffer[512] = "";
+            
+            ImGui::Text("Create New Board");
+            ImGui::Separator();
+            
+            ImGui::Text("Name:");
+            ImGui::InputText("##BoardName", nameBuffer, sizeof(nameBuffer));
+            
+            ImGui::Text("Description:");
+            ImGui::InputTextMultiline("##BoardDesc", descBuffer, sizeof(descBuffer), ImVec2(-1, 100));
+            
+            ImGui::Spacing();
+            
+            bool canCreate = strlen(nameBuffer) > 0;
+            if (!canCreate) ImGui::BeginDisabled();
+            
+            if (ImGui::Button("Create"))
+            {
+                m_kanbanManager->CreateBoard(nameBuffer, descBuffer);
+                m_dialogs.showNewBoardDialog = false;
+                nameBuffer[0] = '\0';
+                descBuffer[0] = '\0';
+            }
+            
+            if (!canCreate) ImGui::EndDisabled();
+            
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                m_dialogs.showNewBoardDialog = false;
+                nameBuffer[0] = '\0';
+                descBuffer[0] = '\0';
+            }
+        }
+        ImGui::End();
     }
     
     ImGui::SameLine();
@@ -257,6 +366,64 @@ void KanbanWindow::RenderBoardSettings()
         m_tempBoard.description = currentBoard->description;
         m_tempBoard.isValid = true;
     }
+
+    // Edit Current board dialog
+    if (m_dialogs.showEditBoardDialog)
+    {
+        ImGui::SetNextWindowSize(ImVec2(DIALOG_WIDTH, DIALOG_HEIGHT), ImGuiCond_Always);
+        if (ImGui::Begin("Edit Board", &m_dialogs.showEditBoardDialog, ImGuiWindowFlags_Modal))
+        {
+            static char nameBuffer[256] = "";
+            static char descBuffer[512] = "";
+            
+            // Initialize buffers on first open
+            if (nameBuffer[0] == '\0' && m_tempBoard.isValid)
+            {
+                strncpy(nameBuffer, m_tempBoard.name.c_str(), sizeof(nameBuffer));
+                strncpy(descBuffer, m_tempBoard.description.c_str(), sizeof(descBuffer));
+            }
+            
+            ImGui::Text("Edit Board");
+            ImGui::Separator();
+            
+            ImGui::Text("Name:");
+            ImGui::InputText("##BoardName", nameBuffer, sizeof(nameBuffer));
+            
+            ImGui::Text("Description:");
+            ImGui::InputTextMultiline("##BoardDesc", descBuffer, sizeof(descBuffer), ImVec2(-1, 100));
+            
+            ImGui::Spacing();
+            
+            bool canSave = strlen(nameBuffer) > 0;
+            if (!canSave) ImGui::BeginDisabled();
+            
+            if (ImGui::Button("Save"))
+            {
+                if (currentBoard)
+                {
+                    currentBoard->name = nameBuffer;
+                    currentBoard->description = descBuffer;
+                    m_kanbanManager->UpdateBoard(*currentBoard);
+                }
+                m_dialogs.showEditBoardDialog = false;
+                nameBuffer[0] = '\0';
+                descBuffer[0] = '\0';
+                m_tempBoard = TempBoardData(); // Reset
+            }
+            
+            if (!canSave) ImGui::EndDisabled();
+            
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                m_dialogs.showEditBoardDialog = false;
+                nameBuffer[0] = '\0';
+                descBuffer[0] = '\0';
+                m_tempBoard = TempBoardData(); // Reset
+            }
+        }
+        ImGui::End();
+    }
     
     ImGui::SameLine();
     if (currentBoard && ImGui::Button("Delete Current"))
@@ -264,6 +431,33 @@ void KanbanWindow::RenderBoardSettings()
         m_dialogs.showDeleteBoardConfirm = true;
         m_dialogs.targetId = currentBoard->id;
         m_dialogs.targetName = currentBoard->name;
+
+        ImGui::OpenPopup("Delete Board"); // <-- this is crucial
+    }
+
+    // Show delete confirmation dialog prior deleting the board
+    if (ImGui::BeginPopupModal("Delete Board", NULL, ImGuiWindowFlags_NoResize))
+    {
+        ImGui::Text("Are you sure you want to delete board '%s'?", m_dialogs.targetName.c_str());
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        float buttonWidth = 100.0f;
+        if (ImGui::Button("Yes", ImVec2(buttonWidth, 0)))
+        {
+            m_kanbanManager->DeleteBoard(m_dialogs.targetId);
+            ImGui::CloseCurrentPopup();
+            m_dialogs.showDeleteBoardConfirm = false;
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("No", ImVec2(buttonWidth, 0)))
+        {
+            ImGui::CloseCurrentPopup();
+            m_dialogs.showDeleteBoardConfirm = false;
+        }
+
+        ImGui::EndPopup();
     }
     
     ImGui::Spacing();
@@ -562,19 +756,19 @@ void KanbanWindow::RenderColumnEditor()
     ImGui::Text("Column Management");
     ImGui::Separator();
     
-    if (ImGui::Button("Add Column"))
-    {
-        m_dialogs.showNewColumnDialog = true;
-        m_tempColumn = TempColumnData(); // Reset
-    }
+    // if (ImGui::Button("Add Column"))
+    // {
+    //     m_dialogs.showNewColumnDialog = true;
+    //     m_tempColumn = TempColumnData(); // Reset
+    // }
     
     // Column list
-    if (ImGui::BeginTable("ColumnTable", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+    if (ImGui::BeginTable("ColumnTable", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
     {
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("Cards", ImGuiTableColumnFlags_WidthFixed, 60);
         ImGui::TableSetupColumn("Limit", ImGuiTableColumnFlags_WidthFixed, 60);
-        ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 100);
+        // ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 100);
         ImGui::TableHeadersRow();
         
         for (size_t i = 0; i < currentBoard->columns.size(); ++i)
@@ -593,20 +787,20 @@ void KanbanWindow::RenderColumnEditor()
             ImGui::TableNextColumn();
             ImGui::Text("%s", column->cardLimit < 0 ? "∞" : std::to_string(column->cardLimit).c_str());
             
-            ImGui::TableNextColumn();
-            std::string editId = "Edit##" + std::to_string(i);
-            std::string deleteId = "Delete##" + std::to_string(i);
+            // ImGui::TableNextColumn();
+            // std::string editId = "Edit##" + std::to_string(i);
+            // std::string deleteId = "Delete##" + std::to_string(i);
             
-            if (ImGui::SmallButton(editId.c_str()))
-            {
-                // TODO: Edit column
-            }
+            // if (ImGui::SmallButton(editId.c_str()))
+            // {
+            //     // TODO: Edit column
+            // }
             
-            ImGui::SameLine();
-            if (ImGui::SmallButton(deleteId.c_str()))
-            {
-                // TODO: Delete column with confirmation
-            }
+            // ImGui::SameLine();
+            // if (ImGui::SmallButton(deleteId.c_str()))
+            // {
+            //     // TODO: Delete column with confirmation
+            // }
         }
         
         ImGui::EndTable();
@@ -646,43 +840,43 @@ void KanbanWindow::RenderPrioritySelector(const char* label, Kanban::Priority& p
     }
 }
 
-bool KanbanWindow::RenderConfirmationDialog(const char* title, const char* message)
+bool KanbanWindow::RenderConfirmationDialog(const char* title, const char* message, bool* open)
 {
     bool result = false;
-    
-    ImGui::SetNextWindowSize(ImVec2(300, 150), ImGuiCond_Always);
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    
-    if (ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_NoResize))
+
+    if (*open)    
+        ImGui::OpenPopup(title);    
+
+    if (ImGui::BeginPopupModal(title, open, ImGuiWindowFlags_NoResize))
     {
+        ImGui::SetWindowSize(ImVec2(300, 150), ImGuiCond_Always);
+        ImGui::SetWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Always);
+
         ImGui::TextWrapped("%s", message);
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
-        
+
         float buttonWidth = 80.0f;
         float windowWidth = ImGui::GetWindowWidth();
         ImGui::SetCursorPosX((windowWidth - buttonWidth * 2 - ImGui::GetStyle().ItemSpacing.x) * 0.5f);
-        
+
         if (ImGui::Button("Yes", ImVec2(buttonWidth, 0)))
         {
             result = true;
             ImGui::CloseCurrentPopup();
         }
-        
+
         ImGui::SameLine();
         if (ImGui::Button("No", ImVec2(buttonWidth, 0)))
         {
+            result = false;
             ImGui::CloseCurrentPopup();
         }
-        
+
         ImGui::EndPopup();
     }
-    else
-    {
-        ImGui::OpenPopup(title);
-    }
-    
+
     return result;
 }
 

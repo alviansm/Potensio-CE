@@ -4,6 +4,7 @@
 #include "core/Utils.h"
 #include <fstream>
 #include <sstream>
+#include <windows.h>
 
 AppConfig::AppConfig()
 {
@@ -214,9 +215,25 @@ void AppConfig::SetDefaults()
 
 std::string AppConfig::GetConfigFilePath() const
 {
-    std::string appDataPath = Utils::GetAppDataPath();
-    return Utils::JoinPath(appDataPath, "config.txt");
+    char exePath[MAX_PATH];
+    GetModuleFileNameA(NULL, exePath, MAX_PATH);
+
+    std::string path(exePath);
+
+    // Strip off the executable name, leaving only the directory
+    size_t pos = path.find_last_of("\\/");
+    if (pos != std::string::npos)
+    {
+        path = path.substr(0, pos);
+    }
+
+    return path + "\\config.txt";  // join with config.txt
 }
+// std::string AppConfig::GetConfigFilePath() const
+// {
+//     std::string appDataPath = Utils::GetAppDataPath();
+//     return Utils::JoinPath(appDataPath, "config.txt");
+// }
 
 bool AppConfig::ParseConfigLine(const std::string& line)
 {

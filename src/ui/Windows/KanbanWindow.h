@@ -52,7 +52,7 @@ private:
     // UI helpers
     void RenderColorPicker(const char* label, Kanban::Color& color);
     void RenderPrioritySelector(const char* label, Kanban::Priority& priority);
-    bool RenderConfirmationDialog(const char* title, const char* message);
+    bool RenderConfirmationDialog(const char* title, const char* message, bool* modal = nullptr);
     
     // Configuration
     void LoadSettings();

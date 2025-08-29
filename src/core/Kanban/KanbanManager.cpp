@@ -1,4 +1,5 @@
 #include "core/Kanban/KanbanManager.h"
+#include "core/Database/KanbanDatabase.h"
 #include "app/AppConfig.h"
 #include "core/Logger.h"
 #include <algorithm>
@@ -300,6 +301,8 @@ namespace Kanban
         AddColumn("In Progress");
         AddColumn("Review");
         AddColumn("Done");
+
+        // TODO: Set column order to 1, 2, 3, 4 (Utilize to column_order in DB, but we need to change the object proeprty too)
     }
 
     // Project Implementation
@@ -315,11 +318,11 @@ namespace Kanban
         name = projectName;
     }
 
-    void Project::AddBoard(const std::shared_ptr<Board>& board)
+    void Project::AddBoard(const std::unique_ptr<Board>& board)
     {
         if (board)
         {
-            boards.push_back(std::make_unique<Board>(*board)); // Deep copy
+            boards.push_back(std::make_unique<Board>(*board));
             modifiedAt = std::chrono::system_clock::now();
         }
     }
@@ -401,8 +404,10 @@ namespace Kanban
 }
 
 // KanbanManager Implementation
-KanbanManager::KanbanManager()
+KanbanManager::KanbanManager(KanbanDatabase& database)
+    : m_database(database)
 {
+    Logger::Debug("KanbanManager created with DB reference: {}", &database);
 }
 
 KanbanManager::~KanbanManager()
@@ -416,13 +421,18 @@ bool KanbanManager::Initialize(AppConfig* config)
     
     LoadSettings();
     
-    // Create default project if none exist
-    if (m_projects.empty())
-    {
-        CreateDefaultProject();
-    }
-    
     Logger::Info("KanbanManager initialized successfully");
+    return true;
+}
+
+bool KanbanManager::loadProjectsFromDB(KanbanDatabase* db)
+{
+    if (!db) return false;
+
+    m_projects.clear();
+    m_projects = db->GetAllProjects();
+
+    Logger::Info("Loaded {} projects from database " + static_cast<int>(m_projects.size()));
     return true;
 }
 
@@ -441,16 +451,59 @@ void KanbanManager::CreateProject(const std::string& name, const std::string& de
 {
     auto project = std::make_unique<Kanban::Project>(name);
     project->description = description;
-    project->AddBoard("Main Board");
-    
+    project->AddBoard("Main Board");    
+
     m_currentProjectId = project->id;
     if (project->boards.size() > 0)
     {
         m_currentBoardId = project->boards[0]->id;
     }
     
-    m_projects.push_back(std::move(project));
-    
+    if (m_database.CreateProject(*project))
+    {
+        Logger::Debug("Project '{}' created in database with ID: {}", name, project->id);
+    }
+    else
+    {
+        Logger::Error("Failed to create project '{}' in database", name);
+    }
+
+    if (m_database.CreateBoard(*project->boards[0], project->id))
+    {
+        // Save columns
+        auto& board = *project->boards[0];
+        for (const auto& column : board.columns)
+        {
+            if (m_database.CreateColumn(*column, board.id))
+            {
+                Logger::Debug("Column '{}' created in database with ID: {}", column->name, column->id);
+            }
+            else
+            {
+                Logger::Error("Failed to create column '{}' in database", column->name);
+            }
+        }
+
+        Logger::Debug("Board '{}' created in database with ID: {}", project->boards[0]->name, project->boards[0]->id);    
+    }
+    else
+    {
+        Logger::Error("Failed to create board '{}' in database", project->boards[0]->name);
+    }
+
+    m_projects.push_back(std::move(project)); // Move after DB is saved
+
+    // Debug project and board
+    Logger::Debug("Created project: {} with ID: {}", name, m_currentProjectId);
+    if (auto proj = FindProject(m_currentProjectId))
+    {
+        Logger::Debug("Project '{}' has {} boards", proj->name, proj->boards.size());
+        if (!proj->boards.empty())
+        {
+            Logger::Debug("First board: {} with ID: {}", proj->boards[0]->name, proj->boards[0]->id);
+        }
+    }
+
     Logger::Info("Created project: {}", name);
     NotifyProjectChanged(GetCurrentProject());
 }
@@ -490,6 +543,9 @@ void KanbanManager::DeleteProject(const std::string& projectId)
             }
         }
         
+        // Remove in DB
+        m_database.DeleteProject(projectId);
+
         m_projects.erase(it);
         Logger::Info("Deleted project: {}", name);
         NotifyProjectChanged(GetCurrentProject());
@@ -533,26 +589,27 @@ void KanbanManager::SetCurrentProject(const std::string& projectId)
     }
 }
 
-void KanbanManager::setCurrentProjects(const std::vector<std::shared_ptr<Kanban::Project>>& projects)
+bool KanbanManager::UpdateProject(const Kanban::Project& project)
 {
-    m_projects.clear();
-    for (const auto& project : projects)
+    auto existingProject = FindProject(project.id);
+    if (existingProject)
     {
-        if (project)
+        existingProject->name = project.name;
+        existingProject->description = project.description;
+        existingProject->modifiedAt = std::chrono::system_clock::now();
+        
+        if (m_database.UpdateProject(*existingProject))
         {
-            m_projects.push_back(std::make_unique<Kanban::Project>(*project));
+            Logger::Debug("Updated project '{}' in database", project.name);
+            NotifyProjectChanged(existingProject);
+            return true;
+        }
+        else
+        {
+            Logger::Error("Failed to update project '{}' in database", project.name);
         }
     }
-    
-    // Set current project to the first one if available
-    if (!m_projects.empty())
-    {
-        m_currentProjectId = m_projects[0]->id;
-        if (!m_projects[0]->boards.empty())
-        {
-            m_currentBoardId = m_projects[0]->boards[0]->id;
-        }
-    }
+    return false;
 }
 
 void KanbanManager::CreateBoard(const std::string& name, const std::string& description)
@@ -565,6 +622,30 @@ void KanbanManager::CreateBoard(const std::string& name, const std::string& desc
         board->CreateDefaultColumns();
         
         m_currentBoardId = board->id;
+
+        // Save to DB first priot std::move()
+        if (m_database.CreateBoard(*board, project->id))
+        {
+            Logger::Debug("Board '{}' created in database with ID: {}", name, board->id);
+        }
+        else
+        {
+            Logger::Error("Failed to create board '{}' in database", name);
+        }
+
+        // Save columns to DB
+        for (const auto& column : board->columns)
+        {
+            if (m_database.CreateColumn(*column, board->id))
+            {
+                Logger::Debug("Column '{}' created in database with ID: {}", column->name, column->id);
+            }
+            else
+            {
+                Logger::Error("Failed to create column '{}' in database", column->name);
+            }
+        }
+
         project->boards.push_back(std::move(board));
         
         Logger::Info("Created board: {}", name);
@@ -581,6 +662,16 @@ void KanbanManager::DeleteBoard(const std::string& boardId)
         std::string name = board ? board->name : "Unknown";
         
         project->RemoveBoard(boardId);
+
+        // Update to DB
+        if (m_database.DeleteBoard(boardId))
+        {
+            Logger::Debug("Board '{}' deleted from database", name);
+        }
+        else
+        {
+            Logger::Error("Failed to delete board '{}' from database", name);
+        }
         
         // Update current board if we deleted it
         if (m_currentBoardId == boardId)
@@ -614,6 +705,29 @@ void KanbanManager::SetCurrentBoard(const std::string& boardId)
     }
 }
 
+bool KanbanManager::UpdateBoard(const Kanban::Board& board)
+{
+    auto existingBoard = GetCurrentBoard();
+    if (existingBoard && existingBoard->id == board.id)
+    {
+        existingBoard->name = board.name;
+        existingBoard->description = board.description;
+        existingBoard->modifiedAt = std::chrono::system_clock::now();
+        
+        if (m_database.UpdateBoard(*existingBoard))
+        {
+            Logger::Debug("Updated board '{}' in database", board.name);
+            NotifyBoardChanged(existingBoard);
+            return true;
+        }
+        else
+        {
+            Logger::Error("Failed to update board '{}' in database", board.name);
+        }
+    }
+    return false;
+}
+
 void KanbanManager::CreateCard(const std::string& columnId, const std::string& title)
 {
     auto board = GetCurrentBoard();
@@ -624,6 +738,15 @@ void KanbanManager::CreateCard(const std::string& columnId, const std::string& t
         {
             auto card = std::make_shared<Kanban::Card>(title);
             column->AddCard(card);
+
+            if (m_database.CreateCard(*card, column->id))
+            {
+                Logger::Debug("Card '{}' created in database with ID: {}", title, card->id);
+            }
+            else
+            {
+                Logger::Error("Failed to create card '{}' in database", title);
+            }
             
             Logger::Info("Created card: {}", title);
             NotifyCardUpdated(card);
@@ -644,6 +767,16 @@ void KanbanManager::DeleteCard(const std::string& cardId)
             if (column)
             {
                 column->RemoveCard(cardId);
+
+                // Remove from DB
+                if (m_database.DeleteCard(cardId))
+                {
+                    Logger::Debug("Card '{}' deleted from database", title);
+                }
+                else
+                {
+                    Logger::Error("Failed to delete card '{}' from database", title);
+                }
             }
         }
         
@@ -659,6 +792,16 @@ void KanbanManager::UpdateCard(std::shared_ptr<Kanban::Card> card)
         card->modifiedAt = std::chrono::system_clock::now();
         Logger::Debug("Updated card: {}", card->title);
         NotifyCardUpdated(card);
+
+        // Save to DB
+        if (m_database.UpdateCard(*card))
+        {
+            Logger::Debug("Card '{}' updated in database", card->title);
+        }
+        else
+        {
+            Logger::Error("Failed to update card '{}' in database", card->title);
+        }
     }
 }
 
@@ -703,7 +846,7 @@ void KanbanManager::EndDrag()
                 m_dragDropState.draggedCard->id,
                 m_dragDropState.targetColumnId,
                 m_dragDropState.targetIndex
-            );
+            );            
             
             if (success)
             {
@@ -711,6 +854,11 @@ void KanbanManager::EndDrag()
                            m_dragDropState.draggedCard->title,
                            m_dragDropState.targetColumnId);
                 NotifyCardUpdated(m_dragDropState.draggedCard);
+
+                // Save to DB
+                m_database.MoveCard(m_dragDropState.draggedCard->id,
+                    m_dragDropState.targetColumnId, 
+                    m_dragDropState.targetIndex);
             }
         }
     }
@@ -819,7 +967,7 @@ void KanbanManager::CreateDefaultProject()
         {
             CreateCard(board->columns[1]->id, "Move cards between columns");
         }
-    }
+    }    
 }
 
 std::string KanbanManager::GenerateId() const

@@ -9,6 +9,7 @@
 
 // Forward declarations
 class AppConfig;
+class KanbanDatabase;
 
 namespace Kanban
 {
@@ -98,6 +99,7 @@ namespace Kanban
         void RemoveCard(const std::string& cardId);
         std::shared_ptr<Card> FindCard(const std::string& cardId);
         int FindCardIndex(const std::string& cardId);
+        const std::vector<std::shared_ptr<Card>>& GetCards() const { return cards; }
         
         // Get card count by status/priority
         int GetActiveCardCount() const;
@@ -141,6 +143,7 @@ namespace Kanban
         void MoveColumn(int fromIndex, int toIndex);
         Column* FindColumn(const std::string& columnId);
         int FindColumnIndex(const std::string& columnId);
+        const std::vector<std::unique_ptr<Column>>& GetColumns() const { return columns; }
         
         // Card operations
         std::shared_ptr<Card> FindCard(const std::string& cardId);
@@ -185,11 +188,12 @@ namespace Kanban
 
         
         // Board management
-        void AddBoard(const std::shared_ptr<Board>& board);
+        void AddBoard(const std::unique_ptr<Board>& board);
         void AddBoard(const std::string& name);
         void RemoveBoard(const std::string& boardId);
         Board* FindBoard(const std::string& boardId);
         int FindBoardIndex(const std::string& boardId);
+        const std::vector<std::unique_ptr<Board>>& GetBoards() const { return boards; }
         
         // Get active board (first active board)
         Board* GetActiveBoard();
@@ -216,27 +220,32 @@ namespace Kanban
 class KanbanManager
 {
 public:
-    KanbanManager();
+    KanbanManager(KanbanDatabase& database);
     ~KanbanManager();
 
     // Initialization
     bool Initialize(AppConfig* config);
+    bool loadProjectsFromDB(KanbanDatabase* db);
     void Shutdown();
+    void CreateDefaultProject();
 
     // Project management
     void CreateProject(const std::string& name, const std::string& description = "");
     void DeleteProject(const std::string& projectId);
-    Kanban::Project* GetCurrentProject();
     Kanban::Project* FindProject(const std::string& projectId);
     void SetCurrentProject(const std::string& projectId);
     const std::vector<std::unique_ptr<Kanban::Project>>& GetProjects() const { return m_projects; }
-    void setCurrentProjects(const std::vector<std::shared_ptr<Kanban::Project>>& projects);
+    bool UpdateProject(const Kanban::Project& project);
+
+    Kanban::Project* GetCurrentProject();
+    Kanban::Board* GetCurrentBoard();
 
     // Board management
     void CreateBoard(const std::string& name, const std::string& description = "");
     void DeleteBoard(const std::string& boardId);
-    Kanban::Board* GetCurrentBoard();
+    // Kanban::Board* GetCurrentBoard();
     void SetCurrentBoard(const std::string& boardId);
+    bool UpdateBoard(const Kanban::Board& board);
 
     // Card operations
     void CreateCard(const std::string& columnId, const std::string& title);
@@ -288,14 +297,14 @@ private:
     
     // Configuration
     AppConfig* m_config = nullptr;
+    KanbanDatabase& m_database;
     
     // Callbacks
     std::function<void(std::shared_ptr<Kanban::Card>)> m_onCardUpdated;
     std::function<void(Kanban::Board*)> m_onBoardChanged;
     std::function<void(Kanban::Project*)> m_onProjectChanged;
     
-    // Helper methods
-    void CreateDefaultProject();
+    // Helper methods    
     std::string GenerateId() const;
     void NotifyCardUpdated(std::shared_ptr<Kanban::Card> card);
     void NotifyBoardChanged(Kanban::Board* board);

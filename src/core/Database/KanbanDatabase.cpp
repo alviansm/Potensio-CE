@@ -270,9 +270,9 @@ bool KanbanDatabase::CreateProject(const Kanban::Project& project)
     });
 }
 
-std::optional<std::shared_ptr<Kanban::Project>> KanbanDatabase::GetProject(const std::string& projectId)
+std::optional<std::unique_ptr<Kanban::Project>> KanbanDatabase::GetProject(const std::string& projectId)
 {
-    std::optional<std::shared_ptr<Kanban::Project>> result;
+    std::optional<std::unique_ptr<Kanban::Project>> result;
     
     const std::string sql = R"(
         SELECT id, name, description, is_active, created_at, modified_at 
@@ -293,16 +293,16 @@ std::optional<std::shared_ptr<Kanban::Project>> KanbanDatabase::GetProject(const
             project.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 5) ? (char*)sqlite3_column_text(stmt, 5) : "");
 
             LoadBoardsForProject(project);
-            result = std::make_shared<Kanban::Project>(std::move(project));
-            return false; // Stop after first row
+            result = std::make_unique<Kanban::Project>(std::move(project));
+            return false;
         });
 
     return result;
 }
 
-std::vector<std::shared_ptr<Kanban::Project>> KanbanDatabase::GetAllProjects()
+std::vector<std::unique_ptr<Kanban::Project>> KanbanDatabase::GetAllProjects()
 {
-    std::vector<std::shared_ptr<Kanban::Project>> projects;
+    std::vector<std::unique_ptr<Kanban::Project>> projects;
     
     const std::string sql = R"(
         SELECT id, name, description, is_active, created_at, modified_at 
@@ -310,7 +310,7 @@ std::vector<std::shared_ptr<Kanban::Project>> KanbanDatabase::GetAllProjects()
     )";
 
     m_dbManager->ExecuteQuery(sql, [&projects, this](sqlite3_stmt* stmt) -> bool {
-        auto project = std::make_shared<Kanban::Project>();
+        auto project = std::make_unique<Kanban::Project>();
         project->id = sqlite3_column_text(stmt, 0) ? (char*)sqlite3_column_text(stmt, 0) : "";
         project->name = sqlite3_column_text(stmt, 1) ? (char*)sqlite3_column_text(stmt, 1) : "";
         project->description = sqlite3_column_text(stmt, 2) ? (char*)sqlite3_column_text(stmt, 2) : "";
@@ -319,42 +319,24 @@ std::vector<std::shared_ptr<Kanban::Project>> KanbanDatabase::GetAllProjects()
         project->modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 5) ? (char*)sqlite3_column_text(stmt, 5) : "");
         
         LoadBoardsForProject(*project);
-        projects.push_back(project);
-        return true; // Continue processing
+
+        // Debug project name and board count
+        if (project->boards.empty()) {
+            Logger::Debug("Project '{}' has no boards", project->name);
+        } else {
+            Logger::Debug("Project '{}' has {} boards", project->name, project->boards.size());
+        }
+
+        projects.push_back(std::move(project));
+        return true;
     });
 
     return projects;
 }
 
-// std::vector<Kanban::Project> KanbanDatabase::GetAllProjects()
-// {
-//     std::vector<Kanban::Project> projects;
-    
-//     const std::string sql = R"(
-//         SELECT id, name, description, is_active, created_at, modified_at 
-//         FROM kanban_projects ORDER BY created_at DESC
-//     )";
-
-//     m_dbManager->ExecuteQuery(sql, [&projects, this](sqlite3_stmt* stmt) -> bool {
-//         Kanban::Project project;
-//         project.id = sqlite3_column_text(stmt, 0) ? (char*)sqlite3_column_text(stmt, 0) : "";
-//         project.name = sqlite3_column_text(stmt, 1) ? (char*)sqlite3_column_text(stmt, 1) : "";
-//         project.description = sqlite3_column_text(stmt, 2) ? (char*)sqlite3_column_text(stmt, 2) : "";
-//         project.isActive = sqlite3_column_int(stmt, 3) == 1;
-//         project.createdAt = StringToTimePoint(sqlite3_column_text(stmt, 4) ? (char*)sqlite3_column_text(stmt, 4) : "");
-//         project.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 5) ? (char*)sqlite3_column_text(stmt, 5) : "");
-        
-//         LoadBoardsForProject(project);
-//         projects.push_back(std::move(project));
-//         return true; // Continue processing
-//     });
-
-//     return projects;
-// }
-
-std::vector<std::shared_ptr<Kanban::Project>> KanbanDatabase::GetActiveProjects()
+std::vector<std::unique_ptr<Kanban::Project>> KanbanDatabase::GetActiveProjects()
 {
-    std::vector<std::shared_ptr<Kanban::Project>> projects;
+    std::vector<std::unique_ptr<Kanban::Project>> projects;
     
     const std::string sql = R"(
         SELECT id, name, description, is_active, created_at, modified_at 
@@ -371,7 +353,7 @@ std::vector<std::shared_ptr<Kanban::Project>> KanbanDatabase::GetActiveProjects(
         project.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 5) ? (char*)sqlite3_column_text(stmt, 5) : "");
         
         LoadBoardsForProject(project);
-        projects.push_back(std::make_shared<Kanban::Project>(std::move(project)));
+        projects.push_back(std::make_unique<Kanban::Project>(std::move(project)));
         return true;
     });
 
@@ -418,6 +400,23 @@ bool KanbanDatabase::ArchiveProject(const std::string& projectId)
     });
 }
 
+bool KanbanDatabase::IsProjectExists(const std::string& projectId)
+{
+    bool exists = false;
+    const std::string sql = "SELECT 1 FROM kanban_projects WHERE id = ? LIMIT 1";
+
+    m_dbManager->ExecuteQuery(sql,
+        [&projectId](sqlite3_stmt* stmt) {
+            sqlite3_bind_text(stmt, 1, projectId.c_str(), -1, SQLITE_STATIC);
+        },
+        [&exists](sqlite3_stmt* stmt) -> bool {
+            exists = sqlite3_column_type(stmt, 0) != SQLITE_NULL;
+            return false; // Stop after first row
+        });
+
+    return exists;
+}
+
 // Board CRUD operations
 bool KanbanDatabase::CreateBoard(const Kanban::Board& board, const std::string& projectId)
 {
@@ -425,17 +424,6 @@ bool KanbanDatabase::CreateBoard(const Kanban::Board& board, const std::string& 
         INSERT INTO kanban_boards (id, project_id, name, description, is_active, created_at, modified_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     )";
-
-    // Debug all
-    Logger::Debug("Masuk 3: " + sql);
-    Logger::Debug("Masuk 3: Board ID: " + board.id);
-    Logger::Debug("Masuk 3: Project ID: " + projectId);
-    Logger::Debug("Masuk 3: Board Name: " + board.name);
-    Logger::Debug("Masuk 3: Board Description: " + board.description);
-    Logger::Debug("Masuk 3: Board Active: " + std::to_string(board.isActive));
-    Logger::Debug("Masuk 3: Board Created At: " + TimePointToString(board.createdAt));
-    Logger::Debug("Masuk 3: Board Modified At: " + TimePointToString(board.modifiedAt));
-    Logger::Debug("Masuk 3: Board Columns Count: " + std::to_string(board.columns.size()));
 
     return m_dbManager->ExecuteSQL(sql, [&board, &projectId, this](sqlite3_stmt* stmt) {
         sqlite3_bind_text(stmt, 1, board.id.c_str(), -1, SQLITE_STATIC);
@@ -448,9 +436,9 @@ bool KanbanDatabase::CreateBoard(const Kanban::Board& board, const std::string& 
     });
 }
 
-std::optional<std::shared_ptr<Kanban::Board>> KanbanDatabase::GetBoard(const std::string& boardId)
+std::optional<std::unique_ptr<Kanban::Board>> KanbanDatabase::GetBoard(const std::string& boardId)
 {
-    std::optional<std::shared_ptr<Kanban::Board>> result;
+    std::optional<std::unique_ptr<Kanban::Board>> result;
     
     const std::string sql = R"(
         SELECT id, name, description, is_active, created_at, modified_at 
@@ -471,16 +459,17 @@ std::optional<std::shared_ptr<Kanban::Board>> KanbanDatabase::GetBoard(const std
             board.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 5) ? (char*)sqlite3_column_text(stmt, 5) : "");
 
             LoadColumnsForBoard(board);
-            result = std::make_shared<Kanban::Board>(std::move(board));
-            return false; // Stop after first row
+            result = std::make_unique<Kanban::Board>(std::move(board));
+
+            return false;
         });
 
     return result;
 }
 
-std::vector<std::shared_ptr<Kanban::Board>> KanbanDatabase::GetBoardsByProject(const std::string& projectId)
+std::vector<std::unique_ptr<Kanban::Board>> KanbanDatabase::GetBoardsByProject(const std::string& projectId)
 {
-    std::vector<std::shared_ptr<Kanban::Board>> boards;
+    std::vector<std::unique_ptr<Kanban::Board>> boards;
     
     const std::string sql = R"(
         SELECT id, name, description, is_active, created_at, modified_at 
@@ -501,16 +490,17 @@ std::vector<std::shared_ptr<Kanban::Board>> KanbanDatabase::GetBoardsByProject(c
             board.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 5) ? (char*)sqlite3_column_text(stmt, 5) : "");
 
             LoadColumnsForBoard(board);
-            boards.push_back(std::make_shared<Kanban::Board>(std::move(board)));
+            boards.push_back(std::make_unique<Kanban::Board>(std::move(board)));
+
             return true; // Continue processing
         });
 
     return boards;
 }
 
-std::vector<std::shared_ptr<Kanban::Board>> KanbanDatabase::GetAllBoards()
+std::vector<std::unique_ptr<Kanban::Board>> KanbanDatabase::GetAllBoards()
 {
-    std::vector<std::shared_ptr<Kanban::Board>> boards;
+    std::vector<std::unique_ptr<Kanban::Board>> boards;
     
     const std::string sql = R"(
         SELECT id, name, description, is_active, created_at, modified_at 
@@ -518,7 +508,7 @@ std::vector<std::shared_ptr<Kanban::Board>> KanbanDatabase::GetAllBoards()
     )";
 
     m_dbManager->ExecuteQuery(sql, [&boards, this](sqlite3_stmt* stmt) -> bool {
-        auto board = std::make_shared<Kanban::Board>();
+        auto board = std::unique_ptr<Kanban::Board>();
         board->id = sqlite3_column_text(stmt, 0) ? (char*)sqlite3_column_text(stmt, 0) : "";
         board->name = sqlite3_column_text(stmt, 1) ? (char*)sqlite3_column_text(stmt, 1) : "";
         board->description = sqlite3_column_text(stmt, 2) ? (char*)sqlite3_column_text(stmt, 2) : "";
@@ -528,6 +518,7 @@ std::vector<std::shared_ptr<Kanban::Board>> KanbanDatabase::GetAllBoards()
 
         LoadColumnsForBoard(*board);
         boards.push_back(std::move(board));
+
         return true; // Continue processing
     });
 
@@ -574,6 +565,23 @@ bool KanbanDatabase::ArchiveBoard(const std::string& boardId)
     });
 }
 
+bool KanbanDatabase::IsBoardExists(const std::string& boardId)
+{
+    bool exists = false;
+    const std::string sql = "SELECT 1 FROM kanban_boards WHERE id = ? LIMIT 1";
+
+    m_dbManager->ExecuteQuery(sql,
+        [&boardId](sqlite3_stmt* stmt) {
+            sqlite3_bind_text(stmt, 1, boardId.c_str(), -1, SQLITE_STATIC);
+        },
+        [&exists](sqlite3_stmt* stmt) -> bool {
+            exists = sqlite3_column_type(stmt, 0) != SQLITE_NULL;
+            return false; // Stop after first row
+        });
+
+    return exists;
+}
+
 // Column CRUD operations
 bool KanbanDatabase::CreateColumn(const Kanban::Column& column, const std::string& boardId)
 {
@@ -599,9 +607,9 @@ bool KanbanDatabase::CreateColumn(const Kanban::Column& column, const std::strin
     });
 }
 
-std::optional<Kanban::Column> KanbanDatabase::GetColumn(const std::string& columnId)
+std::optional<std::unique_ptr<Kanban::Column>> KanbanDatabase::GetColumn(const std::string& columnId)
 {
-    std::optional<Kanban::Column> result;
+    std::optional<std::unique_ptr<Kanban::Column>> result;
     
     const std::string sql = R"(
         SELECT id, name, header_color_r, header_color_g, header_color_b, header_color_a,
@@ -625,16 +633,17 @@ std::optional<Kanban::Column> KanbanDatabase::GetColumn(const std::string& colum
             column.isCollapsed = sqlite3_column_int(stmt, 7) == 1;
             
             LoadCardsForColumn(column);
-            result = column;
+            result = std::make_unique<Kanban::Column>(std::move(column));
+
             return false;
         });
 
     return result;
 }
 
-std::vector<Kanban::Column> KanbanDatabase::GetColumnsByBoard(const std::string& boardId)
+std::vector<std::unique_ptr<Kanban::Column>> KanbanDatabase::GetColumnsByBoard(const std::string& boardId)
 {
-    std::vector<Kanban::Column> columns;
+    std::vector<std::unique_ptr<Kanban::Column>> columns;
     
     const std::string sql = R"(
         SELECT id, name, header_color_r, header_color_g, header_color_b, header_color_a,
@@ -658,16 +667,17 @@ std::vector<Kanban::Column> KanbanDatabase::GetColumnsByBoard(const std::string&
             column.isCollapsed = sqlite3_column_int(stmt, 7) == 1;
             
             LoadCardsForColumn(column);
-            columns.push_back(std::move(column));
+            columns.push_back(std::make_unique<Kanban::Column>(std::move(column)));
+
             return true;
         });
 
     return columns;
 }
 
-std::vector<Kanban::Column> KanbanDatabase::GetAllColumns()
+std::vector<std::unique_ptr<Kanban::Column>> KanbanDatabase::GetAllColumns()
 {
-    std::vector<Kanban::Column> columns;
+    std::vector<std::unique_ptr<Kanban::Column>> columns;
     
     const std::string sql = R"(
         SELECT id, name, header_color_r, header_color_g, header_color_b, header_color_a,
@@ -687,7 +697,7 @@ std::vector<Kanban::Column> KanbanDatabase::GetAllColumns()
         column.isCollapsed = sqlite3_column_int(stmt, 7) == 1;
         
         LoadCardsForColumn(column);
-        columns.push_back(std::move(column));
+        columns.push_back(std::make_unique<Kanban::Column>(std::move(column)));
         return true;
     });
 
@@ -751,6 +761,23 @@ bool KanbanDatabase::UpdateColumnOrder(const std::string& boardId, const std::ve
     }
 
     return success;
+}
+
+bool KanbanDatabase::IsColumnExists(const std::string& columnId)
+{
+    bool exists = false;
+    const std::string sql = "SELECT 1 FROM kanban_columns WHERE id = ? LIMIT 1";
+
+    m_dbManager->ExecuteQuery(sql,
+        [&columnId](sqlite3_stmt* stmt) {
+            sqlite3_bind_text(stmt, 1, columnId.c_str(), -1, SQLITE_STATIC);
+        },
+        [&exists](sqlite3_stmt* stmt) -> bool {
+            exists = sqlite3_column_type(stmt, 0) != SQLITE_NULL;
+            return false; // Stop after first row
+        });
+
+    return exists;
 }
 
 // Tag operations
@@ -934,9 +961,9 @@ bool KanbanDatabase::CreateCard(const Kanban::Card& card, const std::string& col
     });
 }
 
-std::optional<Kanban::Card> KanbanDatabase::GetCard(const std::string& cardId)
+std::optional<std::shared_ptr<Kanban::Card>> KanbanDatabase::GetCard(const std::string& cardId)
 {
-    std::optional<Kanban::Card> result;
+    std::optional<std::shared_ptr<Kanban::Card>> result;
     
     const std::string sql = R"(
         SELECT id, title, description, priority, status, color_r, color_g, color_b, color_a,
@@ -965,16 +992,17 @@ std::optional<Kanban::Card> KanbanDatabase::GetCard(const std::string& cardId)
             card.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 12) ? (char*)sqlite3_column_text(stmt, 12) : "");
             
             LoadTagsForCard(card);
-            result = card;
+            result = std::make_shared<Kanban::Card>(std::move(card));
+
             return false;
         });
 
     return result;
 }
 
-std::vector<Kanban::Card> KanbanDatabase::GetCardsByColumn(const std::string& columnId)
+std::vector<std::shared_ptr<Kanban::Card>> KanbanDatabase::GetCardsByColumn(const std::string& columnId)
 {
-    std::vector<Kanban::Card> cards;
+    std::vector<std::shared_ptr<Kanban::Card>> cards;
     
     const std::string sql = R"(
         SELECT id, title, description, priority, status, color_r, color_g, color_b, color_a,
@@ -1003,16 +1031,16 @@ std::vector<Kanban::Card> KanbanDatabase::GetCardsByColumn(const std::string& co
             card.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 12) ? (char*)sqlite3_column_text(stmt, 12) : "");
             
             LoadTagsForCard(card);
-            cards.push_back(std::move(card));
+            cards.push_back(std::make_shared<Kanban::Card>(std::move(card)));
             return true;
         });
 
     return cards;
 }
 
-std::vector<Kanban::Card> KanbanDatabase::GetCardsByBoard(const std::string& boardId)
+std::vector<std::shared_ptr<Kanban::Card>> KanbanDatabase::GetCardsByBoard(const std::string& boardId)
 {
-    std::vector<Kanban::Card> cards;
+    std::vector<std::shared_ptr<Kanban::Card>> cards;
     
     const std::string sql = R"(
         SELECT c.id, c.title, c.description, c.priority, c.status, c.color_r, c.color_g, c.color_b, c.color_a,
@@ -1044,16 +1072,17 @@ std::vector<Kanban::Card> KanbanDatabase::GetCardsByBoard(const std::string& boa
             card.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 12) ? (char*)sqlite3_column_text(stmt, 12) : "");
             
             LoadTagsForCard(card);
-            cards.push_back(std::move(card));
+            cards.push_back(std::make_shared<Kanban::Card>(std::move(card)));
+
             return true;
         });
 
     return cards;
 }
 
-std::vector<Kanban::Card> KanbanDatabase::GetAllCards()
+std::vector<std::shared_ptr<Kanban::Card>> KanbanDatabase::GetAllCards()
 {
-    std::vector<Kanban::Card> cards;
+    std::vector<std::shared_ptr<Kanban::Card>> cards;
     
     const std::string sql = R"(
         SELECT id, title, description, priority, status, color_r, color_g, color_b, color_a,
@@ -1078,16 +1107,17 @@ std::vector<Kanban::Card> KanbanDatabase::GetAllCards()
         card.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 12) ? (char*)sqlite3_column_text(stmt, 12) : "");
         
         LoadTagsForCard(card);
-        cards.push_back(std::move(card));
+        cards.push_back(std::make_shared<Kanban::Card>(std::move(card)));
+
         return true;
     });
 
     return cards;
 }
 
-std::vector<Kanban::Card> KanbanDatabase::GetCardsByPriority(Kanban::Priority priority)
+std::vector<std::shared_ptr<Kanban::Card>> KanbanDatabase::GetCardsByPriority(Kanban::Priority priority)
 {
-    std::vector<Kanban::Card> cards;
+    std::vector<std::shared_ptr<Kanban::Card>> cards;
     
     const std::string sql = R"(
         SELECT id, title, description, priority, status, color_r, color_g, color_b, color_a,
@@ -1116,16 +1146,16 @@ std::vector<Kanban::Card> KanbanDatabase::GetCardsByPriority(Kanban::Priority pr
             card.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 12) ? (char*)sqlite3_column_text(stmt, 12) : "");
             
             LoadTagsForCard(card);
-            cards.push_back(std::move(card));
+            cards.push_back(std::make_shared<Kanban::Card>(std::move(card)));
             return true;
         });
 
     return cards;
 }
 
-std::vector<Kanban::Card> KanbanDatabase::GetCardsByStatus(Kanban::CardStatus status)
+std::vector<std::shared_ptr<Kanban::Card>> KanbanDatabase::GetCardsByStatus(Kanban::CardStatus status)
 {
-    std::vector<Kanban::Card> cards;
+    std::vector<std::shared_ptr<Kanban::Card>> cards;
     
     const std::string sql = R"(
         SELECT id, title, description, priority, status, color_r, color_g, color_b, color_a,
@@ -1154,16 +1184,17 @@ std::vector<Kanban::Card> KanbanDatabase::GetCardsByStatus(Kanban::CardStatus st
             card.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 12) ? (char*)sqlite3_column_text(stmt, 12) : "");
             
             LoadTagsForCard(card);
-            cards.push_back(std::move(card));
+            cards.push_back(std::make_shared<Kanban::Card>(std::move(card)));
+
             return true;
         });
 
     return cards;
 }
 
-std::vector<Kanban::Card> KanbanDatabase::GetOverdueCards()
+std::vector<std::shared_ptr<Kanban::Card>> KanbanDatabase::GetOverdueCards()
 {
-    std::vector<Kanban::Card> cards;
+    std::vector<std::shared_ptr<Kanban::Card>> cards;
     
     const std::string sql = R"(
         SELECT id, title, description, priority, status, color_r, color_g, color_b, color_a,
@@ -1190,16 +1221,17 @@ std::vector<Kanban::Card> KanbanDatabase::GetOverdueCards()
         card.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 12) ? (char*)sqlite3_column_text(stmt, 12) : "");
         
         LoadTagsForCard(card);
-        cards.push_back(std::move(card));
+        cards.push_back(std::make_shared<Kanban::Card>(std::move(card)));
+
         return true;
     });
 
     return cards;
 }
 
-std::vector<Kanban::Card> KanbanDatabase::GetCardsByAssignee(const std::string& assignee)
+std::vector<std::shared_ptr<Kanban::Card>> KanbanDatabase::GetCardsByAssignee(const std::string& assignee)
 {
-    std::vector<Kanban::Card> cards;
+    std::vector<std::shared_ptr<Kanban::Card>> cards;
     
     const std::string sql = R"(
         SELECT id, title, description, priority, status, color_r, color_g, color_b, color_a,
@@ -1228,7 +1260,7 @@ std::vector<Kanban::Card> KanbanDatabase::GetCardsByAssignee(const std::string& 
             card.modifiedAt = StringToTimePoint(sqlite3_column_text(stmt, 12) ? (char*)sqlite3_column_text(stmt, 12) : "");
             
             LoadTagsForCard(card);
-            cards.push_back(std::move(card));
+            cards.push_back(std::make_shared<Kanban::Card>(std::move(card)));
             return true;
         });
 
@@ -1340,6 +1372,24 @@ bool KanbanDatabase::MoveCard(const std::string& cardId, const std::string& targ
     return success;
 }
 
+bool KanbanDatabase::IsCardExists(const std::string& cardId)
+{
+    bool exists = false;
+    
+    const std::string sql = "SELECT 1 FROM kanban_cards WHERE id = ? LIMIT 1";
+    
+    m_dbManager->ExecuteQuery(sql,
+        [&cardId](sqlite3_stmt* stmt) {
+            sqlite3_bind_text(stmt, 1, cardId.c_str(), -1, SQLITE_STATIC);
+        },
+        [&exists](sqlite3_stmt* stmt) -> bool {
+            exists = true;
+            return false; // Stop after first result
+        });
+
+    return exists;
+}
+
 bool KanbanDatabase::LoadBoardsForProject(Kanban::Project& project)
 {
     std::vector<std::unique_ptr<Kanban::Board>> boards;
@@ -1374,18 +1424,6 @@ bool KanbanDatabase::LoadBoardsForProject(Kanban::Project& project)
 bool KanbanDatabase::LoadColumnsForBoard(Kanban::Board& board)
 {
     std::vector<std::unique_ptr<Kanban::Column>> columns;
-
-    // id TEXT PRIMARY KEY,
-    //         board_id TEXT NOT NULL,
-    //         name TEXT NOT NULL,
-    //         header_color_r REAL DEFAULT 0.3,
-    //         header_color_g REAL DEFAULT 0.5,
-    //         header_color_b REAL DEFAULT 0.8,
-    //         header_color_a REAL DEFAULT 1.0,
-    //         card_limit INTEGER DEFAULT -1,
-    //         is_collapsed INTEGER DEFAULT 0,
-    //         column_order INTEGER DEFAULT 0,
-    //         FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
     
     const std::string sql = R"(
         SELECT id, name, header_color_r, header_color_g, header_color_b, header_color_a,
@@ -1413,6 +1451,7 @@ bool KanbanDatabase::LoadColumnsForBoard(Kanban::Board& board)
             }
             return true;
         });
+    // Logger::Debug("TEST 29. Loaded {} columns for board {}", columns.size(), board.id);
     board.columns = std::move(columns);
     return !board.columns.empty();
 }
@@ -1453,7 +1492,7 @@ bool KanbanDatabase::LoadCardsForColumn(Kanban::Column& column)
         });
 
     column.cards = std::move(cards);
-    return !column.cards.empty();
+    return true;
 }
 
 bool KanbanDatabase::LoadTagsForCard(Kanban::Card& card)

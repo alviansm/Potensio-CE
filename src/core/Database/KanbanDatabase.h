@@ -21,45 +21,49 @@ public:
 public:
     // Project CRUD operations
     bool CreateProject(const Kanban::Project& project);
-    std::optional<std::shared_ptr<Kanban::Project>> GetProject(const std::string& projectId);
-    std::vector<std::shared_ptr<Kanban::Project>> GetAllProjects();
-    std::vector<std::shared_ptr<Kanban::Project>> GetActiveProjects();
+    std::optional<std::unique_ptr<Kanban::Project>> GetProject(const std::string& projectId);
+    std::vector<std::unique_ptr<Kanban::Project>> GetAllProjects();
+    std::vector<std::unique_ptr<Kanban::Project>> GetActiveProjects();
     bool UpdateProject(const Kanban::Project& project);
     bool DeleteProject(const std::string& projectId);
     bool ArchiveProject(const std::string& projectId);
+    bool IsProjectExists(const std::string& projectId);    
     
     // Board CRUD operations
     bool CreateBoard(const Kanban::Board& board, const std::string& projectId);
-    std::optional<std::shared_ptr<Kanban::Board>> GetBoard(const std::string& boardId);
-    std::vector<std::shared_ptr<Kanban::Board>> GetBoardsByProject(const std::string& projectId);
-    std::vector<std::shared_ptr<Kanban::Board>> GetAllBoards();
+    std::optional<std::unique_ptr<Kanban::Board>> GetBoard(const std::string& boardId);
+    std::vector<std::unique_ptr<Kanban::Board>> GetBoardsByProject(const std::string& projectId);
+    std::vector<std::unique_ptr<Kanban::Board>> GetAllBoards();
     bool UpdateBoard(const Kanban::Board& board);
     bool DeleteBoard(const std::string& boardId);
     bool ArchiveBoard(const std::string& boardId);
+    bool IsBoardExists(const std::string& boardId);
     
     // Column CRUD operations
     bool CreateColumn(const Kanban::Column& column, const std::string& boardId);
-    std::optional<Kanban::Column> GetColumn(const std::string& columnId);
-    std::vector<Kanban::Column> GetColumnsByBoard(const std::string& boardId);
-    std::vector<Kanban::Column> GetAllColumns();
+    std::optional<std::unique_ptr<Kanban::Column>> GetColumn(const std::string& columnId);
+    std::vector<std::unique_ptr<Kanban::Column>> GetColumnsByBoard(const std::string& boardId);
+    std::vector<std::unique_ptr<Kanban::Column>> GetAllColumns();
     bool UpdateColumn(const Kanban::Column& column);
     bool DeleteColumn(const std::string& columnId);
     bool UpdateColumnOrder(const std::string& boardId, const std::vector<std::string>& columnIds);
+    bool IsColumnExists(const std::string& columnId);
     
     // Card CRUD operations
     bool CreateCard(const Kanban::Card& card, const std::string& columnId);
-    std::optional<Kanban::Card> GetCard(const std::string& cardId);
-    std::vector<Kanban::Card> GetCardsByColumn(const std::string& columnId);
-    std::vector<Kanban::Card> GetCardsByBoard(const std::string& boardId);
-    std::vector<Kanban::Card> GetAllCards();
-    std::vector<Kanban::Card> GetCardsByPriority(Kanban::Priority priority);
-    std::vector<Kanban::Card> GetCardsByStatus(Kanban::CardStatus status);
-    std::vector<Kanban::Card> GetOverdueCards();
-    std::vector<Kanban::Card> GetCardsByAssignee(const std::string& assignee);
+    std::optional<std::shared_ptr<Kanban::Card>> GetCard(const std::string& cardId);
+    std::vector<std::shared_ptr<Kanban::Card>> GetCardsByColumn(const std::string& columnId);
+    std::vector<std::shared_ptr<Kanban::Card>> GetCardsByBoard(const std::string& boardId);
+    std::vector<std::shared_ptr<Kanban::Card>> GetAllCards();
+    std::vector<std::shared_ptr<Kanban::Card>> GetCardsByPriority(Kanban::Priority priority);
+    std::vector<std::shared_ptr<Kanban::Card>> GetCardsByStatus(Kanban::CardStatus status);
+    std::vector<std::shared_ptr<Kanban::Card>> GetOverdueCards();
+    std::vector<std::shared_ptr<Kanban::Card>> GetCardsByAssignee(const std::string& assignee);
     bool UpdateCard(const Kanban::Card& card);
     bool DeleteCard(const std::string& cardId);
     bool UpdateCardOrder(const std::string& columnId, const std::vector<std::string>& cardIds);
     bool MoveCard(const std::string& cardId, const std::string& targetColumnId, int targetIndex = -1);
+    bool IsCardExists(const std::string& cardId);
     
     // Tag operations
     bool CreateTag(const std::string& tagName);

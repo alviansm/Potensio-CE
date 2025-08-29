@@ -123,9 +123,9 @@ bool MainWindow::Initialize(AppConfig* config)
     }
     
     // Initialize Kanban manager and window
-    m_kanbanManager = std::make_unique<KanbanManager>();
-    m_kanbanSettingsWindow = std::make_unique<KanbanWindow>();
-    
+    m_kanbanManager = std::make_unique<KanbanManager>(*m_kanbanDatabase);
+    m_kanbanSettingsWindow = std::make_unique<KanbanWindow>();    
+
     // Initialize Kanban components
     if (!m_kanbanManager->Initialize(config))
     {
@@ -137,136 +137,20 @@ bool MainWindow::Initialize(AppConfig* config)
         Logger::Warning("Failed to initialize Kanban settings window");
     }
 
-    // Load all projects
-    std::vector<std::shared_ptr<Kanban::Project>> projects = m_kanbanDatabase->GetAllProjects();    
-
-    // Load all boards related to the projects
-    std::vector<std::shared_ptr<Kanban::Board>> boards = m_kanbanDatabase->GetAllBoards();
-    Logger::Debug("Masuk 1: Loaded " + std::to_string(boards.size()) + " boards from database");
-    for (const auto& project : projects)
+    // Load kanban projects
+    if (m_kanbanManager->loadProjectsFromDB(m_kanbanDatabase.get()))
     {
-        if (project)
-        {
-            auto projectBoards = m_kanbanDatabase->GetBoardsByProject(project->id);
-            Logger::Debug("Masuk 2: Project ID: " + project->id + ", Boards Count: " + std::to_string(projectBoards.size()));
-            for (auto& board : projectBoards)
-            {
-                if (board)
-                {
-                    project->AddBoard(board);
-
-                    // Load columns
-                    auto columns = m_kanbanDatabase->GetColumnsByBoard(board->id);
-                    Logger::Debug("Masuk 4: columns size: " + std::to_string(columns.size()) + " for board: " + board->name);
-                    
-                    for (auto& column : columns) {
-                        board->AddColumn(column);
-                        Logger::Debug("Masuk 5: Added column: " + column.name + " to board: " + board->name);                        
-
-                        // find column inside the board by id
-                        auto* addedColumn = board->FindColumn(column.id);
-                        if (!addedColumn) continue;
-
-                        // Load cards
-                        auto cards = m_kanbanDatabase->GetCardsByColumn(column.id);
-                        for (auto& card : cards) {
-                            addedColumn->AddCard(std::make_shared<Kanban::Card>(card));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Find active project and set it as active project in KanbanManager. If not found, set last project as the active project
-    bool isActiveFound = false;
-    if (!projects.empty())
-    {
-        for (const auto& project : projects)
-        {
-            if (project && project->isActive)
-            {
-                m_kanbanManager->SetCurrentProject(project->id);
-                isActiveFound = true;
-                break;
-            }
-        }
-        
-        if (!isActiveFound)
-        {
-            m_kanbanManager->SetCurrentProject(projects.back()->id);
-        }    
-    }
-    // Check active project
-    Logger::Debug("Masuk 6: Current Active Project ID: " + (m_kanbanManager->GetCurrentProject() ? m_kanbanManager->GetCurrentProject()->id : "None"));
-
-    // Check active board
-    Logger::Debug("Masuk 7: Current Active Board ID: " + (m_kanbanManager->GetCurrentBoard() ? m_kanbanManager->GetCurrentBoard()->id : "None"));
-
-    // Check active board pointer address
-    Logger::Debug("Masuk 8: Current Active Board Pointer: " + std::to_string(reinterpret_cast<std::uintptr_t>(m_kanbanManager->GetCurrentBoard())));
-
-    // Check all columns name of current board, if any (via GetCurrentBoard)
-    if (m_kanbanManager->GetCurrentBoard())
-    {
-        Logger::Debug("Masuk 9: Current Board Columns Count: " + std::to_string(m_kanbanManager->GetCurrentBoard()->columns.size()));
-        for (const auto& column : m_kanbanManager->GetCurrentBoard()->columns)
-        {
-            if (column)
-            {
-                Logger::Debug("Masuk 10: Column ID: " + column->id + ", Name: " + column->name 
-                    + ", Cards Count: " + std::to_string(column->cards.size()));
-
-                // Check card name of each column (and ID)
-                for (const auto& card : column->cards)
-                {
-                    if (card)
-                    {
-                        Logger::Debug("Masuk 11: Card ID: " + card->id + ", Title: " + card->title);
-                    }
-                }
-
-            }
-        }
+        Logger::Info("Loaded Kanban projects from database");
     }
     else
     {
-        Logger::Debug("Masuk 9: No current board available");
-    }
+        Logger::Warning("Failed to load Kanban projects from database");
+    }   
 
-
-
-    // Log loaded projects and boards and columns and cards -> Denote the project name and board name, with their sizes
-    // Logger::Debug("Masuk 3: Total Projects Loaded: " + std::to_string(projects.size()));
-    // for (const auto& project : projects)
-    // {
-    //     if (project)
-    //     {
-    //         Logger::Debug("Masuk 3: Project ID: " + project->id + ", Name: " + project->name 
-    //             + ", Boards Count: " + std::to_string(project->boards.size()));
-    //         for (const auto& board : project->boards)
-    //         {
-    //             if (board)
-    //             {
-    //                 Logger::Debug("Masuk 3: Board ID: " + board->id + ", Name: " + board->name 
-    //                     + ", Columns Count: " + std::to_string(board->columns.size()));
-    //                 for (const auto& column : board->columns)
-    //                 {
-    //                     if (column)
-    //                     {
-    //                         Logger::Debug("Masuk 3: Column ID: " + column->id + ", Name: " + column->name 
-    //                             + ", Cards Count: " + std::to_string(column->cards.size()));
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-    // Set current projects in Kanban manager
-    m_kanbanManager->setCurrentProjects(projects);
+    if (m_kanbanManager->GetCurrentProject() == nullptr && m_kanbanManager->GetProjects().empty())    
+        m_kanbanManager->CreateDefaultProject();    
     
-    // Set up Kanban callbacks
+    // Set up Kanban callbacks (Logger only for now)
     m_kanbanManager->SetOnCardUpdated([this](std::shared_ptr<Kanban::Card> card) {
         OnKanbanCardUpdated(card);
     });
@@ -418,7 +302,7 @@ void MainWindow::Shutdown()
         m_currentSessionId = -1;
     }
 
-    // Shutdown database
+    // Shutdown database -> Make sure it's destroyed after KanbanManager, since KanbanManager reference it
     if (m_databaseManager)
     {
         m_databaseManager->Shutdown();
@@ -786,47 +670,7 @@ void MainWindow::RenderKanbanHeader()
                 }
                 else
                 {
-                    // Create project
                     m_kanbanManager->CreateProject(projectName);
-
-                    // Add to DB
-                    const auto& updatedProjects = m_kanbanManager->GetProjects();
-                    if (!updatedProjects.empty())
-                    {
-                        auto lastProject = updatedProjects.back().get();
-                        m_kanbanDatabase->CreateProject(*lastProject);
-
-                        // Save Board to DB
-                        auto lastBoard = lastProject->boards.back().get();
-                        if (!lastProject->boards.empty())
-                        {
-                            m_kanbanDatabase->CreateBoard(*lastBoard, lastProject->id);
-                            Logger::Debug("New project and board created: " + lastProject->name + " / " + lastBoard->name);
-                        }
-                        else
-                        {
-                            Logger::Debug("New project created without boards: " + lastProject->name);
-                        }
-
-                        // Save Column to DB
-                        if (!lastProject->boards.empty() && !lastProject->boards.back()->columns.empty())
-                        {
-                            // Loop all columns in the last board
-                            for (const auto& column : lastProject->boards.back()->columns)
-                            {
-                                if (column)
-                                {
-                                    m_kanbanDatabase->CreateColumn(*column, lastBoard->id);
-                                    Logger::Debug("New column created: " + column->name + " in board: " + lastBoard->name);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            Logger::Debug("No columns created for the new board: " + lastBoard->name);
-                        }
-                    }
-
                     ImGui::CloseCurrentPopup();
                 }
             }
@@ -900,29 +744,6 @@ void MainWindow::RenderKanbanHeader()
             else
             {
                 m_kanbanManager->CreateBoard(newBoardName);
-
-                auto newBoard = m_kanbanManager->GetCurrentProject()->boards.back().get();
-                if (newBoard)
-                {
-                    if (m_kanbanDatabase->CreateBoard(*newBoard, currentProject->id))
-                    {
-                        Logger::Debug("Board created and saved to database: " + newBoard->name);
-                        
-                        // Save the board columns to DB too
-                        for (auto& col : newBoard->columns)
-                        {
-                            if (m_kanbanDatabase->CreateColumn(*col, newBoard->id))
-                                Logger::Debug("Column created and saved to database: " + col->id);
-                            else
-                                Logger::Debug("Column failed to be saved to DB");
-                        }
-                    }
-                    else
-                    {
-                        Logger::Debug("DB Error: " + m_databaseManager->GetLastError());
-                    }
-                }
-
                 m_openBoardPopup = false;
                 ImGui::CloseCurrentPopup(); // close popup after success
             }
@@ -963,27 +784,6 @@ void MainWindow::RenderKanbanHeader()
 void MainWindow::RenderKanbanBoard()
 {
     auto currentBoard = m_kanbanManager->GetCurrentBoard();
-
-    // Check current board pointer
-    Logger::Debug("Masuk 5: Current Board Pointer in RenderKanbanBoard: " + std::to_string(reinterpret_cast<std::uintptr_t>(currentBoard)));
-    
-    // Check current board columns name and available card size
-    if (currentBoard)
-    {
-        Logger::Debug("Masuk 5: Current Board Columns Count in RenderKanbanBoard: " + std::to_string(currentBoard->columns.size()));
-        for (const auto& column : currentBoard->columns)
-        {
-            if (column)
-            {
-                Logger::Debug("Masuk 5: Column ID: " + column->id + ", Name: " + column->name 
-                    + ", Cards Count: " + std::to_string(column->cards.size()));
-            }
-        }
-    }
-    else
-    {
-        Logger::Debug("Masuk 5: No current board available in RenderKanbanBoard");
-    }
 
     if (!currentBoard)
     {
@@ -1563,7 +1363,12 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
         ImGui::SameLine();
         if (ImGui::Selectable("Delete"))
         {
-            m_kanbanManager->DeleteCard(card->id);
+            // TODO: Ask user via popup first to confirm deletion
+            // m_cardToDeleteId = card->id;
+            // m_confirmDeleteCardPopup = true;
+            // ImGui::OpenPopup("Confirm Delete");
+
+            m_kanbanManager->DeleteCard(card->id);              
         }
         ImGui::PopID();
 
@@ -1580,6 +1385,8 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
     (void)cardIndex;
     
     ImGui::PopID();
+
+    // TODO: Confirm delete popup
 }
 
 void MainWindow::RenderDropTarget(const std::string& columnId, int insertIndex)
@@ -2541,55 +2348,26 @@ void MainWindow::RenderMenuBar()
         // File Menu
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::BeginMenu("Export data"))
+            if (ImGui::MenuItem("Save", "Ctrl+S"))
             {
-                if (ImGui::MenuItem("Pomodoro"))
-                { 
-                    /* handle csv export */ 
-                }
-                if (ImGui::MenuItem("Kanban")) 
-                { 
-                    /* handle json export */ 
-                }
-                if (ImGui::MenuItem("Todo")) 
-                { 
-                    /* handle xml export */ 
-                }
+                Logger::Info("Save clicked from menu");
+                // TODO: Implement save functionality when kanban, todo, or clipboard objects is changed
+            }
 
-                ImGui::EndMenu();
-            }            
-            
             ImGui::Separator();
-            
+
             if (ImGui::MenuItem("Exit"))
             {
                 Logger::Info("Exit clicked from menu");
                 m_exitPopupOpen = true;
             }
-            
-            ImGui::EndMenu();
+
+            ImGui::EndMenu(); // only once here
         }
         
         // Window Menu
         if (ImGui::BeginMenu("Window"))
         {
-            // if (ImGui::MenuItem("Always on Top", nullptr, &m_alwaysOnTop))
-            // {
-            //     Logger::Info("Always on Top toggled: {}", m_alwaysOnTop);
-
-            //     HWND hwnd = m_uiManager->GetHWND();
-            //     if (m_alwaysOnTop)
-            //     {
-            //         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-            //                     SWP_NOMOVE | SWP_NOSIZE);
-            //     }
-            //     else
-            //     {
-            //         SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
-            //                     SWP_NOMOVE | SWP_NOSIZE);
-            //     }
-            // }
-            
             if (ImGui::MenuItem("Minimize to Tray"))
             {
                 Logger::Info("Minimize to Tray clicked");
@@ -2600,28 +2378,12 @@ void MainWindow::RenderMenuBar()
                 }
             }
             
-            // ImGui::Separator();
-            
-            // if (ImGui::MenuItem("Reset Layout"))
-            // {
-            //     Logger::Info("Reset Layout clicked");
-            //     // TODO: Reset window layout
-            // }
-            
             ImGui::EndMenu();
         }
         
         // Tools Menu
         if (ImGui::BeginMenu("Tools"))
         {
-            // if (ImGui::MenuItem("Settings", "F12"))
-            // {
-            //     Logger::Info("Settings clicked from menu");
-            //     // TODO: Open settings window
-            // }
-            
-            // ImGui::Separator();
-            
             if (ImGui::MenuItem("Open Log Folder"))
             {
                 Logger::Info("Open Log Folder clicked");
@@ -6825,20 +6587,37 @@ bool MainWindow::InitializeDatabase()
 
 std::string MainWindow::GetDatabasePath()
 {
-    // Get user's local app data directory
-    char* appDataPath = nullptr;
-    size_t len = 0;
-    
-    if (_dupenv_s(&appDataPath, &len, "LOCALAPPDATA") == 0 && appDataPath != nullptr)
-    {
-        std::string path = std::string(appDataPath) + "\\Potensio\\potensio.db";
-        free(appDataPath);
-        return path;
-    }
-    
-    // Fallback to current directory
-    return "potensio.db";
+    char exePath[MAX_PATH];
+    GetModuleFileNameA(NULL, exePath, MAX_PATH);
+
+    std::string path(exePath);
+
+    // Strip the executable name, keep only the directory
+    size_t pos = path.find_last_of("\\/");
+    if (pos != std::string::npos)
+        path = path.substr(0, pos);
+
+    // Append your DB file name
+    path += "\\potensio.db";
+
+    return path;
 }
+// std::string MainWindow::GetDatabasePath()
+// {
+//     // Get user's local app data directory
+//     char* appDataPath = nullptr;
+//     size_t len = 0;
+    
+//     if (_dupenv_s(&appDataPath, &len, "LOCALAPPDATA") == 0 && appDataPath != nullptr)
+//     {
+//         std::string path = std::string(appDataPath) + "\\Potensio\\potensio.db";
+//         free(appDataPath);
+//         return path;
+//     }
+    
+//     // Fallback to current directory
+//     return "potensio.db";
+// }
 
 void MainWindow::LoadPomodoroConfiguration()
 {

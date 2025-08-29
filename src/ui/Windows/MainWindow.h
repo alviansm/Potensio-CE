@@ -475,6 +475,9 @@ private:
     std::shared_ptr<DatabaseManager> m_databaseManager;
     std::shared_ptr<PomodoroDatabase> m_pomodoroDatabase;
     std::shared_ptr<KanbanDatabase> m_kanbanDatabase;
+
+    // Change listener
+    bool m_kanbanChanged = false;
     
     // Settings management
     bool m_openBoardPopup = false;
@@ -487,6 +490,9 @@ private:
 
     bool m_exitPopupOpen = false;
     bool m_showAboutDialog = false;
+
+    std::string m_cardToDeleteId;
+    bool m_confirmDeleteCardPopup = false;
 
     // Current active session tracking
     int m_currentSessionId = -1;
