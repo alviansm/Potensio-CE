@@ -7,6 +7,9 @@
 #include <sstream>
 #include <windows.h>
 
+#include "app/AppConfig.h"
+#include "app/Application.h"
+
 bool Logger::s_initialized = false;
 Logger::Level Logger::s_minLevel = Logger::Level::Debug;
 
@@ -70,7 +73,17 @@ void Logger::Log(Level level, const std::string& message)
     OutputDebugStringA((logLine + "\n").c_str());
     
     // Could also log to file here if needed
-    
+    if (Application::GetInstance())
+    {
+        AppConfig* config = Application::GetInstance()->GetConfig();
+        if (config)
+        {
+            bool logToFile = config->GetValue("settings.ui.outputDebug", false);
+            if (!logToFile)
+                return;
+        }
+    }
+
     std::ofstream logFile("logs/potensio.log", std::ios::app);
     if (logFile.is_open())
     {

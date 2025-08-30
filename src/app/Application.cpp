@@ -5,6 +5,7 @@
 #include "ui/UIManager.h"
 #include "core/Logger.h"
 #include "platform/windows/WindowsHooks.h"
+#include "ui/Windows/MainWindow.h"
 #include "app/MouseTracker.h"
 #include <chrono>
 
@@ -588,6 +589,18 @@ void Application::HandleShowTodayTasksHotkey()
 
 LRESULT CALLBACK Application::LowLevelMouseProc(int nCode, WPARAM wParam,
                                                 LPARAM lParam) {
+  if (s_instance)
+  {
+    if (s_instance->m_uiManager)
+    {
+        if (s_instance->m_uiManager->GetMainWindow())
+        {
+            if (!s_instance->m_uiManager->GetMainWindow()->GetSettingsUIState().triggerWiggle)
+            return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
+        }
+    }
+  }
+
   if (nCode == HC_ACTION) {
     auto *p = reinterpret_cast<MSLLHOOKSTRUCT *>(lParam);
 

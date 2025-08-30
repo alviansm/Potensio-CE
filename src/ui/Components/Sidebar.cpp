@@ -12,12 +12,12 @@ Sidebar::Sidebar()
     InitializeResources();
 
     // Initialize sidebar item
-    m_menuItems[0] = { ModulePage::Dashboard,     "Dashboard",       "\xf0\x9f\x93\x81", true,  iconDashboard };
+    m_menuItems[0] = { ModulePage::Dashboard,     "File Staging",       "\xf0\x9f\x93\x81", true,  iconDashboard };
     m_menuItems[1] = { ModulePage::Pomodoro,      "Pomodoro",        "\xe2\x8f\xb1", true, iconTimer };
     m_menuItems[2] = { ModulePage::Kanban,        "Kanban",          "\xf0\x9f\x93\x8b", true, iconKanban };
-    m_menuItems[3] = { ModulePage::Todo,          "ToDo",            "\xf0\x9f\x93\x8b", true, iconTodo };
-    m_menuItems[4] = { ModulePage::Clipboard,     "Clipboard",       "\xf0\x9f\x93\x8e", true, iconClipboard };
-    m_menuItems[5] = { ModulePage::FileConverter, "File Converter",  "\xf0\x9f\x94\x84", true, iconConvert };
+    m_menuItems[3] = { ModulePage::Todo,          "ToDo",            "\xf0\x9f\x93\x8b", false, iconTodo };
+    m_menuItems[4] = { ModulePage::Clipboard,     "Clipboard",       "\xf0\x9f\x93\x8e", false, iconClipboard };
+    m_menuItems[5] = { ModulePage::FileConverter, "File Converter",  "\xf0\x9f\x94\x84", false, iconConvert };
 }
 
 Sidebar::~Sidebar()
@@ -59,7 +59,8 @@ void Sidebar::Render()
         const SidebarItem& item = m_menuItems[i];
         m_isSelected = (item.module == m_selectedModule);
         
-        RenderMenuItem(item, m_isSelected);
+        if (item.enabled)
+            RenderMenuItem(item, m_isSelected);        
     }
     
     // Render footer
@@ -68,6 +69,35 @@ void Sidebar::Render()
     ImGui::EndChild();
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
+}
+
+void Sidebar::ToggleModuleEnabled(const std::string& moduleName, bool enabled)
+{
+    // Check if all modules are disabled, then cancel the action since we have to left at least one module enabled
+    if (!enabled)
+    {
+        size_t enabledCount = 0;
+        for (size_t i = 0; i < m_menuItemCount; ++i)
+        {
+            if (m_menuItems[i].enabled)
+                ++enabledCount;
+        }
+        if (enabledCount <= 1)
+        {
+            Logger::Warning("Cannot disable all modules. At least one module must be enabled.");
+            return;
+        }
+    }
+
+    for (size_t i = 0; i < m_menuItemCount; ++i)
+    {
+        if (moduleName == m_menuItems[i].name)
+        {
+            m_menuItems[i].enabled = enabled;
+            Logger::Debug("Sidebar module hidden: {}", moduleName);
+            return;
+        }
+    }
 }
 
 void Sidebar::SetSelectedModule(ModulePage module)

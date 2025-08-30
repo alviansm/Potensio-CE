@@ -274,7 +274,15 @@ namespace Kanban
         int count = 0;
         for (const auto& column : columns)
         {
-            if (column) count += column->GetCompletedCardCount();
+            // if (column) count += column->GetCompletedCardCount(); // TODO: later implemented with advanced calculations
+            // For now, mark cards as complete if it's in column named "Done
+            if (column)
+            {
+                if (column->name == "Done")
+                {
+                    count += column->GetCards().size();
+                }
+            }
         }
         return count;
     }
@@ -438,7 +446,7 @@ bool KanbanManager::loadProjectsFromDB(KanbanDatabase* db)
 
 void KanbanManager::Shutdown()
 {
-    SaveSettings();
+    // SaveSettings();
     
     m_projects.clear();
     m_currentProjectId.clear();
@@ -506,6 +514,7 @@ void KanbanManager::CreateProject(const std::string& name, const std::string& de
 
     Logger::Info("Created project: {}", name);
     NotifyProjectChanged(GetCurrentProject());
+    SaveSettings();
 }
 
 void KanbanManager::DeleteProject(const std::string& projectId)
@@ -549,6 +558,7 @@ void KanbanManager::DeleteProject(const std::string& projectId)
         m_projects.erase(it);
         Logger::Info("Deleted project: {}", name);
         NotifyProjectChanged(GetCurrentProject());
+        SaveSettings();
     }
 }
 
@@ -586,6 +596,7 @@ void KanbanManager::SetCurrentProject(const std::string& projectId)
         
         Logger::Debug("Switched to project: {}", project->name);
         NotifyProjectChanged(project);
+        SaveSettings();
     }
 }
 
@@ -702,6 +713,7 @@ void KanbanManager::SetCurrentBoard(const std::string& boardId)
         m_currentBoardId = boardId;
         Logger::Debug("Switched to board: {}", boardId);
         NotifyBoardChanged(GetCurrentBoard());
+        SaveSettings();
     }
 }
 
@@ -737,6 +749,34 @@ void KanbanManager::CreateCard(const std::string& columnId, const std::string& t
         if (column)
         {
             auto card = std::make_shared<Kanban::Card>(title);
+            column->AddCard(card);
+
+            if (m_database.CreateCard(*card, column->id))
+            {
+                Logger::Debug("Card '{}' created in database with ID: {}", title, card->id);
+            }
+            else
+            {
+                Logger::Error("Failed to create card '{}' in database", title);
+            }
+            
+            Logger::Info("Created card: {}", title);
+            NotifyCardUpdated(card);
+        }
+    }
+}
+
+void KanbanManager::CreateCard(const std::string& columnId, const std::string& title, const std::string& description, int priority)
+{
+    auto board = GetCurrentBoard();
+    if (board)
+    {
+        auto column = board->FindColumn(columnId);
+        if (column)
+        {
+            auto card = std::make_shared<Kanban::Card>(title);
+            card->description = description;
+            card->priority = static_cast<Kanban::Priority>(priority);
             column->AddCard(card);
 
             if (m_database.CreateCard(*card, column->id))
@@ -907,9 +947,10 @@ void KanbanManager::SaveSettings()
     
     // Save project count for loading
     m_config->SetValue("kanban.project_count", static_cast<int>(m_projects.size()));
-    
-    // TODO: Save full project data to config
     m_config->Save();
+
+    Logger::Debug("Saving Kanban settings: current_project='{}', current_board='{}'", 
+                 m_currentProjectId, m_currentBoardId);
     
     Logger::Debug("Kanban settings saved");
 }
@@ -919,11 +960,12 @@ void KanbanManager::LoadSettings()
     if (!m_config)
         return;
     
-    m_currentProjectId = m_config->GetValue("kanban.current_project", "");
-    m_currentBoardId = m_config->GetValue("kanban.current_board", "");
+    m_currentProjectId = m_config->GetValueString("kanban.current_project", "");
+    m_currentBoardId = m_config->GetValueString("kanban.current_board", "");
     
-    // TODO: Load project data from config
-    
+    Logger::Debug("Loading Kanban settings: current_project='{}', current_board='{}'", 
+                 m_currentProjectId, m_currentBoardId);
+
     Logger::Debug("Kanban settings loaded");
 }
 

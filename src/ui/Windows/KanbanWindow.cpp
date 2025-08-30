@@ -636,19 +636,19 @@ void KanbanWindow::RenderStatistics()
             ImGui::Text("Columns: %zu", currentBoard->columns.size());
             ImGui::Text("Cards in Board: %d", currentBoard->GetTotalCardCount());
             ImGui::Text("Completed in Board: %d", currentBoard->GetCompletedCardCount());
-            ImGui::Text("Overdue Cards: %d", currentBoard->GetOverdueCardCount());
+            // ImGui::Text("Overdue Cards: %d", currentBoard->GetOverdueCardCount());
         }
     }
     
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
+    // ImGui::Spacing();
+    // ImGui::Separator();
+    // ImGui::Spacing();
     
-    if (ImGui::Button("Export Statistics"))
-    {
-        Logger::Info("Export statistics requested");
-        // TODO: Export statistics to file
-    }
+    // if (ImGui::Button("Export Statistics"))
+    // {
+    //     Logger::Info("Export statistics requested");
+    //     // TODO: Export statistics to file
+    // }
     
     // ImGui::SameLine();
     // if (ImGui::Button("Clear All Statistics"))

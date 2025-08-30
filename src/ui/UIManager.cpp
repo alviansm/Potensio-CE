@@ -526,8 +526,21 @@ LRESULT UIManager::HandleMessage(HWND hwnd, UINT uMsg, WPARAM wParam,
   }
 
   case WM_CLOSE:
-    Notify::show(L"Potensio", L"Potensio running on background. Click File -> Exit to kill.");
-    HideWindow();
+    if (Application::GetInstance())
+    {
+        if (Application::GetInstance()->GetConfig()->GetValue("settings.ui.close_behavior", 1) == 0)
+        {
+            // Minimize to tray
+            Notify::show(L"Potensio", L"Application minimized to tray.");
+            HideWindow();
+            return 0;
+        }
+        else
+        {
+            // Exit application
+            Application::GetInstance()->RequestExit();
+        }    
+    }
     return 0;
 
   case WM_DESTROY:

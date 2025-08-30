@@ -21,6 +21,8 @@ public:
     // Update and render
     void Update(float deltaTime);
     void Render();
+
+    void ToggleModuleEnabled(const std::string& moduleName, bool enabled = true);
     
     // Navigation
     ModulePage GetSelectedModule() const { return m_selectedModule; }

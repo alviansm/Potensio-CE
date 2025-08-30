@@ -1,6 +1,8 @@
 // src/platform/windows/WindowsHooks.cpp
 #include "WindowsHooks.h"
 #include "core/Logger.h"
+#include "app/Application.h"
+#include "app/AppConfig.h"
 
 std::map<int, WindowsHooks::HotkeyCallback> WindowsHooks::s_hotkeyCallbacks;
 bool WindowsHooks::s_initialized = false;
@@ -91,8 +93,28 @@ bool WindowsHooks::ProcessMessage(MSG* msg)
         auto it = s_hotkeyCallbacks.find(hotkeyId);
         if (it != s_hotkeyCallbacks.end())
         {
-            Logger::Debug("Hotkey {} triggered", hotkeyId);
-            it->second(); // Call the callback
+            if (hotkeyId == 1) 
+            {
+                if (Application::GetInstance())
+                {
+                    if (Application::GetInstance()->GetConfig()->GetValue("settings.ui.trigger_hotkey", true))
+                    {
+                        Logger::Debug("Hotkey {} triggered", hotkeyId);
+                        it->second(); // Call the callback
+                    }
+                    else
+                    {
+                        Logger::Debug("Hotkey {} ignored due to settings", hotkeyId);
+                    }
+                }
+            }
+            else
+            {
+                Logger::Debug("Hotkey {} triggered", hotkeyId);
+                it->second(); // Call the callback   
+            }
+
+
             return true;
         }
     }

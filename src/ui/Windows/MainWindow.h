@@ -286,14 +286,25 @@ private:
         std::string latestVersion = "";
         bool updateAvailable = false;
         bool checkingUpdates = false;
+
+        // Close behaviout
+        int closeBehavior = 1; // 0: close to tray. 1: kill app
+
+        // Trigger
+        bool triggerHotkey = true;
+        bool triggerWiggle = true;
         
+        // Debug
+        bool outputDebug = true;
     } m_settingsUIState;
     
     // Settings dialog states
+    bool m_showNotifySavePopup = false;
     bool m_showResetConfirmDialog = false;
     bool m_showExportDataDialog = false;
     bool m_showImportDataDialog = false;
     bool m_showClearDataDialog = false;
+    bool m_showLicenseDialog = false;
     
     // Content area rendering
     void RenderMenuBar();
@@ -312,9 +323,11 @@ private:
     void RenderHotkeySettings();
     void RenderModuleSettings();
     void RenderAccountSettings();
+    void RenderLicenseDialog();
     void RenderAboutSettings();
     
     // Settings Dialogs
+    void RenderNotifySavedPopup();
     void RenderResetConfirmDialog();
     void RenderDataManagementDialogs();
     void RenderHotkeyEditor(const char* label, char* buffer, size_t bufferSize);
@@ -371,6 +384,8 @@ private:
     // Kanban drag and drop
     void HandleCardDragDrop(std::shared_ptr<class Kanban::Card> card, const std::string& columnId, int cardIndex);
     void RenderDropTarget(const std::string& columnId, int insertIndex = -1);
+    void RenderColumnDropTarget(const std::string& columnId);
+    void HandleDragDropInput();
     
     // Todo - Main Interface
     void RenderTodoModule();
@@ -468,6 +483,12 @@ private:
     const char* GetStatusName(int status) const;
     ImVec4 GetStatusColor(int status) const;
 
+public:
+    /**
+     * @note Getter for UI State
+     */
+    SettingsUIState GetSettingsUIState() const { return m_settingsUIState; }
+
 private:
     UIManager* m_uiManager;
 
@@ -493,6 +514,8 @@ private:
 
     std::string m_cardToDeleteId;
     bool m_confirmDeleteCardPopup = false;
+
+    bool m_showQuickEditCardPopup = false;
 
     // Current active session tracking
     int m_currentSessionId = -1;

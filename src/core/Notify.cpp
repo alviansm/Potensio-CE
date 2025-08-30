@@ -5,6 +5,9 @@
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
 
+#include "app/AppConfig.h"
+#include "app/Application.h"
+
 using namespace WinToastLib;
 
 void Notify::show(const std::wstring &title, const std::wstring &message,
@@ -13,9 +16,18 @@ void Notify::show(const std::wstring &title, const std::wstring &message,
     return;
   }
 
+  if (Application::GetInstance())
+  {
+    if (Application::GetInstance()->GetConfig())
+    {
+      if (!Application::GetInstance()->GetConfig()->GetValue("general.show_notifications", true))
+        return;
+    }
+  }
+
   WinToast::instance()->setAppName(L"Potensio");
   const auto aumi =
-      WinToast::configureAUMI(L"YourCompany", L"Potensio", L"App", L"2025");
+      WinToast::configureAUMI(L"AlviansMaulana", L"Potensio", L"App", L"2025");
   WinToast::instance()->setAppUserModelId(aumi);
 
   if (!WinToast::instance()->initialize()) {
@@ -50,9 +62,18 @@ void Notify::show(const std::wstring &title, const std::wstring &message,
     return;
   }
 
+  if (Application::GetInstance())
+  {
+    if (Application::GetInstance()->GetConfig())
+    {
+      if (!Application::GetInstance()->GetConfig()->GetValue("general.show_notifications", true))
+        return;
+    }
+  }
+
   WinToast::instance()->setAppName(L"Potensio");
   const auto aumi =
-      WinToast::configureAUMI(L"YourCompany", L"Potensio", L"App", L"2025");
+      WinToast::configureAUMI(L"AlviansMaulana", L"Potensio", L"App", L"2025");
   WinToast::instance()->setAppUserModelId(aumi);
 
   if (!WinToast::instance()->initialize()) {

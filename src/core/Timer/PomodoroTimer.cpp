@@ -106,8 +106,6 @@ void PomodoroTimer::Skip()
 void PomodoroTimer::SetConfig(const PomodoroConfig& config)
 {
     m_config = config;
-    
-    Logger::Debug("TEST 110: " + std::to_string(m_config.workDurationMinutes));
 
     // If timer is stopped, reset to use new config
     if (m_state == TimerState::Stopped)

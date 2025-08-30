@@ -149,6 +149,8 @@ bool MainWindow::Initialize(AppConfig* config)
 
     if (m_kanbanManager->GetCurrentProject() == nullptr && m_kanbanManager->GetProjects().empty())    
         m_kanbanManager->CreateDefaultProject();    
+    else
+        m_kanbanManager->LoadSettings();
     
     // Set up Kanban callbacks (Logger only for now)
     m_kanbanManager->SetOnCardUpdated([this](std::shared_ptr<Kanban::Card> card) {
@@ -453,7 +455,7 @@ void MainWindow::RenderContentArea()
             RenderDropoverInterface();
             break;
         case ModulePage::Pomodoro:
-            RenderPomodoroModule(); // Updated to actual implementation
+            RenderPomodoroModule();
             break;
         case ModulePage::Kanban:
             RenderKanbanModule();
@@ -490,7 +492,7 @@ void MainWindow::RenderKanbanModule()
         return;
     }
     
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 6));
     
     // Header
     RenderKanbanHeader();
@@ -501,12 +503,10 @@ void MainWindow::RenderKanbanModule()
     
     // Main board area
     RenderKanbanBoard();
+    HandleDragDropInput();
     
     // Card edit dialog (modal)
-    if (m_cardEditState.isEditing)
-    {
-        RenderCardEditDialog();
-    }
+    RenderCardEditDialog();
     
     ImGui::PopStyleVar();
 }
@@ -938,13 +938,20 @@ void MainWindow::RenderKanbanColumn(Kanban::Column* column, int columnIndex, flo
     
     // Separator line
     ImGui::SetCursorPos(ImVec2(padding, headerHeight - 5));
-    ImGui::Separator();
+    // ImGui::Separator();
     
     // Cards area with proper sizing to fill remaining space
-    ImVec2 cardsAreaPos = ImVec2(padding, headerHeight);
+    ImVec2 cardsAreaPos = ImVec2(padding, headerHeight+6);
     ImVec2 cardsAreaSize = ImVec2(columnWidth - 2 * padding, columnHeight - headerHeight - padding);
     
     ImGui::SetCursorPos(cardsAreaPos);
+    ImGui::PushClipRect(
+            ImVec2(windowPos.x + cursorPos.x + cardsAreaPos.x, windowPos.y + cursorPos.y + cardsAreaPos.y),
+            ImVec2(windowPos.x + cursorPos.x + cardsAreaPos.x + cardsAreaSize.x, 
+                windowPos.y + cursorPos.y + cardsAreaPos.y + cardsAreaSize.y),
+            true
+        );
+
     ImGui::BeginChild(("##CardsArea" + column->id).c_str(), cardsAreaSize, false, 
                      ImGuiWindowFlags_AlwaysVerticalScrollbar);
     
@@ -969,19 +976,16 @@ void MainWindow::RenderKanbanColumn(Kanban::Column* column, int columnIndex, flo
     
     // Drop target at the end of the column
     RenderDropTarget(column->id, static_cast<int>(column->cards.size()));
-    
-    ImGui::EndChild(); // End cards area
-    ImGui::EndChild(); // End column
+
+    ImGui::EndChild();
+    ImGui::PopClipRect();
+
+    ImGui::EndChild();
 }
 
 void MainWindow::RenderQuickAddCard(const std::string& columnId, float maxWidth)
 {
     std::string inputId = "##quickadd" + columnId;
-    
-    static std::unordered_map<std::string, std::string> quickAddTexts;
-    static std::unordered_map<std::string, bool> quickAddActive;
-    
-    bool isActive = quickAddActive[columnId];
     
     // Use provided max width or calculate from available space
     float buttonWidth = maxWidth > 0 ? maxWidth : (ImGui::GetContentRegionAvail().x - 16.0f);
@@ -1001,99 +1005,67 @@ void MainWindow::RenderQuickAddCard(const std::string& columnId, float maxWidth)
         buttonText = "Add Card##" + columnId;
     }
     
-    if (!isActive)
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.5f, 0.8f, 0.6f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.6f, 0.9f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.4f, 0.7f, 1.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    
+    if (ImGui::Button(buttonText.c_str(), ImVec2(buttonWidth, 24.0f)))
     {
-        // Properly sized button that fits the column
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.5f, 0.8f, 0.6f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.6f, 0.9f, 0.8f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.4f, 0.7f, 1.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        
-        if (ImGui::Button(buttonText.c_str(), ImVec2(buttonWidth, 24.0f)))
-        {
-            quickAddActive[columnId] = true;
-            quickAddTexts[columnId] = "";            
-        }
-        
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(3);
+        m_showQuickEditCardPopup = true;
+        ImGui::OpenPopup("Add Card");
     }
-    else
-    {
-        // Quick add input with proper styling
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3)); // Smaller padding for narrow columns
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
-        
-        char buffer[256];
-        strncpy_s(buffer, quickAddTexts[columnId].c_str(), sizeof(buffer) - 1);
-        buffer[sizeof(buffer) - 1] = '\0';
-        
-        ImGui::SetKeyboardFocusHere();
-        ImGui::SetNextItemWidth(buttonWidth);
-        bool enterPressed = ImGui::InputText(inputId.c_str(), buffer, sizeof(buffer), 
-                                           ImGuiInputTextFlags_EnterReturnsTrue | 
-                                           ImGuiInputTextFlags_AutoSelectAll);
-        quickAddTexts[columnId] = buffer;
-        
-        ImGui::PopStyleColor(3);
-        ImGui::PopStyleVar(2);
-        
-        if (enterPressed && strlen(buffer) > 0)
-        {
-            // Create the card
-            m_kanbanManager->CreateCard(columnId, buffer);
-            quickAddActive[columnId] = false;
-            quickAddTexts[columnId] = "";
+    
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(3);
 
-            // Save to DB -> bool CreateCard(const Kanban::Card& card, const std::string& columnId);
-            auto board = m_kanbanManager->GetCurrentBoard();
-            if (board)
+    // Quick add card popup
+    if (ImGui::BeginPopupModal("Add Card", &m_showQuickEditCardPopup, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        static char titleBuffer[128] = "";
+        static char descBuffer[256] = "";
+        static int priority = 1; // Default priority
+        
+        ImGui::Text("Enter card details:");
+        ImGui::InputText("Title", titleBuffer, IM_ARRAYSIZE(titleBuffer));
+        ImGui::InputTextMultiline("Description", descBuffer, IM_ARRAYSIZE(descBuffer), ImVec2(300, 100));
+        
+        ImGui::Text("Priority:");
+        ImGui::SameLine();
+        ImGui::RadioButton("Low", &priority, 0); ImGui::SameLine();
+        ImGui::RadioButton("Medium", &priority, 1); ImGui::SameLine();
+        ImGui::RadioButton("High", &priority, 2); ImGui::SameLine();
+        ImGui::RadioButton("Urgent", &priority, 3);        
+        
+        if (ImGui::Button("Add Card", ImVec2(120, 0)))
+        {
+            std::string title = titleBuffer;
+            std::string description = descBuffer;
+            
+            if (!title.empty())
             {
-                auto column = board->FindColumn(columnId);
-                if (column)
-                {
-                    // Get card via last index of cards in column
-                    auto newCard = column->cards.back().get();
-                    if (m_kanbanDatabase->CreateCard(*newCard, columnId))
-                    {
-                        Logger::Debug("Card created and saved to database: " + newCard->title);                    
-                    }
-                    else
-                    {
-                        Logger::Debug("DB Error: " + m_databaseManager->GetLastError());
-                    }                
-                }
-            }            
+                m_kanbanManager->CreateCard(columnId, title, description, priority);
+                // Reset buffers
+                titleBuffer[0] = '\0';
+                descBuffer[0] = '\0';
+                priority = 1;
+                m_showQuickEditCardPopup = false;
+                ImGui::CloseCurrentPopup();
+            }
         }
         
-        // Cancel on escape or click outside
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape) || 
-            (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsItemHovered()))
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
         {
-            quickAddActive[columnId] = false;
-            quickAddTexts[columnId] = "";
+            // Reset buffers
+            titleBuffer[0] = '\0';
+            descBuffer[0] = '\0';
+            priority = 1;
+            m_showQuickEditCardPopup = false;
+            ImGui::CloseCurrentPopup();
         }
         
-        // Small instruction text - only show if there's enough width
-        if (buttonWidth > 100.0f)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
-            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1);
-            ImGui::Text("Enter to add, Esc to cancel");
-            ImGui::PopStyleColor();
-        }
-        else if (buttonWidth > 60.0f)
-        {
-            // Shorter instruction for narrow columns
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
-            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1);
-            ImGui::Text("Enter/Esc");
-            ImGui::PopStyleColor();
-        }
-        // No instruction text for very narrow columns
+        ImGui::EndPopup();
     }
 }
 
@@ -1102,8 +1074,8 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
     if (!card) return;
     
     float cardWidth = ImGui::GetContentRegionAvail().x;
-    float cardPadding = cardWidth < 100.0f ? 4.0f : 6.0f; // Smaller padding for narrow columns
-    float minCardHeight = cardWidth < 100.0f ? 50.0f : 60.0f; // Smaller min height for narrow columns
+    float cardPadding = cardWidth < 100.0f ? 4.0f : 6.0f;
+    float minCardHeight = cardWidth < 100.0f ? 50.0f : 60.0f;
     
     // Card background color based on priority with better contrast
     auto priorityColor = card->GetPriorityColor();
@@ -1139,7 +1111,6 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
     // Add height for description if present
     if (!card->description.empty())
     {
-        // Calculate wrapped text height for responsive truncation
         std::string displayDesc = card->description;
         size_t maxLength = cardWidth < 100.0f ? 30 : (cardWidth < 150.0f ? 60 : 100);
         
@@ -1155,238 +1126,251 @@ void MainWindow::RenderKanbanCard(std::shared_ptr<Kanban::Card> card, int cardIn
     // Add height for metadata
     cardContentHeight += lineHeight + 4;
     
-    // Use simple conditional instead of std::max to avoid Windows macro conflicts
     if (cardContentHeight < minCardHeight)
     {
         cardContentHeight = minCardHeight;
     }
     
-    // Draw card background
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-    ImVec2 windowPos = ImGui::GetWindowPos();
-    ImVec2 cursorPos = ImGui::GetCursorPos();
-    
-    ImVec2 cardMin = ImVec2(windowPos.x + cursorPos.x, windowPos.y + cursorPos.y);
-    ImVec2 cardMax = ImVec2(cardMin.x + cardWidth, cardMin.y + cardContentHeight);
-    
-    // Card shadow effect
-    ImVec2 shadowOffset = ImVec2(2, 2);
-    drawList->AddRectFilled(
-        ImVec2(cardMin.x + shadowOffset.x, cardMin.y + shadowOffset.y),
-        ImVec2(cardMax.x + shadowOffset.x, cardMax.y + shadowOffset.y),
-        IM_COL32(0, 0, 0, 40), 6.0f
-    );
-    
-    // Card background and border
-    drawList->AddRectFilled(cardMin, cardMax, cardBgColor, 6.0f);
-    drawList->AddRect(cardMin, cardMax, cardBorderColor, 6.0f, 0, 1.5f);
-    
-    // Begin card content
+    // Use ImGui::BeginChild for proper scrolling behavior
     ImGui::PushID(card->id.c_str());
     
-    // Position cursor for content
-    ImGui::SetCursorPos(ImVec2(cursorPos.x + cardPadding, cursorPos.y + cardPadding));
+    // Set up custom colors for the child window to act as card background
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(
+        (cardBgColor >> 0 & 0xFF) / 255.0f,
+        (cardBgColor >> 8 & 0xFF) / 255.0f, 
+        (cardBgColor >> 16 & 0xFF) / 255.0f,
+        (cardBgColor >> 24 & 0xFF) / 255.0f
+    ));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(
+        (cardBorderColor >> 0 & 0xFF) / 255.0f,
+        (cardBorderColor >> 8 & 0xFF) / 255.0f,
+        (cardBorderColor >> 16 & 0xFF) / 255.0f,
+        (cardBorderColor >> 24 & 0xFF) / 255.0f
+    ));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.5f);
     
-    // Card title - always wrap text for responsive cards
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.95f, 0.95f, 1.0f));
-    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Could use bold font if available
+    // Create child window for the card
+    ImVec2 cardSize = ImVec2(cardWidth, cardContentHeight);
+    bool cardOpen = ImGui::BeginChild(
+        ("card_" + card->id).c_str(), 
+        cardSize,
+        true, // border
+        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
+    );
     
-    ImGui::PushTextWrapPos(cursorPos.x + cardWidth - cardPadding);
-    ImGui::Text("%s", card->title.c_str());
-    ImGui::PopTextWrapPos();
-    
-    ImGui::PopFont();
-    ImGui::PopStyleColor();
-    
-    // Card description - responsive truncation and wrapping
-    if (!card->description.empty())
+    if (cardOpen)
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.75f, 0.75f, 1.0f));
-        ImGui::PushTextWrapPos(cursorPos.x + cardWidth - cardPadding);
-        
-        // Adjust truncation based on card width
-        std::string displayDesc = card->description;
-        size_t maxLength = cardWidth < 100.0f ? 30 : (cardWidth < 150.0f ? 60 : 100);
-        
-        if (displayDesc.length() > maxLength)
+        // DRAG SOURCE IMPLEMENTATION
+        // Check if the card can be dragged (not already being dragged)
+        if (!isDragging && ImGui::IsWindowHovered() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
         {
-            displayDesc = displayDesc.substr(0, maxLength - 3) + "...";
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip))
+            {
+                // Start the drag operation
+                m_kanbanManager->StartDrag(card, columnId);
+                
+                // Set the payload - we'll pass the card pointer
+                ImGui::SetDragDropPayload("KANBAN_CARD", &card, sizeof(std::shared_ptr<Kanban::Card>));
+                
+                // Custom drag preview
+                ImGui::BeginTooltip();
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                ImGui::Text("Moving: %s", card->title.c_str());
+                if (!card->description.empty())
+                {
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                                    "%.50s%s",
+                                    card->description.c_str(),
+                                    card->description.length() > 50 ? "..." : "");
+                }
+                ImGui::PopStyleColor();
+                ImGui::EndTooltip();
+                
+                ImGui::EndDragDropSource();
+            }
         }
         
-        ImGui::Text("%s", displayDesc.c_str());
+        // Render card content
+        ImGui::SetCursorPos(ImVec2(cardPadding, cardPadding));
+        
+        // Card title - always wrap text for responsive cards
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.95f, 0.95f, 1.0f));
+        ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+        
+        ImGui::PushTextWrapPos(cardWidth - cardPadding);
+        ImGui::Text("%s", card->title.c_str());
         ImGui::PopTextWrapPos();
-        ImGui::PopStyleColor();
-    }
-    
-    // Priority and metadata on the bottom - responsive format
-    ImGui::SetCursorPos(ImVec2(cursorPos.x + cardPadding, cardMin.y + cardContentHeight - windowPos.y - lineHeight - cardPadding));
-
-    // Priority and metadata - adjust format for narrow cards
-    if (cardWidth < 80.0f)
-    {
-        // Use priority symbols for very narrow cards
-        // ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(priorityColor.r, priorityColor.g, priorityColor.b, 1.0f));
-        ImGui::Image(iconPriorityKanban, ImVec2(16, 16));
+        
+        ImGui::PopFont();
         ImGui::PopStyleColor();
         
-        // Due date as just an icon for narrow cards
-        if (!card->dueDate.empty())
+        // Card description - responsive truncation and wrapping
+        if (!card->description.empty())
         {
-            ImGui::SameLine();
-            // ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
-            ImGui::Image(iconDueDateKanban, ImVec2(12, 12));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.75f, 0.75f, 1.0f));
+            ImGui::PushTextWrapPos(cardWidth - cardPadding);
+            
+            std::string displayDesc = card->description;
+            size_t maxLength = cardWidth < 100.0f ? 30 : (cardWidth < 150.0f ? 60 : 100);
+            
+            if (displayDesc.length() > maxLength)
+            {
+                displayDesc = displayDesc.substr(0, maxLength - 3) + "...";
+            }
+            
+            ImGui::Text("%s", displayDesc.c_str());
+            ImGui::PopTextWrapPos();
             ImGui::PopStyleColor();
         }
-    }
-    else
-    {
-        // Normal priority display for wider cards
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(priorityColor.r, priorityColor.g, priorityColor.b, 1.0f));
-        if (cardWidth < 120.0f)
+        
+        // Priority and metadata on the bottom
+        ImGui::SetCursorPos(ImVec2(cardPadding, cardContentHeight - lineHeight - cardPadding));
+
+        // Priority and metadata - adjust format for narrow cards
+        if (cardWidth < 80.0f)
         {
-            // Shorter priority names for medium-narrow cards
-            const char* shortPriorityNames[] = {"Low", "Med", "High", "Urg"};
-            int priorityIndex = static_cast<int>(card->priority);
-            if (priorityIndex >= 0 && priorityIndex < 4)
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(priorityColor.r, priorityColor.g, priorityColor.b, 1.0f));
+            ImGui::Image(iconPriorityKanban, ImVec2(16, 16));
+            ImGui::PopStyleColor();
+            
+            if (!card->dueDate.empty())
             {
-                if (shortPriorityNames[priorityIndex] == "Low")
-                    ImGui::Image(iconPriorityLowKanban, ImVec2(12, 12));
-                else if (shortPriorityNames[priorityIndex] == "Med")                
-                    ImGui::Image(iconPriorityMediumKanban, ImVec2(12, 12));                
-                else if (shortPriorityNames[priorityIndex] == "High")                
-                    ImGui::Image(iconPriorityHighKanban, ImVec2(12, 12));                
-                else if (shortPriorityNames[priorityIndex] == "Urg")                
-                    ImGui::Image(iconPriorityUrgentKanban, ImVec2(12, 12));                
                 ImGui::SameLine();
-                ImGui::Text(shortPriorityNames[priorityIndex]);
-            }
-            else
-            {
-                ImGui::Image(iconPriorityKanban, ImVec2(12, 12));
             }
         }
         else
         {
-            // Full priority names for wider cards
-            // ImGui::Image(iconPriorityKanban, ImVec2(16, 16));
-            if (GetPriorityName(static_cast<int>(card->priority)) == "Low")
-                ImGui::Image(iconPriorityLowKanban, ImVec2(16, 16));
-            else if (GetPriorityName(static_cast<int>(card->priority)) == "Medium")
-                ImGui::Image(iconPriorityMediumKanban, ImVec2(16, 16));
-            else if (GetPriorityName(static_cast<int>(card->priority)) == "High")
-                ImGui::Image(iconPriorityHighKanban, ImVec2(16, 16));
-            else if (GetPriorityName(static_cast<int>(card->priority)) == "Urgent")
-                ImGui::Image(iconPriorityUrgentKanban, ImVec2(16, 16));
-            ImGui::SameLine();
-            ImGui::Text(GetPriorityName(static_cast<int>(card->priority)));
-        }
-        ImGui::PopStyleColor();
-        
-        // Due date handling
-        if (!card->dueDate.empty())
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(priorityColor.r, priorityColor.g, priorityColor.b, 1.0f));
             if (cardWidth < 120.0f)
             {
-                ImGui::Image(iconDueDateKanban, ImVec2(12, 12)); // Only icon
+                const char* shortPriorityNames[] = {"Low", "Med", "High", "Urg"};
+                int priorityIndex = static_cast<int>(card->priority);
+                if (priorityIndex >= 0 && priorityIndex < 4)
+                {
+                    if (shortPriorityNames[priorityIndex] == "Low")
+                        ImGui::Image(iconPriorityLowKanban, ImVec2(12, 12));
+                    else if (shortPriorityNames[priorityIndex] == "Med")                
+                        ImGui::Image(iconPriorityMediumKanban, ImVec2(12, 12));                
+                    else if (shortPriorityNames[priorityIndex] == "High")                
+                        ImGui::Image(iconPriorityHighKanban, ImVec2(12, 12));                
+                    else if (shortPriorityNames[priorityIndex] == "Urg")                
+                        ImGui::Image(iconPriorityUrgentKanban, ImVec2(12, 12));                
+                    ImGui::SameLine();
+                    ImGui::Text(shortPriorityNames[priorityIndex]);
+                }
+                else
+                {
+                    ImGui::Image(iconPriorityKanban, ImVec2(12, 12));
+                }
             }
             else
             {
-                ImGui::Text("%s", card->dueDate.c_str()); // Text next to icon
+                if (GetPriorityName(static_cast<int>(card->priority)) == "Low")
+                    ImGui::Image(iconPriorityLowKanban, ImVec2(16, 16));
+                else if (GetPriorityName(static_cast<int>(card->priority)) == "Medium")
+                    ImGui::Image(iconPriorityMediumKanban, ImVec2(16, 16));
+                else if (GetPriorityName(static_cast<int>(card->priority)) == "High")
+                    ImGui::Image(iconPriorityHighKanban, ImVec2(16, 16));
+                else if (GetPriorityName(static_cast<int>(card->priority)) == "Urgent")
+                    ImGui::Image(iconPriorityUrgentKanban, ImVec2(16, 16));
+                ImGui::SameLine();
+                ImGui::Text(GetPriorityName(static_cast<int>(card->priority)));
             }
             ImGui::PopStyleColor();
+            
+            if (!card->dueDate.empty())
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
+                ImGui::Text("%s", card->dueDate.c_str());
+                ImGui::PopStyleColor();
+            }
         }
-    }
-    
-    // Position cursor after card
-    ImGui::SetCursorPos(ImVec2(cursorPos.x, cursorPos.y + cardContentHeight + 4));
-    
-    // Invisible button for interaction (covering the entire card)
-    ImVec2 cardRegionMin = ImVec2(cursorPos.x, cursorPos.y);
-    ImVec2 cardRegionMax = ImVec2(cursorPos.x + cardWidth, cursorPos.y + cardContentHeight);
-    
-    ImGui::SetCursorPos(cardRegionMin);
-    bool cardClicked = ImGui::InvisibleButton("##cardbutton", ImVec2(cardWidth, cardContentHeight));
-    
-    // Hover effect
-    if (ImGui::IsItemHovered())
-    {
-        drawList->AddRect(cardMin, cardMax, IM_COL32(255, 255, 255, 100), 6.0f, 0, 2.0f);
-    }
-    
-    // Double-click to edit
-    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-    {
-        StartEditingCard(card);
-    }
-    
-    // Drag and drop
-    if (ImGui::BeginDragDropSource())
-    {
-        m_kanbanManager->StartDrag(card, columnId);
-        ImGui::SetDragDropPayload("KANBAN_CARD", card.get(), sizeof(Kanban::Card*));
         
-        // Custom drag preview
-        ImGui::BeginTooltip();
-        ImGui::Text("Moving: %s", card->title.c_str());
-        if (!card->description.empty())
+        // Handle interactions
+        if (ImGui::IsWindowHovered())
         {
-            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%.50s%s", 
-                             card->description.c_str(), 
-                             card->description.length() > 50 ? "..." : "");
+            // Double-click to edit
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            {
+                StartEditingCard(card);
+            }
         }
-        ImGui::EndTooltip();
         
-        ImGui::EndDragDropSource();
+        // Context menu
+        if (ImGui::BeginPopupContextWindow())
+        {
+            ImVec2 iconSize = ImVec2(16, 16);
+
+            ImGui::PushID("edit_card");
+            ImGui::Image(iconEditKanban, iconSize);
+            ImGui::SameLine();
+            if (ImGui::Selectable("Edit"))
+            {
+                StartEditingCard(card);
+            }
+            ImGui::PopID();
+
+            ImGui::Separator();
+
+            ImGui::PushID("delete_card");
+            ImGui::Image(iconDeleteKanban, iconSize);
+            ImGui::SameLine();
+            if (ImGui::Selectable("Delete"))
+            {
+                m_kanbanManager->DeleteCard(card->id);              
+            }
+            ImGui::PopID();
+
+            ImGui::EndPopup();
+        }
     }
     
-    // Context menu
-    if (ImGui::BeginPopupContextItem())
+    ImGui::EndChild(); // End of card content drawing
+    
+    // DRAG DROP TARGET for the entire card area
+    // This allows dropping cards onto other cards (will insert after the target card)
+    if (ImGui::BeginDragDropTarget())
     {
-        ImVec2 iconSize = ImVec2(16, 16); // Adjust size as needed
-
-        // --- Edit ---
-        ImGui::PushID("edit_card");
-        ImGui::Image(iconEditKanban, iconSize);
-        ImGui::SameLine();
-        if (ImGui::Selectable("Edit"))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("KANBAN_CARD"))
         {
-            StartEditingCard(card);
+            // Insert after this card (cardIndex + 1)
+            m_kanbanManager->UpdateDrag(columnId, cardIndex + 1);
+            m_kanbanManager->EndDrag();
         }
-        ImGui::PopID();
-
-        ImGui::Separator();
-
-        // --- Delete ---
-        ImGui::PushID("delete_card");
-        ImGui::Image(iconDeleteKanban, iconSize);
-        ImGui::SameLine();
-        if (ImGui::Selectable("Delete"))
+        else
         {
-            // TODO: Ask user via popup first to confirm deletion
-            // m_cardToDeleteId = card->id;
-            // m_confirmDeleteCardPopup = true;
-            // ImGui::OpenPopup("Confirm Delete");
-
-            m_kanbanManager->DeleteCard(card->id);              
+            // Just update the drag preview
+            m_kanbanManager->UpdateDrag(columnId, cardIndex + 1);
         }
-        ImGui::PopID();
-
-        ImGui::EndPopup();
+        
+        // Visual feedback when hovering over a card during drag
+        if (dragState.isDragging && dragState.draggedCard && dragState.draggedCard->id != card->id)
+        {
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+            ImVec2 itemMin = ImGui::GetItemRectMin();
+            ImVec2 itemMax = ImGui::GetItemRectMax();
+            
+            // Draw a highlight around the card to show it's a valid drop target
+            drawList->AddRect(itemMin, itemMax, IM_COL32(100, 150, 255, 150), 6.0f, 0, 3.0f);
+        }
+        
+        ImGui::EndDragDropTarget();
     }
     
-    // Drop target between cards (only if not the first card)
+    // Clean up styles
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(2);
+    ImGui::PopID();
+
+    // Drop target between cards (for precise insertion)
     if (cardIndex > 0)
     {
         RenderDropTarget(columnId, cardIndex);
     }
     
-    // Suppress unused parameter warning for cardIndex since it's used in the condition above
-    (void)cardIndex;
-    
-    ImGui::PopID();
-
-    // TODO: Confirm delete popup
+    // Add some spacing between cards
+    ImGui::Spacing();
 }
 
 void MainWindow::RenderDropTarget(const std::string& columnId, int insertIndex)
@@ -1396,33 +1380,150 @@ void MainWindow::RenderDropTarget(const std::string& columnId, int insertIndex)
     if (!dragState.isDragging)
         return;
     
-    // Create a small invisible drop target
-    float dropHeight = 20.0f;
+    // Create a small invisible drop target between cards
+    float dropHeight = 8.0f; // Made smaller for better UX
     ImVec2 dropSize = ImVec2(ImGui::GetContentRegionAvail().x, dropHeight);
     
-    ImGui::InvisibleButton(("##drop" + columnId + std::to_string(insertIndex)).c_str(), dropSize);
+    // Use a unique ID for each drop target
+    std::string dropId = "##drop_" + columnId + "_" + std::to_string(insertIndex);
+    ImGui::InvisibleButton(dropId.c_str(), dropSize);
+    
+    bool isHovered = ImGui::IsItemHovered();
     
     if (ImGui::BeginDragDropTarget())
     {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("KANBAN_CARD"))
         {
+            // Complete the drop operation
             m_kanbanManager->UpdateDrag(columnId, insertIndex);
             m_kanbanManager->EndDrag();
         }
-        else
+        else if (isHovered)
         {
+            // Update drag preview while hovering
             m_kanbanManager->UpdateDrag(columnId, insertIndex);
         }
         
-        // Visual feedback for drop target
+        ImGui::EndDragDropTarget();
+    }
+    
+    // Visual feedback for drop target
+    if (isHovered && dragState.isDragging)
+    {
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         ImVec2 itemMin = ImGui::GetItemRectMin();
         ImVec2 itemMax = ImGui::GetItemRectMax();
         
-        drawList->AddRectFilled(itemMin, itemMax, IM_COL32(100, 150, 255, 100), 3.0f);
-        drawList->AddRect(itemMin, itemMax, IM_COL32(100, 150, 255, 255), 3.0f, 0, 2.0f);
+        // Draw a horizontal line to show insertion point
+        float lineY = itemMin.y + dropHeight * 0.5f;
+        drawList->AddLine(
+            ImVec2(itemMin.x + 10, lineY), 
+            ImVec2(itemMax.x - 10, lineY), 
+            IM_COL32(100, 150, 255, 255), 
+            3.0f
+        );
+        
+        // Add small circles at the ends
+        drawList->AddCircleFilled(ImVec2(itemMin.x + 10, lineY), 4.0f, IM_COL32(100, 150, 255, 255));
+        drawList->AddCircleFilled(ImVec2(itemMax.x - 10, lineY), 4.0f, IM_COL32(100, 150, 255, 255));
+    }
+}
+
+// Additional helper method for column-level drop targets
+void MainWindow::RenderColumnDropTarget(const std::string& columnId)
+{
+    auto& dragState = m_kanbanManager->GetDragDropState();
+    auto currentBoard = m_kanbanManager->GetCurrentBoard();
+    
+    if (!dragState.isDragging)
+        return;
+    
+    // Create a drop target at the bottom of the column for appending cards
+    float dropHeight = 20.0f;
+    ImVec2 dropSize = ImVec2(ImGui::GetContentRegionAvail().x, dropHeight);
+    
+    std::string dropId = "##column_drop_" + columnId;
+    ImGui::InvisibleButton(dropId.c_str(), dropSize);
+    
+    bool isHovered = ImGui::IsItemHovered();
+    
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("KANBAN_CARD"))
+        {
+            // Get the number of cards in this column to append at the end
+            auto column = currentBoard->FindColumn(columnId);
+            int insertIndex = column ? column->cards.size() : 0;
+            
+            m_kanbanManager->UpdateDrag(columnId, insertIndex);
+            m_kanbanManager->EndDrag();
+        }
+        else if (isHovered)
+        {
+            auto column = currentBoard->FindColumn(columnId);
+            int insertIndex = column ? column->cards.size() : 0;
+            m_kanbanManager->UpdateDrag(columnId, insertIndex);
+        }
         
         ImGui::EndDragDropTarget();
+    }
+    
+    // Visual feedback
+    if (isHovered && dragState.isDragging)
+    {
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImVec2 itemMin = ImGui::GetItemRectMin();
+        ImVec2 itemMax = ImGui::GetItemRectMax();
+        
+        // Draw a dashed rectangle to indicate the drop area
+        drawList->AddRect(itemMin, itemMax, IM_COL32(100, 150, 255, 180), 3.0f, 0, 2.0f);
+        
+        // Add text hint
+        ImVec2 textSize = ImGui::CalcTextSize("Drop here to add to column");
+        ImVec2 textPos = ImVec2(
+            itemMin.x + (itemMax.x - itemMin.x - textSize.x) * 0.5f,
+            itemMin.y + (itemMax.y - itemMin.y - textSize.y) * 0.5f
+        );
+        drawList->AddText(textPos, IM_COL32(100, 150, 255, 255), "Drop here to add to column");
+    }
+}
+
+// Enhanced method to handle drag cancellation
+void MainWindow::HandleDragDropInput()
+{
+    auto& dragState = m_kanbanManager->GetDragDropState();
+    
+    if (dragState.isDragging)
+    {
+        // Cancel drag on Escape key
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+        {
+            m_kanbanManager->CancelDrag();
+            return;
+        }
+        
+        // Cancel drag on right mouse button
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+        {
+            m_kanbanManager->CancelDrag();
+            return;
+        }
+        
+        // CRITICAL FIX: Auto-cancel if mouse is released outside any valid drop target
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+        {
+            // Check if we successfully dropped on a target
+            // If no drag drop target accepted the payload, we need to cancel
+            bool droppedSuccessfully = false;
+            
+            // ImGui's drag drop system will have handled the drop if it was successful
+            // If we reach here and the mouse was released, but we're still in drag state,
+            // it means the drop was not accepted by any target
+            if (dragState.isDragging)
+            {
+                m_kanbanManager->CancelDrag();
+            }
+        }
     }
 }
 
@@ -1431,8 +1532,10 @@ void MainWindow::RenderCardEditDialog()
     ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
     
-    bool isOpen = m_cardEditState.isEditing;
-    if (ImGui::Begin("Edit Card", &isOpen, ImGuiWindowFlags_Modal))
+    if (m_cardEditState.isEditing == true)
+        ImGui::OpenPopup("Edit Card");
+
+    if (ImGui::BeginPopupModal("Edit Card",  &m_cardEditState.isEditing, ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Text("Card Details");
         ImGui::Separator();
@@ -1474,12 +1577,14 @@ void MainWindow::RenderCardEditDialog()
         if (ImGui::Button("Save", ImVec2(100, 0)))
         {
             StopEditingCard(true);
+            ImGui::CloseCurrentPopup();
         }
         
         ImGui::SameLine();
         if (ImGui::Button("Cancel", ImVec2(100, 0)))
         {
             StopEditingCard(false);
+            ImGui::CloseCurrentPopup();
         }
         
         ImGui::SameLine();
@@ -1488,22 +1593,17 @@ void MainWindow::RenderCardEditDialog()
             // Delete the card
             m_kanbanManager->DeleteCard(m_cardEditState.cardId);
             StopEditingCard(false);
+            ImGui::CloseCurrentPopup();
         }
-    }
-    else
-    {
-        isOpen = false;
-    }
-    ImGui::End();
-    
-    if (!isOpen)
-    {
-        StopEditingCard(false);
+
+        ImGui::EndPopup();
     }
 }
 
 void MainWindow::StartEditingCard(std::shared_ptr<Kanban::Card> card)
 {
+    Logger::Debug("Starting to edit card: {}", card ? card->title : "null");
+
     if (!card) return;
     
     m_cardEditState.isEditing = true;
@@ -1516,6 +1616,8 @@ void MainWindow::StartEditingCard(std::shared_ptr<Kanban::Card> card)
     strncpy_s(m_cardEditState.assigneeBuffer, card->assignee.c_str(), sizeof(m_cardEditState.assigneeBuffer) - 1);
     
     m_cardEditState.priority = static_cast<int>(card->priority);
+
+    Logger::Debug("Card edit popup opened for card ID: {}", card->id);
 }
 
 void MainWindow::StopEditingCard(bool save)
@@ -2348,13 +2450,13 @@ void MainWindow::RenderMenuBar()
         // File Menu
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("Save", "Ctrl+S"))
-            {
-                Logger::Info("Save clicked from menu");
-                // TODO: Implement save functionality when kanban, todo, or clipboard objects is changed
-            }
+            // if (ImGui::MenuItem("Save", "Ctrl+S"))
+            // {
+            //     Logger::Info("Save clicked from menu");
+            //     // TODO: Implement save functionality when kanban, todo, or clipboard objects is changed
+            // }
 
-            ImGui::Separator();
+            // ImGui::Separator();
 
             if (ImGui::MenuItem("Exit"))
             {
@@ -2384,6 +2486,15 @@ void MainWindow::RenderMenuBar()
         // Tools Menu
         if (ImGui::BeginMenu("Tools"))
         {
+            // if (ImGui::MenuItem("Toggle Shortcuts", nullptr, m_shortcutsEnabled))
+            // {
+            //     m_shortcutsEnabled = !m_shortcutsEnabled;
+            //     Logger::Info(m_shortcutsEnabled ? "Keyboard Shortcuts enabled" : "Keyboard Shortcuts disabled");
+            //     Application::GetInstance()->EnableHotkeys(m_shortcutsEnabled);
+            // }
+
+            // ImGui::Separator();
+
             if (ImGui::MenuItem("Open Log Folder"))
             {
                 Logger::Info("Open Log Folder clicked");
@@ -2427,13 +2538,6 @@ void MainWindow::RenderMenuBar()
                 if ((INT_PTR)result <= 32) {
                     Logger::Error("Failed to open user guide website");
                 }
-            }
-
-            if (ImGui::MenuItem("Toggle Shortcuts", nullptr, m_shortcutsEnabled))
-            {
-                m_shortcutsEnabled = !m_shortcutsEnabled;
-                Logger::Info(m_shortcutsEnabled ? "Keyboard Shortcuts enabled" : "Keyboard Shortcuts disabled");
-                Application::GetInstance()->EnableHotkeys(m_shortcutsEnabled);
             }
             
             ImGui::Separator();
@@ -5550,6 +5654,7 @@ void MainWindow::RenderSettingsModule()
     ImGui::EndChild();
     
     // Modal dialogs
+    RenderNotifySavedPopup();
     RenderResetConfirmDialog();
     RenderDataManagementDialogs();
     
@@ -5560,7 +5665,7 @@ void MainWindow::RenderSettingsSidebar()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
     
-    ImGui::Text("⚙️ Settings");
+    ImGui::Text("Settings");
     ImGui::Separator();
     ImGui::Spacing();
     
@@ -5590,7 +5695,8 @@ void MainWindow::RenderSettingsSidebar()
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.4f, 0.7f, 1.0f));
         }
         
-        std::string buttonText = std::string(icons[i]) + " " + GetCategoryName(category);
+        // std::string buttonText = std::string(icons[i]) + " " + GetCategoryName(category); // Note: disable icon
+        std::string buttonText = std::string(GetCategoryName(category));
         
         if (ImGui::Button(buttonText.c_str(), ImVec2(-1, 35)))
         {
@@ -5635,41 +5741,44 @@ void MainWindow::RenderSettingsContent()
 
 void MainWindow::RenderGeneralSettings()
 {
-    ImGui::Text("🔧 General Settings");
+    ImGui::Text("General Settings");
     ImGui::Separator();
     ImGui::Spacing();
     
     // Startup behavior
-    ImGui::Text("Startup Behavior");
+    ImGui::Text("Triggers");
     ImGui::Spacing();
     
-    if (ImGui::Checkbox("Start with Windows", &m_settingsUIState.startWithWindows))
-    {
-        // TODO: Implement Windows startup registration
-        Logger::Info("Start with Windows toggled: {}", m_settingsUIState.startWithWindows);
-    }
+    ImGui::Checkbox("Hotkey trigger", &m_settingsUIState.triggerHotkey);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Automatically start Potensio when Windows starts");
+        ImGui::SetTooltip("Use hotkeys to trigger Potensio's Window");
     
-    ImGui::Checkbox("Start minimized", &m_settingsUIState.startMinimized);
+    ImGui::Checkbox("Cursor wiggle", &m_settingsUIState.triggerWiggle);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Start the application in the system tray");
+        ImGui::SetTooltip("Toggle wiggle cursor when dragging files to trigger Potensio");
     
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Debug
+    ImGui::Text("Debug");
+    ImGui::Spacing();
+    
+    ImGui::Checkbox("Output debug", &m_settingsUIState.outputDebug);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Toggle debug output to log actions into file");
+
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
     
     // Window behavior
-    ImGui::Text("Window Behavior");
+    ImGui::Text("Close Behavior");
     ImGui::Spacing();
     
-    ImGui::Checkbox("Minimize to system tray", &m_settingsUIState.minimizeToTray);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Hide to system tray instead of taskbar when minimized");
-    
-    ImGui::Checkbox("Close to system tray", &m_settingsUIState.closeToTray);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Keep running in system tray when window is closed");
+    ImGui::RadioButton("Close to tray", &m_settingsUIState.closeBehavior, 0);
+    ImGui::RadioButton("Kill app", &m_settingsUIState.closeBehavior, 1);
     
     ImGui::Spacing();
     ImGui::Separator();
@@ -5683,62 +5792,73 @@ void MainWindow::RenderGeneralSettings()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Show system notifications for events");
     
-    ImGui::Checkbox("Enable sounds", &m_settingsUIState.enableSounds);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Play sound effects for actions and notifications");
+    // ImGui::Checkbox("Enable sounds", &m_settingsUIState.enableSounds);
+    // if (ImGui::IsItemHovered())
+    //     ImGui::SetTooltip("Play sound effects for actions and notifications");
     
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
     
     // Data management
-    ImGui::Text("Data Management");
-    ImGui::Spacing();
+    // ImGui::Text("Data Management");
+    // ImGui::Spacing();
     
-    ImGui::Checkbox("Auto-save data", &m_settingsUIState.autoSave);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Automatically save changes");
+    // ImGui::Checkbox("Auto-save data", &m_settingsUIState.autoSave);
+    // if (ImGui::IsItemHovered())
+    //     ImGui::SetTooltip("Automatically save changes");
     
-    if (m_settingsUIState.autoSave)
-    {
-        ImGui::Text("Auto-save interval:");
-        ImGui::SliderInt("##autosave", &m_settingsUIState.autoSaveInterval, 5, 300, "%d seconds");
-    }
+    // if (m_settingsUIState.autoSave)
+    // {
+    //     ImGui::Text("Auto-save interval:");
+    //     ImGui::SliderInt("##autosave", &m_settingsUIState.autoSaveInterval, 5, 300, "%d seconds");
+    // }
     
-    ImGui::Spacing();
+    // ImGui::Spacing();
     
     // Data management buttons
-    if (ImGui::Button("📤 Export Data", ImVec2(120, 0)))
-    {
-        m_showExportDataDialog = true;
-    }
-    ImGui::SameLine();
+    // if (ImGui::Button("📤 Export Data", ImVec2(120, 0)))
+    // {
+    //     m_showExportDataDialog = true;
+    // }
+    // ImGui::SameLine();
     
-    if (ImGui::Button("📥 Import Data", ImVec2(120, 0)))
-    {
-        m_showImportDataDialog = true;
-    }
-    ImGui::SameLine();
+    // if (ImGui::Button("📥 Import Data", ImVec2(120, 0)))
+    // {
+    //     m_showImportDataDialog = true;
+    // }
+    // ImGui::SameLine();
     
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.3f, 0.3f, 0.8f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.4f, 0.4f, 1.0f));
-    if (ImGui::Button("🗑️ Clear All Data", ImVec2(120, 0)))
-    {
-        m_showClearDataDialog = true;
-    }
-    ImGui::PopStyleColor(2);
+    // ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.3f, 0.3f, 0.8f));
+    // ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.4f, 0.4f, 1.0f));
+    // if (ImGui::Button("🗑️ Clear All Data", ImVec2(120, 0)))
+    // {
+    //     m_showClearDataDialog = true;
+    // }
+    // ImGui::PopStyleColor(2);
     
+    // ImGui::Spacing();
+    // ImGui::Separator();
+    // ImGui::Spacing();
+    
+    // Save settings
+    ImGui::Text("Save Settings");
     ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    
+
+    if (ImGui::Button("Save Settings", ImVec2(150, 0)))
+    {
+        SaveSettingsToConfig();
+        m_showNotifySavePopup = true;
+        Logger::Info("Settings saved");
+    }
+
     // Reset settings
     ImGui::Text("Reset");
     ImGui::Spacing();
     
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.6f, 0.6f, 0.8f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
-    if (ImGui::Button("🔄 Reset to Defaults", ImVec2(150, 0)))
+    if (ImGui::Button("Reset to Defaults", ImVec2(150, 0)))
     {
         m_showResetConfirmDialog = true;
     }
@@ -5749,7 +5869,7 @@ void MainWindow::RenderGeneralSettings()
 
 void MainWindow::RenderAppearanceSettings()
 {
-    ImGui::Text("🎨 Appearance Settings");
+    ImGui::Text("Appearance Settings");
     ImGui::Separator();
     ImGui::Spacing();
     
@@ -5757,7 +5877,8 @@ void MainWindow::RenderAppearanceSettings()
     ImGui::Text("Theme");
     ImGui::Spacing();
     
-    const char* themeNames[] = { "Dark", "Light", "Auto (System)" };
+    // const char* themeNames[] = { "Dark", "Light", "Auto (System)" };
+    const char* themeNames[] = { "Dark" };
     int currentTheme = m_settingsUIState.themeMode;
     
     if (ImGui::Combo("Theme Mode", &currentTheme, themeNames, IM_ARRAYSIZE(themeNames)))
@@ -5777,21 +5898,23 @@ void MainWindow::RenderAppearanceSettings()
     ImGui::Spacing();
     
     float currentScale = m_settingsUIState.uiScale;
+    ImGui::BeginDisabled(true);
     if (ImGui::SliderFloat("UI Scale", &currentScale, 0.8f, 2.0f, "%.1f"))
     {
         m_settingsUIState.uiScale = currentScale;
         // TODO: Apply UI scale changes
     }
+    ImGui::EndDisabled();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Adjust the size of UI elements");
+        ImGui::SetTooltip("Adjust the size of UI elements (Soon)");
     
-    ImGui::Checkbox("Compact mode", &m_settingsUIState.compactMode);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Use smaller spacing and elements to fit more content");
+    // ImGui::Checkbox("Compact mode", &m_settingsUIState.compactMode);
+    // if (ImGui::IsItemHovered())
+    //     ImGui::SetTooltip("Use smaller spacing and elements to fit more content");
     
-    ImGui::Checkbox("Enable animations", &m_settingsUIState.enableAnimations);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Enable smooth transitions and animations");
+    // ImGui::Checkbox("Enable animations", &m_settingsUIState.enableAnimations);
+    // if (ImGui::IsItemHovered())
+    //     ImGui::SetTooltip("Enable smooth transitions and animations");
     
     ImGui::Spacing();
     ImGui::Separator();
@@ -5802,7 +5925,8 @@ void MainWindow::RenderAppearanceSettings()
     ImGui::Spacing();
     
     const char* colorNames[] = { 
-        "Blue", "Green", "Purple", "Orange", "Red", "Teal", "Pink", "Yellow" 
+        // "Blue", "Green", "Purple", "Orange", "Red", "Teal", "Pink", "Yellow" 
+        "Blue"
     };
     
     if (ImGui::Combo("Accent Color", &m_settingsUIState.accentColor, colorNames, IM_ARRAYSIZE(colorNames)))
@@ -5826,7 +5950,7 @@ void MainWindow::RenderAppearanceSettings()
     ImGui::SameLine();
     ImGui::ProgressBar(0.65f, ImVec2(-1, 0), "Sample Progress");
     
-    ImGui::Text("🎯 Accent color elements");
+    ImGui::Text("Accent color elements");
     ImGui::PushStyleColor(ImGuiCol_Button, accentColor);
     ImGui::Button("Accent Button");
     ImGui::PopStyleColor();
@@ -5836,7 +5960,7 @@ void MainWindow::RenderAppearanceSettings()
 
 void MainWindow::RenderHotkeySettings()
 {
-    ImGui::Text("⌨️ Hotkey Settings");
+    ImGui::Text("Hotkey Settings");
     ImGui::Separator();
     ImGui::Spacing();
     
@@ -5851,29 +5975,29 @@ void MainWindow::RenderHotkeySettings()
     RenderHotkeyEditor("Show/Hide Potensio", m_settingsUIState.globalHotkeyBuffer, 
                       sizeof(m_settingsUIState.globalHotkeyBuffer));
     
-    RenderHotkeyEditor("Quick Capture", m_settingsUIState.quickCaptureBuffer, 
-                      sizeof(m_settingsUIState.quickCaptureBuffer));
+    // RenderHotkeyEditor("Quick Capture", m_settingsUIState.quickCaptureBuffer, 
+    //                   sizeof(m_settingsUIState.quickCaptureBuffer));
     
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
+    // ImGui::Spacing();
+    // ImGui::Separator();
+    // ImGui::Spacing();
     
     // Module hotkeys
-    ImGui::Text("Module Hotkeys");
-    ImGui::Spacing();
+    // ImGui::Text("Module Hotkeys");
+    // ImGui::Spacing();
     
-    RenderHotkeyEditor("Start/Stop Pomodoro", m_settingsUIState.pomodoroStartBuffer, 
-                      sizeof(m_settingsUIState.pomodoroStartBuffer));
+    // RenderHotkeyEditor("Start/Stop Pomodoro", m_settingsUIState.pomodoroStartBuffer, 
+    //                   sizeof(m_settingsUIState.pomodoroStartBuffer));
     
-    RenderHotkeyEditor("Show Today's Tasks", m_settingsUIState.showTodayTasksBuffer, 
-                      sizeof(m_settingsUIState.showTodayTasksBuffer));
+    // RenderHotkeyEditor("Show Today's Tasks", m_settingsUIState.showTodayTasksBuffer, 
+    //                   sizeof(m_settingsUIState.showTodayTasksBuffer));
     
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
     
     // Hotkey help
-    ImGui::Text("📋 Hotkey Tips");
+    ImGui::Text("Hotkey Tips");
     ImGui::BulletText("Use Ctrl, Alt, Shift modifiers");
     ImGui::BulletText("Function keys (F1-F12) work well");
     ImGui::BulletText("Avoid system-reserved combinations");
@@ -5881,7 +6005,8 @@ void MainWindow::RenderHotkeySettings()
     
     ImGui::Spacing();
     
-    if (ImGui::Button("🔄 Reset Hotkeys", ImVec2(120, 0)))
+    ImGui::BeginDisabled(true);
+    if (ImGui::Button("Reset Hotkeys", ImVec2(120, 0)))
     {
         // Reset to defaults
         strcpy_s(m_settingsUIState.globalHotkeyBuffer, "Ctrl+Shift+Q");
@@ -5889,11 +6014,15 @@ void MainWindow::RenderHotkeySettings()
         strcpy_s(m_settingsUIState.quickCaptureBuffer, "Ctrl+Shift+C");
         strcpy_s(m_settingsUIState.showTodayTasksBuffer, "Ctrl+Shift+T");
     }
+    // Tooltip (coming soon)
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Reset all hotkeys to their default values (Soon)");
+    ImGui::EndDisabled();
 }
 
 void MainWindow::RenderModuleSettings()
 {
-    ImGui::Text("📦 Module Settings");
+    ImGui::Text("Module Settings");
     ImGui::Separator();
     ImGui::Spacing();
     
@@ -5911,12 +6040,12 @@ void MainWindow::RenderModuleSettings()
     };
     
     ModuleInfo modules[] = {
-        { &m_settingsUIState.enableDropover, "Dropover", "📁", "File staging and batch operations" },
-        { &m_settingsUIState.enablePomodoro, "Pomodoro Timer", "🍅", "Time management and productivity tracking" },
-        { &m_settingsUIState.enableKanban, "Kanban Board", "📋", "Project management and task tracking" },
-        { &m_settingsUIState.enableTodo, "Todo List", "✅", "Daily task management and scheduling" },
-        { &m_settingsUIState.enableClipboard, "Clipboard Manager", "📄", "Clipboard history and management" },
-        { &m_settingsUIState.enableFileConverter, "File Converter", "🔄", "File format conversion and compression" }
+        { &m_settingsUIState.enableDropover, "File Staging", "📁", "File staging and batch operations" },
+        { &m_settingsUIState.enablePomodoro, "Pomodoro", "🍅", "Time management and productivity tracking" },
+        { &m_settingsUIState.enableKanban, "Kanban", "📋", "Project management and task tracking" }
+        // { &m_settingsUIState.enableTodo, "Todo List", "✅", "Daily task management and scheduling" },
+        // { &m_settingsUIState.enableClipboard, "Clipboard Manager", "📄", "Clipboard history and management" },
+        // { &m_settingsUIState.enableFileConverter, "File Converter", "🔄", "File format conversion and compression" }
     };
     
     for (const auto& module : modules)
@@ -5924,9 +6053,9 @@ void MainWindow::RenderModuleSettings()
         ImGui::PushID(module.name);
         
         // Module header
-        if (ImGui::Checkbox((std::string(module.icon) + " " + module.name).c_str(), module.enabled))
+        if (ImGui::Checkbox(module.name, module.enabled))
         {
-            // TODO: Apply module enable/disable logic
+            m_sidebar->ToggleModuleEnabled(module.name, *module.enabled);
             Logger::Info("Module {} {}", module.name, *module.enabled ? "enabled" : "disabled");
         }
         
@@ -5941,41 +6070,38 @@ void MainWindow::RenderModuleSettings()
         
         ImGui::PopID();
     }
-    
-    ImGui::Separator();
-    ImGui::Spacing();
-    
+
     // Performance settings
-    ImGui::Text("Performance");
-    ImGui::Spacing();
+    // ImGui::Text("Performance");
+    // ImGui::Spacing();
     
-    static bool enableMultithreading = true;
-    static bool optimizeMemory = true;
-    static int maxHistoryItems = 1000;
+    // static bool enableMultithreading = true;
+    // static bool optimizeMemory = true;
+    // static int maxHistoryItems = 1000;
     
-    ImGui::Checkbox("Enable multithreading", &enableMultithreading);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Use multiple CPU cores for better performance");
+    // ImGui::Checkbox("Enable multithreading", &enableMultithreading);
+    // if (ImGui::IsItemHovered())
+    //     ImGui::SetTooltip("Use multiple CPU cores for better performance");
     
-    ImGui::Checkbox("Optimize memory usage", &optimizeMemory);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Reduce memory usage at the cost of some features");
+    // ImGui::Checkbox("Optimize memory usage", &optimizeMemory);
+    // if (ImGui::IsItemHovered())
+    //     ImGui::SetTooltip("Reduce memory usage at the cost of some features");
     
-    ImGui::Text("Max history items:");
-    ImGui::SliderInt("##maxhistory", &maxHistoryItems, 100, 10000, "%d items");
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Maximum number of items to keep in module histories");
+    // ImGui::Text("Max history items:");
+    // ImGui::SliderInt("##maxhistory", &maxHistoryItems, 100, 10000, "%d items");
+    // if (ImGui::IsItemHovered())
+    //     ImGui::SetTooltip("Maximum number of items to keep in module histories");
 }
 
 void MainWindow::RenderAccountSettings()
 {
-    ImGui::Text("👤 Account Settings");
+    ImGui::Text("Account Settings");
     ImGui::Separator();
     ImGui::Spacing();
     
     // Future feature notice
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.5f, 1.0f));
-    ImGui::Text("🚧 Account features are coming in a future update!");
+    ImGui::Text("Account features are coming in a future update!");
     ImGui::PopStyleColor();
     ImGui::Spacing();
     
@@ -6011,13 +6137,13 @@ void MainWindow::RenderAccountSettings()
     
     ImGui::Spacing();
     
-    if (ImGui::Button("🔗 Sign In", ImVec2(100, 0)))
+    if (ImGui::Button("Sign In", ImVec2(100, 0)))
     {
         // TODO: Implement sign in
     }
     ImGui::SameLine();
     
-    if (ImGui::Button("📝 Create Account", ImVec2(120, 0)))
+    if (ImGui::Button("Create Account", ImVec2(120, 0)))
     {
         // TODO: Implement account creation
     }
@@ -6032,21 +6158,59 @@ void MainWindow::RenderAccountSettings()
     ImGui::Text("License");
     ImGui::Spacing();
     
-    ImGui::Text("Potensio Personal License");
-    ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), "✅ Licensed");
+    ImGui::Text("Potensio CE License (Experimental)");
+    ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), "Licensed");
     ImGui::Text("Valid until: Not applicable (Lifetime)");
     
     ImGui::Spacing();
     
-    if (ImGui::Button("📋 View License", ImVec2(120, 0)))
+    if (ImGui::Button("View License", ImVec2(120, 0)))
+        m_showLicenseDialog = true;
+
+    RenderLicenseDialog();
+}
+
+void MainWindow::RenderLicenseDialog()
+{
+    if (m_showLicenseDialog)
     {
-        // TODO: Show license dialog
+        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Appearing);
+        
+        if (ImGui::BeginPopupModal("License Information", &m_showLicenseDialog, 
+                                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
+        {
+            ImGui::Text("Potensio CE License (Experimental)");
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            ImGui::TextWrapped("This software is licensed under the Potensio CE License. "
+                               "You are free to use, modify, and distribute this software "
+                               "for personal and commercial purposes under the terms of this license.");
+            ImGui::Spacing();
+            
+            ImGui::TextWrapped("For full license details, please visit our website or contact support.");
+            ImGui::Spacing();
+            
+            if (ImGui::Button("Close", ImVec2(80, 0)))
+            {
+                m_showLicenseDialog = false;
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::EndPopup();
+        }
+        
+        if (m_showLicenseDialog && !ImGui::IsPopupOpen("License Information"))
+        {
+            ImGui::OpenPopup("License Information");
+        }
     }
 }
 
 void MainWindow::RenderAboutSettings()
 {
-    ImGui::Text("ℹ️ About Potensio");
+    ImGui::Text("ℹAbout Potensio");
     ImGui::Separator();
     ImGui::Spacing();
     
@@ -6064,12 +6228,12 @@ void MainWindow::RenderAboutSettings()
     ImGui::Spacing();
     
     // Update section
-    ImGui::Text("🔄 Updates");
+    ImGui::Text("Updates");
     ImGui::Spacing();
     
     ImGui::Checkbox("Automatically check for updates", &m_settingsUIState.autoCheckUpdates);
     ImGui::Checkbox("Download updates automatically", &m_settingsUIState.downloadUpdatesAuto);
-    ImGui::Checkbox("Participate in beta testing", &m_settingsUIState.betaChannel);
+    // ImGui::Checkbox("Participate in beta testing", &m_settingsUIState.betaChannel);
     
     ImGui::Spacing();
     
@@ -6077,24 +6241,24 @@ void MainWindow::RenderAboutSettings()
     if (m_settingsUIState.updateAvailable)
     {
         ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), 
-                          "🎉 Update available: v%s", m_settingsUIState.latestVersion.c_str());
-        if (ImGui::Button("📥 Download Update", ImVec2(140, 0)))
+                          "Update available: v%s", m_settingsUIState.latestVersion.c_str());
+        if (ImGui::Button("Download Update", ImVec2(140, 0)))
         {
             // TODO: Implement update download
         }
     }
     else if (m_settingsUIState.checkingUpdates)
     {
-        ImGui::Text("🔍 Checking for updates...");
+        ImGui::Text("Checking for updates...");
     }
     else
     {
-        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "✅ You're up to date!");
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "You're up to date!");
     }
     
     ImGui::Spacing();
     
-    if (ImGui::Button("🔍 Check Now", ImVec2(100, 0)))
+    if (ImGui::Button("Check Now", ImVec2(100, 0)))
     {
         CheckForUpdates();
     }
@@ -6104,7 +6268,7 @@ void MainWindow::RenderAboutSettings()
     ImGui::Spacing();
     
     // System info
-    ImGui::Text("💻 System Information");
+    ImGui::Text("System Information");
     ImGui::Spacing();
     
     // Get system info
@@ -6129,24 +6293,57 @@ void MainWindow::RenderAboutSettings()
     ImGui::Spacing();
     
     // Credits and links
-    ImGui::Text("🙏 Credits & Links");
+    ImGui::Text("Credits & Links");
     ImGui::Spacing();
     
-    if (ImGui::Button("🌐 Website", ImVec2(80, 0)))
+    if (ImGui::Button("Source", ImVec2(80, 0)))
     {
-        // TODO: Open website
+        HINSTANCE result = ShellExecute(
+                    NULL,
+                    "open",
+                    "https://github.com/alviansm/Potensio-CE",
+                    NULL,
+                    NULL,
+                    SW_SHOWNORMAL
+                );
+
+                if ((INT_PTR)result <= 32) {
+                    Logger::Error("Failed to open user guide website");
+                }
     }
     ImGui::SameLine();
     
-    if (ImGui::Button("📖 Documentation", ImVec2(120, 0)))
+    if (ImGui::Button("Documentation", ImVec2(120, 0)))
     {
-        // TODO: Open documentation
+        HINSTANCE result = ShellExecute(
+                    NULL,
+                    "open",
+                    "https://github.com/alviansm/Potensio-CE/wiki",
+                    NULL,
+                    NULL,
+                    SW_SHOWNORMAL
+                );
+
+                if ((INT_PTR)result <= 32) {
+                    Logger::Error("Failed to open user guide website");
+                }
     }
     ImGui::SameLine();
     
-    if (ImGui::Button("🐛 Report Bug", ImVec2(100, 0)))
+    if (ImGui::Button("Report Bug", ImVec2(100, 0)))
     {
-        // TODO: Open bug report
+        HINSTANCE result = ShellExecute(
+                    NULL,
+                    "open",
+                    "https://github.com/alviansm/Potensio-CE/issues",
+                    NULL,
+                    NULL,
+                    SW_SHOWNORMAL
+                );
+
+                if ((INT_PTR)result <= 32) {
+                    Logger::Error("Failed to open user guide website");
+                }
     }
     
     ImGui::Spacing();
@@ -6159,6 +6356,35 @@ void MainWindow::RenderAboutSettings()
 }
 
 // Dialog implementations
+void MainWindow::RenderNotifySavedPopup()
+{
+    if (m_showNotifySavePopup)
+    {
+        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(300, 100), ImGuiCond_Appearing);
+        
+        if (ImGui::BeginPopupModal("Settings Saved", &m_showNotifySavePopup, 
+                                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
+        {
+            ImGui::Text("Settings have been saved successfully.");
+            ImGui::Spacing();
+            
+            if (ImGui::Button("OK", ImVec2(80, 0)))
+            {
+                m_showNotifySavePopup = false;
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::EndPopup();
+        }
+        
+        if (m_showNotifySavePopup && !ImGui::IsPopupOpen("Settings Saved"))
+        {
+            ImGui::OpenPopup("Settings Saved");
+        }
+    }
+}
+
 void MainWindow::RenderResetConfirmDialog()
 {
     if (!m_showResetConfirmDialog) return;
@@ -6169,12 +6395,12 @@ void MainWindow::RenderResetConfirmDialog()
     if (ImGui::BeginPopupModal("Reset Settings", &m_showResetConfirmDialog, 
                               ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
     {
-        ImGui::Text("⚠️ Reset all settings to defaults?");
+        ImGui::Text("Reset all settings to defaults?");
         ImGui::Spacing();
         ImGui::TextWrapped("This will reset all your preferences, hotkeys, and module settings. This action cannot be undone.");
         ImGui::Spacing();
         
-        if (ImGui::Button("🔄 Reset", ImVec2(80, 0)))
+        if (ImGui::Button("Reset", ImVec2(80, 0)))
         {
             ResetSettingsToDefaults();
             m_showResetConfirmDialog = false;
@@ -6182,7 +6408,7 @@ void MainWindow::RenderResetConfirmDialog()
         }
         
         ImGui::SameLine();
-        if (ImGui::Button("❌ Cancel", ImVec2(80, 0)))
+        if (ImGui::Button("Cancel", ImVec2(80, 0)))
         {
             m_showResetConfirmDialog = false;
             ImGui::CloseCurrentPopup();
@@ -6338,10 +6564,12 @@ void MainWindow::RenderHotkeyEditor(const char* label, char* buffer, size_t buff
     
     // Clear button
     ImGui::SameLine();
-    if (ImGui::Button("❌"))
+    ImGui::BeginDisabled(true);
+    if (ImGui::Button("Clear"))
     {
         buffer[0] = '\0'; // Clear the hotkey
     }
+    ImGui::EndDisabled();
     if (ImGui::IsItemHovered())
     {
         ImGui::SetTooltip("Clear hotkey");
@@ -6385,6 +6613,13 @@ void MainWindow::LoadSettingsFromConfig()
     m_settingsUIState.enableClipboard = m_config->GetValue("modules.enable_clipboard", true);
     m_settingsUIState.enableFileConverter = m_config->GetValue("modules.enable_file_converter", true);
     m_settingsUIState.enableDropover = m_config->GetValue("modules.enable_dropover", true);
+
+    m_settingsUIState.closeBehavior = m_config->GetValue("settings.ui.close_behavior", 1);
+
+    m_settingsUIState.triggerHotkey = m_config->GetValue("settings.ui.trigger_hotkey", true);
+    m_settingsUIState.triggerWiggle = m_config->GetValue("settings.ui.trigger_wiggle", true);
+
+    m_settingsUIState.outputDebug = m_config->GetValue("settings.ui.outputDebug", true);
     
     Logger::Info("Settings loaded from configuration");
 }
@@ -6425,7 +6660,14 @@ void MainWindow::SaveSettingsToConfig()
     m_config->SetValue("modules.enable_clipboard", m_settingsUIState.enableClipboard);
     m_config->SetValue("modules.enable_file_converter", m_settingsUIState.enableFileConverter);
     m_config->SetValue("modules.enable_dropover", m_settingsUIState.enableDropover);
+
+    m_config->SetValue("settings.ui.close_behavior", m_settingsUIState.closeBehavior);
     
+    m_config->SetValue("settings.ui.trigger_hotkey", m_settingsUIState.triggerHotkey);
+    m_config->SetValue("settings.ui.trigger_wiggle", m_settingsUIState.triggerWiggle);
+
+    m_config->SetValue("settings.ui.outputDebug", m_settingsUIState.outputDebug);
+
     m_config->Save();
     Logger::Info("Settings saved to configuration");
 }

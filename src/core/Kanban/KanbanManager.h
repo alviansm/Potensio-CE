@@ -249,6 +249,7 @@ public:
 
     // Card operations
     void CreateCard(const std::string& columnId, const std::string& title);
+    void CreateCard(const std::string& columnId, const std::string& title, const std::string& description, int priority);
     void DeleteCard(const std::string& cardId);
     void UpdateCard(std::shared_ptr<Kanban::Card> card);
     std::shared_ptr<Kanban::Card> FindCard(const std::string& cardId);
