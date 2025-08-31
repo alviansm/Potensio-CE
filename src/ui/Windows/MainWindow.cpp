@@ -33,6 +33,7 @@
 #include <filesystem>
 
 #include "resource.h"
+#include "winsparkle.h"
 
 // Add this for OpenGL
 #ifdef _WIN32
@@ -6261,6 +6262,30 @@ void MainWindow::RenderAboutSettings()
     if (ImGui::Button("Check Now", ImVec2(100, 0)))
     {
         CheckForUpdates();
+    }
+
+    // Loading popup to check updates using winsparkle
+    if (m_settingsUIState.checkingUpdates)
+    {
+        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(300, 100), ImGuiCond_Appearing);
+        
+        if (ImGui::BeginPopupModal("Checking for Updates", nullptr, 
+                                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
+        {
+            ImGui::Text("Checking for updates...");
+            ImGui::Spacing();
+            ImGui::ProgressBar(0.0f, ImVec2(-1, 0), "");
+            
+            win_sparkle_check_update_with_ui();
+            
+            ImGui::EndPopup();
+        }
+        
+        if (!ImGui::IsPopupOpen("Checking for Updates"))
+        {
+            ImGui::OpenPopup("Checking for Updates");
+        }
     }
     
     ImGui::Spacing();

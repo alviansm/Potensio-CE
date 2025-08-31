@@ -9,7 +9,9 @@
 #include <shobjidl.h>  
 #include <propvarutil.h>  
 #include <propkey.h>  
-#include <shobjidl_core.h>  
+#include <shobjidl_core.h>
+
+#include "winsparkle.h"
 
 // Mutex the app
 #define POTENSIO_MUTEX_NAME _T("Potensio_SingleInstance_Mutex")
@@ -47,6 +49,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
     Logger::Initialize();
     Logger::Info("Potensio starting up...");
 
+    // Initialize WinSparkle
+    win_sparkle_set_appcast_url("https://github.com/alviansm/Potensio-CE/releases/latest/download/appcast.xml");
+    win_sparkle_set_app_details(L"AlviansMaulana", L"PotensioCE", L"0.1.0");
+    win_sparkle_init();
+
     try 
     {
         Application app;
@@ -74,6 +81,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
         MessageBoxA(nullptr, "An unknown error occurred", "Potensio - Fatal Error", MB_ICONERROR);
         return -1;
     }
+
+     // Cleanup on exit
+    win_sparkle_cleanup();
 }
 
 // Console entry point for debug builds

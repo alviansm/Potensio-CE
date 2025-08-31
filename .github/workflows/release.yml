@@ -1,0 +1,70 @@
+name: Build and Release PotensioCE
+
+on:
+  push:
+    tags:
+      - "v*"   # Tags triggered on version releases, e.g., v1.0.0
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build application
+        run: |
+          msbuild PotensioCE.sln /p:Configuration=Release
+
+      - name: Add Inno Setup to PATH
+        run: echo "E:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
+
+      - name: Build installer with Inno Setup
+        run: ISCC.exe installer.iss
+
+      - name: Rename installer
+        run: |
+          mkdir artifacts
+          mv Output\PotensioCE-Installer.exe artifacts\PotensioCE-${{ github.ref_name }}.exe
+
+      - name: Update appcast.xml
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $url = "https://alviansm.github.io/Potensio-CE/PotensioCE-$version.exe"
+          $date = Get-Date -Format "ddd, dd MMM yyyy HH:mm:ss 'GMT'"
+          $xml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>PotensioCE Updates</title>
+    <link>https://alviansm.github.io/Potensio-CE/</link>
+    <description>Appcast for PotensioCE</description>
+    <language>en</language>
+    <item>
+      <title>Version $version</title>
+      <sparkle:releaseNotesLink>https://github.com/alviansm/Potensio-CE/releases/tag/v$version</sparkle:releaseNotesLink>
+      <pubDate>$date</pubDate>
+      <enclosure url="$url" sparkle:version="$version" type="application/octet-stream"/>
+    </item>
+  </channel>
+</rss>
+"@
+          $xml | Out-File -Encoding utf8 docs/appcast.xml
+
+      - name: Commit and push appcast.xml
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update appcast.xml for ${{ github.ref_name }}"
+          file_pattern: docs/appcast.xml
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

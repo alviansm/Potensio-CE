@@ -4,6 +4,3 @@
 [submodule "wiki"]
 	path = wiki
 	url = https://github.com/alviansm/Potensio-CE.wiki.git
-[submodule "external/winsparkle"]
-	path = external/winsparkle
-	url = https://github.com/vslavik/winsparkle.git

@@ -20,6 +20,9 @@ set(SQLITE_DIR ${CMAKE_SOURCE_DIR}/external/sqlite)
 # WinToast setup
 set(WINTOAST_DIR ${CMAKE_SOURCE_DIR}/external/wintoast)
 
+# WinSparkle (prebuilt)
+set(WINSPARKLE_DIR ${CMAKE_SOURCE_DIR}/external/winsparkle-x64)
+
 # Verify SQLite files exist
 if(NOT EXISTS "${SQLITE_DIR}/sqlite3.c")
     message(FATAL_ERROR "SQLite source file not found at: ${SQLITE_DIR}/sqlite3.c")
@@ -86,6 +89,13 @@ if(WIN32)
         NOMINMAX
     )
 endif()
+
+add_library(winsparkle SHARED IMPORTED)
+set_target_properties(winsparkle PROPERTIES
+    IMPORTED_IMPLIB ${WINSPARKLE_DIR}/lib/winsparkle.lib
+    IMPORTED_LOCATION ${WINSPARKLE_DIR}/bin/winsparkle.dll
+    INTERFACE_INCLUDE_DIRECTORIES ${WINSPARKLE_DIR}/include
+)
 
 # Disable warnings for SQLite (it's external code)
 if(MSVC)
@@ -191,6 +201,13 @@ target_link_libraries(Potensio PRIVATE
     comdlg32
     advapi32
 )
+
+# Link WinSparkle
+if(WIN32)
+    target_link_libraries(Potensio PRIVATE
+        winsparkle
+    )
+endif()
 
 # Compiler flags with /FS to fix PDB issues
 if(MSVC)
@@ -349,3 +366,10 @@ message(STATUS "Database sources: DatabaseManager.cpp, PomodoroDatabase.cpp")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "=====================================")
+
+# Copy WinSparkle DLL to output directory after build
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${WINSPARKLE_DIR}/bin/winsparkle.dll
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+)
