@@ -1,8 +1,10 @@
 # Potensio
 
+![Potensio Logo](docs/assets/logo-96.png)
+
 Potensio is a lightweight all-in-one desktop productivity suite designed to keep things fast, simple, and efficient. It provides six core modules: File Staging, Pomodoro Timer, Kanban, To-Do, Clipboard Manager, and Image/PDF Converter & Compressor. Unlike most cross-platform apps, Potensio runs natively without relying on heavy browser engines.
 
-![Screenshot of Potensio](Screenshot_1.png)
+![Screenshot of Potensio](docs/assets/Screenshot_1.png)
 
 ## Tech Stack & Libraries
 
@@ -26,10 +28,10 @@ cmake .. -G "Visual Studio 17 2022" -A x64
 cmake --build . --config Debug
 ```
 
-## Roadmap
+## Roadmap & Progress
 
-See TODO.md
+See [Wiki](https://github.com/alviansm/Potensio-CE/wiki).
 
 ## Credits
 
-Project initiated by ([Alviansyah Maulana Iskandar](https://github.com/alviansm)).
+Initiated by ([Alviansyah Maulana Iskandar](https://github.com/alviansm)) for personal workflow.
