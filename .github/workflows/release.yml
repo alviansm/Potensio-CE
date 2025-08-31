@@ -38,7 +38,7 @@ jobs:
           $url = "https://alviansm.github.io/Potensio-CE/PotensioCE-$version.exe"
           $date = Get-Date -Format "ddd, dd MMM yyyy HH:mm:ss 'GMT'"
           $xml = @"
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>PotensioCE Updates</title>
