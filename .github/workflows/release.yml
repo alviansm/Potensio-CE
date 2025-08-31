@@ -38,22 +38,22 @@ jobs:
           $url = "https://alviansm.github.io/Potensio-CE/PotensioCE-$version.exe"
           $date = Get-Date -Format "ddd, dd MMM yyyy HH:mm:ss 'GMT'"
           $xml = @"
-<?xml version='1.0' encoding='utf-8'?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>PotensioCE Updates</title>
-    <link>https://alviansm.github.io/Potensio-CE/</link>
-    <description>Appcast for PotensioCE</description>
-    <language>en</language>
-    <item>
-      <title>Version $version</title>
-      <sparkle:releaseNotesLink>https://github.com/alviansm/Potensio-CE/releases/tag/v$version</sparkle:releaseNotesLink>
-      <pubDate>$date</pubDate>
-      <enclosure url="$url" sparkle:version="$version" type="application/octet-stream"/>
-    </item>
-  </channel>
-</rss>
-"@
+          <?xml version='1.0' encoding='utf-8'?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>PotensioCE Updates</title>
+              <link>https://alviansm.github.io/Potensio-CE/</link>
+              <description>Appcast for PotensioCE</description>
+              <language>en</language>
+              <item>
+                <title>Version $version</title>
+                <sparkle:releaseNotesLink>https://github.com/alviansm/Potensio-CE/releases/tag/v$version</sparkle:releaseNotesLink>
+                <pubDate>$date</pubDate>
+                <enclosure url="$url" sparkle:version="$version" type="application/octet-stream"/>
+              </item>
+            </channel>
+          </rss>
+          "@
           $xml | Out-File -Encoding utf8 docs/appcast.xml
 
       - name: Commit and push appcast.xml
