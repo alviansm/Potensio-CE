@@ -1,6 +1,12 @@
 [submodule "external/wintoast"]
 	path = external/wintoast
 	url = https://github.com/mohabouje/WinToast.git
+[submodule "external/imgui"]
+	path = external/wintoast
+	url = https://github.com/ocornut/imgui.git
+[submodule "external/stb"]
+	path = external/wintoast
+	url = https://github.com/nothings/stb.git
 [submodule "wiki"]
 	path = wiki
 	url = https://github.com/alviansm/Potensio-CE.wiki.git
