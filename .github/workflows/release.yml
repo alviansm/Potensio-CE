@@ -18,7 +18,7 @@ jobs:
 
       - name: Build application
         run: |
-          msbuild PotensioCE.sln /p:Configuration=Release
+          msbuild Potensio.sln /p:Configuration=Release
 
       - name: Add Inno Setup to PATH
         run: echo "E:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
