@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write  # Allow writing to repository
+      actions: read    # Allow reading actions
 
     steps:
       - name: Checkout repository
@@ -60,11 +63,14 @@ jobs:
           $xml | Out-File -Encoding utf8 docs/appcast.xml
 
       - name: Commit and push appcast.xml
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Update appcast.xml for ${{ github.ref_name }}"
-          file_pattern: docs/appcast.xml
-          branch: main  # Specify the target branch
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/appcast.xml
+          git commit -m "Update appcast.xml for ${{ github.ref_name }}" || exit 0
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
