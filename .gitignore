@@ -13,8 +13,8 @@ bin/
 lib/
 
 # But include specific subdirectories
-!external/winsparkle/bin/
-!external/winsparkle/lib/
+!external/winsparkle-x64/bin/
+!external/winsparkle-x64/lib/
 
 # ---- Compiled Binaries ----
 *.exe
