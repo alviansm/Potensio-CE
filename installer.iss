@@ -1,8 +1,8 @@
 ; PotensioCE Installer Script
 [Setup]
 AppName=PotensioCE
-AppVersion=0.1.0
-AppVerName=PotensioCE 0.1.0
+AppVersion=0.1.1
+AppVerName=PotensioCE 0.1.1
 DefaultDirName={pf}\PotensioCE
 DefaultGroupName=PotensioCE
 OutputDir=output

@@ -188,7 +188,7 @@ void SettingsWindow::RenderGeneralSettings()
     
     // Application info
     ImGui::Text("Application Information");
-    ImGui::BulletText("Version: 0.1.0 (Sprint 1)");
+    ImGui::BulletText("Version: 0.1.1");
     ImGui::BulletText("Build: Debug");
     ImGui::BulletText("Framework: Dear ImGui + OpenGL");
 }
@@ -355,7 +355,7 @@ void SettingsWindow::RenderAboutSection()
     ImGui::Spacing();
     
     // Version info
-    ImGui::Text("Version: 0.1.0 - Experimental");
+    ImGui::Text("Version: 0.1.1 - Experimental");
     ImGui::Text("Build Date: %s", __DATE__);
     ImGui::Spacing();
     

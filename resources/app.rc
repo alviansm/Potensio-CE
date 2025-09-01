@@ -74,12 +74,12 @@ BEGIN
         BEGIN
             VALUE "Alvians", "Potensio Development"
             VALUE "FileDescription", "Potensio - Productivity Suite"
-            VALUE "FileVersion", "0.1.0.0"
+            VALUE "FileVersion", "0.1.1.0"
             VALUE "InternalName", "Potensio"
             VALUE "LegalCopyright", "Copyright (C) 2025"
             VALUE "OriginalFilename", "Potensio.exe"
             VALUE "ProductName", "Potensio Productivity Suite"
-            VALUE "ProductVersion", "0.1.0.0"
+            VALUE "ProductVersion", "0.1.1.0"
         END
     END
     BLOCK "VarFileInfo"

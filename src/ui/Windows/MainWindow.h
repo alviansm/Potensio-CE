@@ -282,7 +282,7 @@ private:
         bool autoCheckUpdates = true;
         bool downloadUpdatesAuto = false;
         bool betaChannel = false;
-        std::string currentVersion = "0.1.0";
+        std::string currentVersion = "0.1.1";
         std::string latestVersion = "";
         bool updateAvailable = false;
         bool checkingUpdates = false;

@@ -51,7 +51,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 
     // Initialize WinSparkle
     win_sparkle_set_appcast_url("https://github.com/alviansm/Potensio-CE/releases/latest/download/appcast.xml");
-    win_sparkle_set_app_details(L"AlviansMaulana", L"PotensioCE", L"0.1.0");
+    win_sparkle_set_app_details(L"AlviansMaulana", L"PotensioCE", L"0.1.1");
     win_sparkle_init();
 
     try 

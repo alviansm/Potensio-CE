@@ -6171,7 +6171,7 @@ void MainWindow::RenderLicenseDialog()
 
 void MainWindow::RenderAboutSettings()
 {
-    ImGui::Text("ℹAbout Potensio");
+    ImGui::Text("About Potensio");
     ImGui::Separator();
     ImGui::Spacing();
     
