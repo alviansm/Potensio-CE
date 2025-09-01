@@ -112,6 +112,8 @@ private:
     std::chrono::seconds GetSessionDuration(SessionType type) const;
     void TriggerCallbacks();
 
+    void SendNotification();
+
 private:
     PomodoroConfig m_config;
     TimerState m_state;
