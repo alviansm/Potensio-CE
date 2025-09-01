@@ -16,6 +16,7 @@ LicenseFile=LICENSE
 
 [Files]
 Source: "build\bin\Release\Potensio.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "external\winsparkle-x64\bin\WinSparkle.dll"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\PotensioCE"; Filename: "{app}\Potensio.exe"
