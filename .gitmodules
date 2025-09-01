@@ -9,4 +9,4 @@
 	url = https://github.com/nothings/stb.git
 [submodule "wiki"]
 	path = wiki
-	url = https://github.com/alviansm/Potensio-CE.wiki.gits
+	url = https://github.com/alviansm/Potensio-CE.wiki.git
