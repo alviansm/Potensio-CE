@@ -9,7 +9,7 @@ OutputDir=output
 OutputBaseFilename=PotensioCE-Installer
 Compression=lzma
 SolidCompression=yes
-LicenseFile=LICENSE.txt
+LicenseFile=LICENSE
 
 ; Optional icon
 ; SetupIconFile=resources\icons\app_icon.ico
