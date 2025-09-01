@@ -15,6 +15,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+          ref: main  # or 'master' depending on your default branch
 
       - name: Setup MSVC
         uses: microsoft/setup-msbuild@v2
@@ -63,6 +64,7 @@ jobs:
         with:
           commit_message: "Update appcast.xml for ${{ github.ref_name }}"
           file_pattern: docs/appcast.xml
+          branch: main  # Specify the target branch
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
