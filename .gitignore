@@ -1,14 +1,20 @@
 # ---- Build Artifacts ----
 /build/
 /out/
-/bin/
-/lib/
 /dist/
 /CMakeFiles/
 /CMakeCache.txt
 cmake_install.cmake
 Makefile
 .vs/
+
+# Ignore root-level bin/ and lib/
+bin/
+lib/
+
+# But include specific subdirectories
+!external/winsparkle/bin/
+!external/winsparkle/lib/
 
 # ---- Compiled Binaries ----
 *.exe
