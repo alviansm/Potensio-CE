@@ -8,7 +8,7 @@
     <item>
       <title>Version 0.1.0</title>
       <sparkle:releaseNotesLink>https://github.com/alviansm/Potensio-CE/releases/tag/v0.1.0</sparkle:releaseNotesLink>
-      <pubDate>Mon, 01 Sep 2025 03:30:24 GMT</pubDate>
+      <pubDate>Mon, 01 Sep 2025 03:50:27 GMT</pubDate>
       <enclosure url="https://alviansm.github.io/Potensio-CE/PotensioCE-0.1.0.exe" sparkle:version="0.1.0" type="application/octet-stream"/>
     </item>
   </channel>
