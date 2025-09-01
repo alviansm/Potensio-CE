@@ -3,6 +3,11 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <cmath>
+#include <limits>
+
+#include "core/Notify.h"
+#include "core/Timer/Messages.h"
 
 PomodoroTimer::PomodoroTimer()
     : m_state(TimerState::Stopped)
@@ -175,7 +180,7 @@ float PomodoroTimer::GetProgressPercentage() const
         return 0.0f;
     
     float progress = static_cast<float>(sessionInfo.remaining.count()) / static_cast<float>(sessionInfo.duration.count());
-    return std::max(0.0f, std::min(1.0f, progress));
+    return std::fmax(0.0f, std::fmin(1.0f, progress));
 }
 
 std::string PomodoroTimer::GetFormattedTimeRemaining() const
@@ -258,6 +263,9 @@ void PomodoroTimer::Update()
         m_lastUpdateTime = currentTime;
         return; // Don't update anything when paused or stopped
     }
+
+    // Notification handling prior to session completion check
+    SendNotification();
     
     // Check if session should complete
     auto sessionInfo = GetCurrentSession();
@@ -379,4 +387,49 @@ void PomodoroTimer::TriggerCallbacks()
 {
     if (m_onTick)
         m_onTick();
+}
+
+void PomodoroTimer::SendNotification()
+{
+    float progress = GetProgressPercentage();
+    auto &notif = GetNotifications();
+
+    auto fuzzyCompare = [](float a, float b,
+                       float relEps = 1e-5f,
+                       float absEps = 1e-8f) {
+        float diff = std::fabs(a - b);
+        if (diff <= absEps) return true;
+        return diff <= relEps * std::fmaxf(std::fabs(a), std::fabs(b));
+    };
+
+    if (fuzzyCompare(progress, 1.0f) && !notif.hasNotifyStart)
+    {
+        Notify::show(L"Pomodoro Running", Pomodoro::Message::getPomodoroStarted(),
+                        SOUND_NOTIFICATION);
+        notif.hasNotifyStart = true;
+    }
+    else if (fuzzyCompare(progress, 0.9f) && !notif.hasNotify10) 
+    {
+        Notify::show(L"Pomodoro Running", Pomodoro::Message::getProgress10(),
+                     SOUND_NOTIFICATION);
+        notif.hasNotify10 = true;
+    }
+    else if (fuzzyCompare(progress, 0.5f) && !notif.hasNotify50) 
+    {
+        Notify::show(L"Pomodoro Running", Pomodoro::Message::getProgress50(),
+                        SOUND_NOTIFICATION);
+        notif.hasNotify50 = true;
+    }
+    else if (fuzzyCompare(progress, 0.1f) && !notif.hasNotify90) 
+    {
+        Notify::show(L"Pomodoro Running", Pomodoro::Message::getProgress90(),
+                        SOUND_NOTIFICATION);
+        notif.hasNotify90 = true;
+    }
+    else if (fuzzyCompare(progress, 0.0f) && !notif.hasNotifyTimeup)
+    {
+        Notify::show(L"Pomodoro Running", Pomodoro::Message::getSingleSessionCompleted(),
+                        SOUND_NOTIFICATION);
+        notif.hasNotifyTimeup = true;
+    }
 }

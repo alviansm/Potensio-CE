@@ -358,7 +358,6 @@ private:
     void RenderPomodoroProgress();
     void RenderPomodoroSessionInfo();
     void RenderPomodoroQuickSettings();
-    void RenderPomodoroNotifications();
     
     // Pomodoro helpers
     void OnPomodoroSessionComplete(int sessionType);

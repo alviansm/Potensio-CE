@@ -31,6 +31,8 @@
 #include <vector>
 #include <algorithm>
 #include <filesystem>
+#include <cmath>
+#include <limits>
 
 #include "resource.h"
 #include "winsparkle.h"
@@ -1716,8 +1718,6 @@ void MainWindow::RenderPomodoroModule()
     // }
 
     ImGui::PopStyleVar();
-
-    RenderPomodoroNotifications();
 }
 
 void MainWindow::RenderPomodoroTimer()
@@ -2015,46 +2015,6 @@ void MainWindow::RenderPomodoroQuickSettings()
             SavePomodoroConfiguration(config);
         }
     }
-}
-
-void MainWindow::RenderPomodoroNotifications() {
-  float progress = m_pomodoroTimer->GetProgressPercentage();
-  auto &notif = m_pomodoroTimer->GetNotifications();
-
-  PomodoroTimer::SessionType& sessionType = m_pomodoroTimer->GetCurrentSessionType();
-  bool isWork = false;
-  switch (sessionType) {
-      case PomodoroTimer::SessionType::Work:
-        isWork = true;
-        break;
-      default:
-        isWork = false;
-        break;
-  }
-  if (!isWork) return;
-
-  if (progress <= 0.9f && !notif.hasNotify10) {
-    Notify::show(L"Pomodoro Running", Pomodoro::Message::getProgress10(),
-                 SOUND_NOTIFICATION);
-    notif.hasNotify10 = true;
-  } else if (progress <= 0.5f && !notif.hasNotify50) {
-    Notify::show(L"Pomodoro Running", Pomodoro::Message::getProgress50(),
-                 SOUND_NOTIFICATION);
-    notif.hasNotify50 = true;
-  } else if (progress <= 0.1f && !notif.hasNotify90) {
-    Notify::show(L"Pomodoro Running", Pomodoro::Message::getProgress90(),
-                 SOUND_NOTIFICATION);
-    notif.hasNotify90 = true;
-  } else if (progress >= 0.99f && !notif.hasNotifyStart) {
-    Notify::show(L"Pomodoro Running", Pomodoro::Message::getPomodoroStarted(),
-                 SOUND_NOTIFICATION);
-    notif.hasNotifyStart = true;
-  } else if (progress == 0.0f && !notif.hasNotifyTimeup) {
-    Notify::show(L"Pomodoro Running",
-                 Pomodoro::Message::getSingleSessionCompleted(),
-                 SOUND_NOTIFICATION);
-    notif.hasNotifyTimeup = true;
-  }
 }
 
 // Pomodoro Event Handlers
