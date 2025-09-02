@@ -6,10 +6,10 @@
     <description>Appcast for PotensioCE</description>
     <language>en</language>
     <item>
-      <title>Version 0.1.0</title>
-      <sparkle:releaseNotesLink>https://github.com/alviansm/Potensio-CE/releases/tag/v0.1.0</sparkle:releaseNotesLink>
-      <pubDate>Mon, 01 Sep 2025 03:50:27 GMT</pubDate>
-      <enclosure url="https://alviansm.github.io/Potensio-CE/PotensioCE-0.1.0.exe" sparkle:version="0.1.0" type="application/octet-stream"/>
+      <title>Version 0.1.1</title>
+      <sparkle:releaseNotesLink>https://github.com/alviansm/Potensio-CE/releases/tag/v0.1.1</sparkle:releaseNotesLink>
+      <pubDate>Tue, 02 Sep 2025 00:00:00 GMT</pubDate>
+      <enclosure url="https://alviansm.github.io/Potensio-CE/PotensioCE-0.1.1.exe" sparkle:version="0.1.1" type="application/octet-stream"/>
     </item>
   </channel>
 </rss>
