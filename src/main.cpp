@@ -14,7 +14,11 @@
 #include "winsparkle.h"
 
 // Mutex the app
-#define POTENSIO_MUTEX_NAME _T("Potensio_SingleInstance_Mutex")
+#ifdef NDEBUG
+    #define POTENSIO_MUTEX_NAME _T("Potensio_SingleInstance_Mutex")
+#else
+    #define POTENSIO_MUTEX_NAME _T("Potensio_SingleInstance_Mutex_Debug")
+#endif
 #define WM_SHOW_POTENSIO    (WM_USER + 1)
 
 HWND FindPotensioWindow()

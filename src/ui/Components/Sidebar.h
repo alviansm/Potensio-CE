@@ -53,8 +53,8 @@ private:
     int m_hoveredItem = -1;
 
     // Sidebar item
-    SidebarItem m_menuItems[6];  // fixed size for now, change to std::vector<SidebarItem> vector later if required for plugins
-    size_t m_menuItemCount = 6;
+    SidebarItem m_menuItems[7];  // fixed size for now, change to std::vector<SidebarItem> vector later if required for plugins
+    size_t m_menuItemCount = 7;
 
     // Page
     bool m_isSelected = false;
@@ -67,4 +67,5 @@ private:
     ImTextureID iconClipboard   = nullptr;
     ImTextureID iconConvert   = nullptr;
     ImTextureID iconGear   = nullptr;
+    ImTextureID iconActivityMonitoring = nullptr;
 };

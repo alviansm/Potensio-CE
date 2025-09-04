@@ -18,6 +18,7 @@ Sidebar::Sidebar()
     m_menuItems[3] = { ModulePage::Todo,          "ToDo",            "\xf0\x9f\x93\x8b", false, iconTodo };
     m_menuItems[4] = { ModulePage::Clipboard,     "Clipboard",       "\xf0\x9f\x93\x8e", false, iconClipboard };
     m_menuItems[5] = { ModulePage::FileConverter, "File Converter",  "\xf0\x9f\x94\x84", false, iconConvert };
+    m_menuItems[6] = { ModulePage::ActivityMonitoring, "Activity Monitoring",  "\xf0\x9f\x94\x84", true, iconActivityMonitoring };
 }
 
 Sidebar::~Sidebar()
@@ -29,6 +30,7 @@ Sidebar::~Sidebar()
     MainWindow::UnloadTexture(iconClipboard);
     MainWindow::UnloadTexture(iconConvert);
     MainWindow::UnloadTexture(iconGear);
+    MainWindow::UnloadTexture(iconActivityMonitoring);
 }
 
 void Sidebar::Update(float deltaTime)
@@ -115,6 +117,7 @@ void Sidebar::InitializeResources()
     iconClipboard   = MainWindow::LoadTextureFromResource(IDI_CLIPBOARD_ICON);
     iconConvert   = MainWindow::LoadTextureFromResource(IDI_CONVERTER_ICON);
     iconGear   = MainWindow::LoadTextureFromResource(IDI_GEAR_ICON);
+    iconActivityMonitoring = MainWindow::LoadTextureFromResource(IDI_MODULE_ACTIVTIY_MONITORING);
 }
 
 void Sidebar::RenderMenuItem(const SidebarItem& item, bool isSelected)

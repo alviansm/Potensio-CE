@@ -59,6 +59,8 @@ IDI_KANBAN_PRIORITY_MEDIUM RCDATA "icons/kanban/ic-priority-medium.png"
 IDI_KANBAN_PRIORITY_HIGH RCDATA "icons/kanban/ic-priority-high.png"
 IDI_KANBAN_PRIORITY_URGENT RCDATA "icons/kanban/ic-priority-urgent.png"
 
+IDI_MODULE_ACTIVTIY_MONITORING RCDATA "icons/activity_monitoring.png"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION 0,1,0,0
 PRODUCTVERSION 0,1,0,0

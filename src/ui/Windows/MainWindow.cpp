@@ -475,6 +475,9 @@ void MainWindow::RenderContentArea()
         case ModulePage::Settings:
             RenderSettingsModule();
             break;
+        case ModulePage::ActivityMonitoring:
+            RenderActivityMonitoringModule();
+            break;
         default:
             ImGui::Text("Unknown module");
             break;
@@ -5586,6 +5589,15 @@ bool MainWindow::IsFileSupported(const std::string& path)
 {
     FileType type = FileConverter::GetFileTypeFromPath(path);
     return type != FileType::Unknown;
+}
+
+// =============================================================================
+// ACTIVITY MONITORING MODULE IMPLEMENTATION
+// =============================================================================
+
+void MainWindow::RenderActivityMonitoringModule()
+{
+
 }
 
 // =============================================================================

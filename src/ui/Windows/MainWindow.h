@@ -45,7 +45,8 @@ enum class ModulePage
     Todo,
     Clipboard,
     FileConverter,
-    Settings
+    Settings,
+    ActivityMonitoring
 };
 
 enum class SettingsCategory
@@ -472,6 +473,9 @@ private:
     void AddConversionJob(const std::string& inputPath);
     std::string GenerateOutputPath(const std::string& inputPath, FileType outputType);
     bool IsFileSupported(const std::string& path);
+
+    // Activity Monitoring - Main Interface
+    void RenderActivityMonitoringModule();
     
     // Utility
     const char* GetModuleName(ModulePage module) const;
