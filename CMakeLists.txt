@@ -173,7 +173,12 @@ endif()
 add_executable(Potensio 
     ${APP_SOURCES}
     ${IMGUI_SOURCES}
- "src/core/Timer/Messages.h" "src/core/Database/KanbanDatabase.h" "src/core/Database/KanbanDatabase.cpp")
+ "src/core/Timer/Messages.h" 
+ "src/core/Database/KanbanDatabase.h" 
+ "src/core/Database/KanbanDatabase.cpp"
+ "src/core/Database/AMDatabase.h"
+ "src/core/Database/AMDatabase.cpp"
+)
 
 # Include directories
 target_include_directories(Potensio PRIVATE
