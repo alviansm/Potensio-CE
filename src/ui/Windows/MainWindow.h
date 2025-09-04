@@ -298,6 +298,40 @@ private:
         // Debug
         bool outputDebug = true;
     } m_settingsUIState;
+
+    // Activity Monitoring
+    struct ActivityFilterState
+    {
+        int timeFilter = 0; // 0=Today, 1=This Week, 2=This Month, 3=Custom
+        bool showWork = true;
+        bool showPersonal = true;
+        bool showEntertainment = true;
+        bool showOther = true;
+        std::string customStartDate = "";
+        std::string customEndDate = "";
+    } m_activityFilterState;
+
+    struct ActivityData
+    {
+        // Window usage data
+        std::vector<std::string> windowNames;
+        std::vector<double> windowTimes;
+        
+        // Task data
+        std::vector<std::string> taskNames;
+        std::vector<double> taskTimes;
+        
+        // Category data
+        std::vector<std::string> categoryNames;
+        std::vector<double> categoryPercentages;
+        
+        // Wellbeing data
+        std::vector<double> wellbeingScores;
+        double currentWellbeingScore = 7.2;
+        
+        // Last updated timestamp
+        std::chrono::system_clock::time_point lastUpdated;
+    } m_activityData;
     
     // Settings dialog states
     bool m_showNotifySavePopup = false;
@@ -476,6 +510,20 @@ private:
 
     // Activity Monitoring - Main Interface
     void RenderActivityMonitoringModule();
+    void RenderActivityMonitoringHeader();
+    void RenderActivityFilterOptions();
+
+    // Activity Monitoring - Plot Renderers
+    void RenderWindowTimeBarChart();
+    void RenderTaskTimeBarChart();
+    void RenderTaskTagsPieChart();
+    void RenderDigitalWellbeingInsights();
+
+    // Activity Monitoring - Helper Methods (for future implementation)
+    void LoadActivityData(const std::string& dateRange);
+    void ExportActivityReport(const std::string& format);
+    void ApplyActivityFilters();
+
     
     // Utility
     const char* GetModuleName(ModulePage module) const;

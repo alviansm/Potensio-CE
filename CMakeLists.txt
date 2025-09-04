@@ -169,6 +169,10 @@ if(WIN32)
     message(STATUS "Windows resource file disabled - using default icon")
 endif()
 
+# ImGUI & Implot
+add_subdirectory(external/imgui)
+add_subdirectory(src/implot)
+
 # Create executable with explicit source grouping - REMOVED DUPLICATE HEADERS
 add_executable(Potensio 
     ${APP_SOURCES}
@@ -205,6 +209,7 @@ target_link_libraries(Potensio PRIVATE
     uuid
     comdlg32
     advapi32
+    implot
 )
 
 # Link WinSparkle

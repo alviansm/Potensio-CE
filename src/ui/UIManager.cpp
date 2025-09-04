@@ -13,6 +13,8 @@
 #include <imgui_impl_opengl3.h>
 #include <GL/gl.h>
 
+#include "implot.h"
+
 // Forward declare Win32 message handler
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -117,6 +119,7 @@ void UIManager::Shutdown()
     {
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplWin32_Shutdown();
+        ImPlot::DestroyContext();
         ImGui::DestroyContext();
     }
 
@@ -401,6 +404,9 @@ bool UIManager::InitializeImGui()
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     // Basic ImGui without docking or viewports
+
+    // ImPlot init
+    ImPlot::CreateContext();
 
     // Platform/Renderer backends
     if (!ImGui_ImplWin32_Init(m_hwnd))

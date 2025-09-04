@@ -31,11 +31,14 @@
 #include <vector>
 #include <algorithm>
 #include <filesystem>
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <limits>
+#include <format>
 
 #include "resource.h"
 #include "winsparkle.h"
+#include "implot.h"
 
 // Add this for OpenGL
 #ifdef _WIN32
@@ -3126,6 +3129,7 @@ const char* MainWindow::GetModuleName(ModulePage module) const
         case ModulePage::Todo:          return "Todo";
         case ModulePage::FileConverter: return "File Converter";
         case ModulePage::Settings:      return "Settings";
+        case ModulePage::ActivityMonitoring: return "Activity Monitoring";
         default:                        return "Unknown";
     }
 }
@@ -5597,7 +5601,340 @@ bool MainWindow::IsFileSupported(const std::string& path)
 
 void MainWindow::RenderActivityMonitoringModule()
 {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
+    
+    // Header with controls
+    RenderActivityMonitoringHeader();
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Check screen size to determine layout
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    bool isLargeScreen = availableWidth > 1000.0f;
+    
+    if (isLargeScreen)
+    {
+        // 2x2 grid layout for larger screens
+        float plotWidth = (availableWidth - 20.0f) * 0.5f;
+        float plotHeight = (ImGui::GetContentRegionAvail().y - 20.0f) * 0.5f;
+        
+        // Top row: Plot A and Plot B
+        ImGui::BeginChild("##PlotA", ImVec2(plotWidth, plotHeight), true);
+        RenderWindowTimeBarChart();
+        ImGui::EndChild();
+        
+        ImGui::SameLine();
+        
+        ImGui::BeginChild("##PlotB", ImVec2(plotWidth, plotHeight), true);
+        RenderTaskTimeBarChart();
+        ImGui::EndChild();
+        
+        ImGui::Spacing();
+        
+        // Bottom row: Plot C and Plot D
+        ImGui::BeginChild("##PlotC", ImVec2(plotWidth, plotHeight), true);
+        RenderTaskTagsPieChart();
+        ImGui::EndChild();
+        
+        ImGui::SameLine();
+        
+        ImGui::BeginChild("##PlotD", ImVec2(plotWidth, plotHeight), true);
+        RenderDigitalWellbeingInsights();
+        ImGui::EndChild();
+    }
+    else
+    {
+        // Vertical layout for smaller screens
+        float plotHeight = (ImGui::GetContentRegionAvail().y - 10.0f) * 0.5f;
+        
+        // Plot A on top
+        ImGui::BeginChild("##PlotA_Small", ImVec2(0, plotHeight), true);
+        RenderWindowTimeBarChart();
+        ImGui::EndChild();
+        
+        ImGui::Spacing();
+        
+        // Plot B on bottom
+        ImGui::BeginChild("##PlotB_Small", ImVec2(0, plotHeight), true);
+        RenderTaskTimeBarChart();
+        ImGui::EndChild();
+    }
+    
+    ImGui::PopStyleVar();
+}
 
+void MainWindow::RenderActivityMonitoringHeader()
+{
+    ImGui::Text("Activity Monitoring");
+    ImGui::SameLine();
+    
+    // Right-aligned buttons
+    float buttonWidth = 80.0f;
+    float spacing = 10.0f;
+    float totalButtonsWidth = (buttonWidth * 4) + (spacing * 3);
+    
+    ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - totalButtonsWidth);
+    
+    // Filter button with dropdown
+    static bool showFilterPopup = false;
+    if (ImGui::Button("Filter", ImVec2(buttonWidth, 0)))
+    {
+        showFilterPopup = !showFilterPopup;
+    }
+    
+    if (showFilterPopup)
+    {
+        ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y));
+        ImGui::SetNextWindowSize(ImVec2(250, 0));
+        
+        if (ImGui::Begin("##FilterPopup", &showFilterPopup, 
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
+        {
+            RenderActivityFilterOptions();
+        }
+        ImGui::End();
+    }
+    
+    ImGui::SameLine();
+    
+    // Time Range button
+    if (ImGui::Button("Time Range", ImVec2(buttonWidth, 0)))
+    {
+        // TODO: Open time range selector
+    }
+    
+    ImGui::SameLine();
+    
+    // Settings button
+    if (ImGui::Button("Settings", ImVec2(buttonWidth, 0)))
+    {
+        // TODO: Open activity monitoring settings window
+    }
+    
+    ImGui::SameLine();
+    
+    // Export button
+    if (ImGui::Button("Export", ImVec2(buttonWidth, 0)))
+    {
+        // TODO: Export activity data as report
+    }
+}
+
+void MainWindow::RenderActivityFilterOptions()
+{
+    ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), "Time Filter");
+    ImGui::Separator();
+    
+    static int timeFilter = 0;
+    ImGui::RadioButton("Today", &timeFilter, 0);
+    ImGui::RadioButton("This Week", &timeFilter, 1);
+    ImGui::RadioButton("This Month", &timeFilter, 2);
+    ImGui::RadioButton("Custom Range", &timeFilter, 3);
+    
+    ImGui::Spacing();
+    ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), "Task Categories");
+    ImGui::Separator();
+    
+    static bool showWork = true;
+    static bool showPersonal = true;
+    static bool showEntertainment = true;
+    static bool showOther = true;
+    
+    ImGui::Checkbox("Work", &showWork);
+    ImGui::Checkbox("Personal", &showPersonal);
+    ImGui::Checkbox("Entertainment", &showEntertainment);
+    ImGui::Checkbox("Other", &showOther);
+    
+    ImGui::Spacing();
+    if (ImGui::Button("Apply Filters", ImVec2(-1, 0)))
+    {
+        // TODO: Apply filtering logic
+    }
+}
+
+void MainWindow::RenderWindowTimeBarChart()
+{
+    std::string windowName = "Window Usage Time";
+    std::string additionalInfo = "Most Active: VS Code (4.2h)";
+
+    char chartTitle[256];
+    snprintf(chartTitle, sizeof(chartTitle), "%s (%s)", windowName.c_str(), additionalInfo.c_str());
+
+    ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), chartTitle);
+    ImGui::Separator();
+    
+    if (ImPlot::BeginPlot("##WindowTimeChart", ImVec2(-1, -1)))
+    {
+        // Sample data - replace with actual data
+        static const char* windowNames[] = {
+            "VS Code", "Chrome", "Slack", "Excel", "Outlook", "Figma", "Teams"
+        };
+        static double timeSpent[] = {
+            4.2, 3.8, 2.1, 1.9, 1.5, 1.2, 0.8
+        };
+        static int barCount = 7;
+        static double positions[7];
+        for (int i = 0; i < barCount; i++) {
+            positions[i] = i;
+        }
+        
+        ImPlot::SetupAxes("Applications", "Hours", ImPlotAxisFlags_None, ImPlotAxisFlags_None);
+        ImPlot::SetupAxisLimits(ImAxis_X1, -0.5, barCount - 0.5, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 5, ImGuiCond_Always);
+        ImPlot::SetupAxisTicks(ImAxis_X1, positions, barCount, windowNames);
+        
+        // Custom colors for bars
+        ImVec4 barColor = ImVec4(0.2f, 0.6f, 0.9f, 0.8f);
+        ImPlot::PushStyleColor(ImPlotCol_Fill, barColor);
+        
+        ImPlot::PlotBars("Time Spent", positions, timeSpent, barCount, 0.6);
+        ImPlot::PopStyleColor();
+        
+        ImPlot::EndPlot();
+    }
+}
+
+void MainWindow::RenderTaskTimeBarChart()
+{
+    std::string windowName = "Window Usage Time";
+    std::string additionalInfo = "Top Task: Code Review (2.5h)";
+
+    char chartTitle[256];
+    snprintf(chartTitle, sizeof(chartTitle), "%s (%s)", windowName.c_str(), additionalInfo.c_str());
+
+    ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), chartTitle);
+    ImGui::Separator();
+    
+    if (ImPlot::BeginPlot("##TaskTimeChart", ImVec2(-1, -1)))
+    {
+        // Sample data - replace with actual data
+        static const char* taskNames[] = {
+            "Code Review", "UI Design", "Testing", "Documentation", "Meeting", "Email"
+        };
+        static double taskTime[] = {
+            2.5, 2.1, 1.8, 1.3, 1.0, 0.7
+        };
+        static int taskCount = 6;
+        static double positions[6];
+        for (int i = 0; i < taskCount; i++) {
+            positions[i] = i;
+        }
+        
+        ImPlot::SetupAxes("Tasks", "Hours", ImPlotAxisFlags_None, ImPlotAxisFlags_None);
+        ImPlot::SetupAxisLimits(ImAxis_X1, -0.5, taskCount - 0.5, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 3, ImGuiCond_Always);
+
+        // Custom x-axis labels
+        ImPlot::SetupAxisTicks(ImAxis_X1, positions, taskCount, taskNames);
+        
+        // Gradient colors for tasks
+        ImVec4 taskColor = ImVec4(0.9f, 0.4f, 0.2f, 0.8f);
+        ImPlot::PushStyleColor(ImPlotCol_Fill, taskColor);
+        
+        ImPlot::PlotBars("Task Duration", positions, taskTime, taskCount, 0.6);
+        ImPlot::PopStyleColor();
+        
+        ImPlot::EndPlot();
+    }
+}
+
+void MainWindow::RenderTaskTagsPieChart()
+{
+    ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "Time by Category");
+    ImGui::Separator();
+    
+    if (ImPlot::BeginPlot("##TaskTagsPie", ImVec2(-1, -1), ImPlotFlags_Equal))
+    {
+        // Sample data - replace with actual data
+        static const char* labels[] = {"Work (45.2%)", "Personal (25.8%)", "Learning (18.5%)", "Entertainment (10.5%)"};
+        static double data[] = {45.2, 25.8, 18.5, 10.5};
+        static ImVec4 colors[] = {
+            ImVec4(0.2f, 0.6f, 0.9f, 1.0f),
+            ImVec4(0.9f, 0.4f, 0.2f, 1.0f),
+            ImVec4(0.4f, 0.8f, 0.3f, 1.0f),
+            ImVec4(0.9f, 0.7f, 0.2f, 1.0f)
+        };
+        
+        ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_NoDecorations);
+        ImPlot::SetupAxisLimits(ImAxis_X1, -1.2, 1.2);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, -1.2, 1.2);
+        
+        // Manual pie chart implementation using PlotLine and PlotShaded
+        double total = 0;
+        for (int i = 0; i < 4; i++) total += data[i];
+        
+        double angle = 0;
+        for (int i = 0; i < 4; i++) {
+            double slice = (data[i] / total) * 2 * M_PI;
+            
+            // Draw pie slice
+            static double x[100], y[100];
+            x[0] = y[0] = 0; // Center
+            
+            for (int j = 1; j < 50; j++) {
+                double t = angle + (slice * (j - 1)) / 48.0;
+                x[j] = cos(t);
+                y[j] = sin(t);
+            }
+            
+            ImPlot::PushStyleColor(ImPlotCol_Fill, colors[i]);
+            ImPlot::PlotShaded(labels[i], x, y, 50);
+            ImPlot::PopStyleColor();
+            
+            angle += slice;
+        }
+        
+        ImPlot::EndPlot();
+    }
+}
+
+void MainWindow::RenderDigitalWellbeingInsights()
+{
+    ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "Digital Wellbeing Insights");
+    ImGui::Separator();
+    
+    // Wellbeing score
+    ImGui::Text("Wellbeing Score");
+    float wellbeingScore = 7.2f;
+    ImGui::ProgressBar(wellbeingScore / 10.0f, ImVec2(-1, 20), 
+                      (std::string(std::to_string((int)(wellbeingScore * 10)) + "/100")).c_str());
+    
+    ImGui::Spacing();
+    
+    // Weekly trend
+    if (ImPlot::BeginPlot("##WellbeingTrend", ImVec2(-1, 150)))
+    {
+        static double days[] = {1, 2, 3, 4, 5, 6, 7};
+        static double scores[] = {6.8, 7.2, 6.9, 7.5, 7.1, 7.3, 7.2};
+        
+        ImPlot::SetupAxes("Day", "Score", ImPlotAxisFlags_None, ImPlotAxisFlags_None);
+        ImPlot::SetupAxisLimits(ImAxis_X1, 0.5, 7.5, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, 5, 9, ImGuiCond_Always);
+        
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.4f, 0.8f, 0.3f, 1.0f));
+        ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 3.0f);
+        ImPlot::PlotLine("Wellbeing", days, scores, 7);
+        ImPlot::PopStyleVar();
+        ImPlot::PopStyleColor();
+        
+        ImPlot::EndPlot();
+    }
+    
+    ImGui::Spacing();
+    
+    // Insights and suggestions
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "⚠ Suggestions");
+    
+    ImGui::Bullet(); 
+    ImGui::TextWrapped("You've spent 4.2h on VS Code today. Consider taking breaks every hour.");
+    
+    ImGui::Bullet(); 
+    ImGui::TextWrapped("Work tasks dominate your time (45%%. Balance with personal activities.");
+    
+    ImGui::Bullet(); 
+    ImGui::TextWrapped("Your focus sessions are improving! Keep up the momentum.");
 }
 
 // =============================================================================
