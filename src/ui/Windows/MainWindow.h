@@ -393,7 +393,8 @@ private:
     void RenderPomodoroProgress();
     void RenderPomodoroSessionInfo();
     void RenderPomodoroQuickSettings();
-    
+    void RenderPomodoroActivitySettings();
+
     // Pomodoro helpers
     void OnPomodoroSessionComplete(int sessionType);
     void OnPomodoroAllComplete();
@@ -567,6 +568,8 @@ private:
     bool m_confirmDeleteCardPopup = false;
 
     bool m_showQuickEditCardPopup = false;
+
+    bool m_showEditTasksModal = false;
 
     // Current active session tracking
     int m_currentSessionId = -1;

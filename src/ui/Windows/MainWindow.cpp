@@ -1718,6 +1718,10 @@ void MainWindow::RenderPomodoroModule()
     RenderPomodoroQuickSettings();
 
     ImGui::Spacing();
+
+    RenderPomodoroActivitySettings();
+
+    ImGui::Spacing();
     // if (ImGui::Button("Settings")) // TODO: Temporary disable for now
     // {
     //     m_showPomodoroSettings = true;
@@ -2019,6 +2023,125 @@ void MainWindow::RenderPomodoroQuickSettings()
             
             // Save to database instead of just AppConfig
             SavePomodoroConfiguration(config);
+        }
+    }
+}
+
+void MainWindow::RenderPomodoroActivitySettings()
+{
+    // Static state for UI
+    static bool monitorActivity = false;
+    static int selectedCategory = 0;
+    static std::vector<std::string> taskNames = { "Coding", "Writing", "Design", "Meeting", "Research" };
+    static std::vector<bool> selectedTasks(taskNames.size(), false);
+
+    if (ImGui::CollapsingHeader("Activity Settings"))
+    {
+        ImGui::Columns(2, "ActivitySettings", false);
+        ImGui::SetColumnWidth(0, 200.0f);
+
+        // 1. Monitor activity checkbox
+        ImGui::Text("Monitor Activity:");
+        ImGui::NextColumn();
+        ImGui::Checkbox("##monitor_activity", &monitorActivity);
+        ImGui::NextColumn();
+
+        // 2. Category dropdown
+        ImGui::Text("Category:");
+        ImGui::NextColumn();
+        ImGui::SetNextItemWidth(-1);
+        const char* categories[] = { "Work", "Personal", "Learning", "Entertainment" };
+        ImGui::Combo("##activity_category", &selectedCategory, categories, IM_ARRAYSIZE(categories));
+        ImGui::NextColumn();
+
+        // 3. Tasks multi-select + Edit button
+        ImGui::Text("Tasks:");
+        ImGui::NextColumn();
+        ImGui::SetNextItemWidth(-70); // Leave space for Edit button
+        std::string selectedTasksLabel = "Select tasks";
+        int selectedCount = std::count(selectedTasks.begin(), selectedTasks.end(), true);
+        if (selectedCount > 0)
+            selectedTasksLabel = std::to_string(selectedCount) + " selected";
+        if (ImGui::BeginCombo("##activity_tasks", selectedTasksLabel.c_str()))
+        {
+            for (size_t i = 0; i < taskNames.size(); ++i)
+            {
+                ImGui::Selectable(taskNames[i].c_str(), &selectedTasks[i], ImGuiSelectableFlags_DontClosePopups);
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Edit", ImVec2(60, 0)))
+        {
+            m_showEditTasksModal = true;
+        }
+        ImGui::NextColumn();
+
+        // 4. Settings button
+        ImGui::Text("");
+        ImGui::NextColumn();
+        if (ImGui::Button("Settings", ImVec2(100, 0)))
+        {
+            // No functionality yet
+        }
+
+        ImGui::Columns(1);
+
+        // Modal for editing tasks
+        if (m_showEditTasksModal)
+            ImGui::OpenPopup("Edit Tasks");
+
+        if (ImGui::BeginPopupModal("Edit Tasks", &m_showEditTasksModal, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            static char newTaskBuffer[64] = "";
+            ImGui::Text("Edit Tasks");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            // List existing tasks with remove button
+            for (size_t i = 0; i < taskNames.size(); ++i)
+            {
+                ImGui::PushID(static_cast<int>(i));
+                ImGui::Text("%s", taskNames[i].c_str());
+                ImGui::SameLine();
+                if (ImGui::Button("Remove"))
+                {
+                    taskNames.erase(taskNames.begin() + i);
+                    selectedTasks.erase(selectedTasks.begin() + i);
+                    ImGui::PopID();
+                    break; // Avoid invalidating iterator
+                }
+                ImGui::PopID();
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            // Add new task
+            ImGui::InputText("New Task", newTaskBuffer, sizeof(newTaskBuffer));
+            ImGui::SameLine();
+            if (ImGui::Button("Add"))
+            {
+                std::string newTask = newTaskBuffer;
+                if (!newTask.empty())
+                {
+                    taskNames.push_back(newTask);
+                    selectedTasks.push_back(false);
+                    newTaskBuffer[0] = '\0';
+                }
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            if (ImGui::Button("Close", ImVec2(100, 0)))
+            {
+                m_showEditTasksModal = false;
+            }
+
+            ImGui::EndPopup();
         }
     }
 }
@@ -5844,48 +5967,23 @@ void MainWindow::RenderTaskTagsPieChart()
 {
     ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "Time by Category");
     ImGui::Separator();
-    
-    if (ImPlot::BeginPlot("##TaskTagsPie", ImVec2(-1, -1), ImPlotFlags_Equal))
-    {
-        // Sample data - replace with actual data
-        static const char* labels[] = {"Work (45.2%)", "Personal (25.8%)", "Learning (18.5%)", "Entertainment (10.5%)"};
-        static double data[] = {45.2, 25.8, 18.5, 10.5};
-        static ImVec4 colors[] = {
-            ImVec4(0.2f, 0.6f, 0.9f, 1.0f),
-            ImVec4(0.9f, 0.4f, 0.2f, 1.0f),
-            ImVec4(0.4f, 0.8f, 0.3f, 1.0f),
-            ImVec4(0.9f, 0.7f, 0.2f, 1.0f)
-        };
-        
+
+    static const char* labels[] = {"Work", "Personal", "Learning", "Entertainment"};
+    static double data[] = {45.2, 25.8, 18.5, 10.5};
+
+    if (ImPlot::BeginPlot("##TaskTagsPie", ImVec2(-1, -1), ImPlotFlags_Equal)) {
         ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_NoDecorations);
         ImPlot::SetupAxisLimits(ImAxis_X1, -1.2, 1.2);
         ImPlot::SetupAxisLimits(ImAxis_Y1, -1.2, 1.2);
-        
-        // Manual pie chart implementation using PlotLine and PlotShaded
-        double total = 0;
-        for (int i = 0; i < 4; i++) total += data[i];
-        
-        double angle = 0;
-        for (int i = 0; i < 4; i++) {
-            double slice = (data[i] / total) * 2 * M_PI;
-            
-            // Draw pie slice
-            static double x[100], y[100];
-            x[0] = y[0] = 0; // Center
-            
-            for (int j = 1; j < 50; j++) {
-                double t = angle + (slice * (j - 1)) / 48.0;
-                x[j] = cos(t);
-                y[j] = sin(t);
-            }
-            
-            ImPlot::PushStyleColor(ImPlotCol_Fill, colors[i]);
-            ImPlot::PlotShaded(labels[i], x, y, 50);
-            ImPlot::PopStyleColor();
-            
-            angle += slice;
-        }
-        
+
+        // Optional: set a colormap, or omit this line
+        ImPlot::PushColormap(ImPlotColormap_Pastel);
+
+        // Use the correct signature, without colors
+        ImPlot::PlotPieChart(labels, data, 4, 0, 0, 1.0, "%.1f%%", 180);
+
+        ImPlot::PopColormap();
+
         ImPlot::EndPlot();
     }
 }
