@@ -2057,19 +2057,37 @@ void MainWindow::RenderPomodoroActivitySettings()
         // 3. Tasks multi-select + Edit button
         ImGui::Text("Tasks:");
         ImGui::NextColumn();
-        ImGui::SetNextItemWidth(-70); // Leave space for Edit button
-        std::string selectedTasksLabel = "Select tasks";
-        int selectedCount = std::count(selectedTasks.begin(), selectedTasks.end(), true);
-        if (selectedCount > 0)
-            selectedTasksLabel = std::to_string(selectedCount) + " selected";
-        if (ImGui::BeginCombo("##activity_tasks", selectedTasksLabel.c_str()))
-        {
-            for (size_t i = 0; i < taskNames.size(); ++i)
-            {
-                ImGui::Selectable(taskNames[i].c_str(), &selectedTasks[i], ImGuiSelectableFlags_DontClosePopups);
+        ImGui::SetNextItemWidth(-70); // Leave space for "Edit" button
+
+        // Build the label for the combo box (comma-separated)
+        std::string selectedTasksLabel;
+        int selectedCount = 0;
+        for (size_t i = 0; i < taskNames.size(); ++i) {
+            if (selectedTasks[i]) {
+                if (!selectedTasksLabel.empty()) {
+                    selectedTasksLabel += ", ";
+                }
+                selectedTasksLabel += taskNames[i];
+                selectedCount++;
+            }
+        }
+
+        // If nothing selected, show placeholder
+        if (selectedCount == 0) {
+            selectedTasksLabel = "Select tasks";
+        }
+
+        // Multi-select dropdown
+        if (ImGui::BeginCombo("##activity_tasks", selectedTasksLabel.c_str())) {
+            for (size_t i = 0; i < taskNames.size(); ++i) {
+                bool isSelected = selectedTasks[i];
+                if (ImGui::Selectable(taskNames[i].c_str(), &isSelected, ImGuiSelectableFlags_DontClosePopups)) {
+                    selectedTasks[i] = isSelected;
+                }
             }
             ImGui::EndCombo();
         }
+
         ImGui::SameLine();
         if (ImGui::Button("Edit", ImVec2(60, 0)))
         {
@@ -2091,37 +2109,141 @@ void MainWindow::RenderPomodoroActivitySettings()
         if (m_showEditTasksModal)
             ImGui::OpenPopup("Edit Tasks");
 
-        if (ImGui::BeginPopupModal("Edit Tasks", &m_showEditTasksModal, ImGuiWindowFlags_AlwaysAutoResize))
+        ImVec2 modalSize(800, 600); // Consistent width and height
+        ImGui::SetNextWindowSize(modalSize, ImGuiCond_Always);
+        if (ImGui::BeginPopupModal("Edit Tasks", &m_showEditTasksModal, ImGuiWindowFlags_NoResize))
         {
             static char newTaskBuffer[64] = "";
+            static char editTaskBuffer[64] = "";
+            static int editingIndex = -1;
+            
             ImGui::Text("Edit Tasks");
             ImGui::Separator();
             ImGui::Spacing();
 
-            // List existing tasks with remove button
-            for (size_t i = 0; i < taskNames.size(); ++i)
+            // Action buttons row
+            if (ImGui::Button("Clear All", ImVec2(100, 0)))
             {
-                ImGui::PushID(static_cast<int>(i));
-                ImGui::Text("%s", taskNames[i].c_str());
-                ImGui::SameLine();
-                if (ImGui::Button("Remove"))
-                {
-                    taskNames.erase(taskNames.begin() + i);
-                    selectedTasks.erase(selectedTasks.begin() + i);
-                    ImGui::PopID();
-                    break; // Avoid invalidating iterator
-                }
-                ImGui::PopID();
+                // TODO: Implement clear all functionality
+                // This will clear all selected tasks
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Load from Kanban", ImVec2(150, 0)))
+            {
+                // TODO: Implement load from kanban functionality
+                // This will load tasks from kanban boards
             }
 
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::Spacing();
 
-            // Add new task
-            ImGui::InputText("New Task", newTaskBuffer, sizeof(newTaskBuffer));
+            // Tasks table
+            if (ImGui::BeginTable("TasksTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
+            {
+                // Table headers
+                ImGui::TableSetupColumn("No", ImGuiTableColumnFlags_WidthFixed, 40);
+                ImGui::TableSetupColumn("Task Name", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn("Source Board", ImGuiTableColumnFlags_WidthFixed, 120);
+                ImGui::TableSetupColumn("Source Project", ImGuiTableColumnFlags_WidthFixed, 120);
+                ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 120);
+                ImGui::TableHeadersRow();
+
+                // Table content
+                for (size_t i = 0; i < taskNames.size(); ++i)
+                {
+                    ImGui::TableNextRow();
+                    ImGui::PushID(static_cast<int>(i));
+                    
+                    // No column
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("%d", static_cast<int>(i + 1));
+                    
+                    // Task Name column
+                    ImGui::TableSetColumnIndex(1);
+                    if (editingIndex == static_cast<int>(i))
+                    {
+                        ImGui::SetNextItemWidth(-1);
+                        if (ImGui::InputText("##edit_task", editTaskBuffer, sizeof(editTaskBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
+                        {
+                            std::string editedTask = editTaskBuffer;
+                            if (!editedTask.empty())
+                            {
+                                taskNames[i] = editedTask;
+                            }
+                            editingIndex = -1;
+                        }
+                    }
+                    else
+                    {
+                        ImGui::Text("%s", taskNames[i].c_str());
+                    }
+                    
+                    // Source Board column (placeholder for now)
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::Text("Default"); // TODO: Replace with actual source board
+                    
+                    // Source Project column (placeholder for now)
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::Text("Project 1"); // TODO: Replace with actual source project
+                    
+                    // Action column
+                    ImGui::TableSetColumnIndex(4);
+                    if (editingIndex == static_cast<int>(i))
+                    {
+                        if (ImGui::Button("Save", ImVec2(50, 0)))
+                        {
+                            std::string editedTask = editTaskBuffer;
+                            if (!editedTask.empty())
+                            {
+                                taskNames[i] = editedTask;
+                            }
+                            editingIndex = -1;
+                        }
+                    }
+                    else
+                    {
+                        if (ImGui::Button("Edit", ImVec2(40, 0)))
+                        {
+                            editingIndex = static_cast<int>(i);
+                            strncpy(editTaskBuffer, taskNames[i].c_str(), sizeof(editTaskBuffer) - 1);
+                            editTaskBuffer[sizeof(editTaskBuffer) - 1] = '\0';
+                        }
+                    }
+                    
+                    ImGui::SameLine();
+                    if (ImGui::Button("Remove", ImVec2(55, 0)))
+                    {
+                        taskNames.erase(taskNames.begin() + i);
+                        selectedTasks.erase(selectedTasks.begin() + i);
+                        if (editingIndex == static_cast<int>(i))
+                        {
+                            editingIndex = -1;
+                        }
+                        else if (editingIndex > static_cast<int>(i))
+                        {
+                            editingIndex--;
+                        }
+                        ImGui::PopID();
+                        break; // Avoid invalidating iterator
+                    }
+                    
+                    ImGui::PopID();
+                }
+                
+                ImGui::EndTable();
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            // Add new task section
+            ImGui::Text("Add New Task:");
+            ImGui::SetNextItemWidth(200);
+            ImGui::InputText("##new_task", newTaskBuffer, sizeof(newTaskBuffer));
             ImGui::SameLine();
-            if (ImGui::Button("Add"))
+            if (ImGui::Button("Add", ImVec2(60, 0)))
             {
                 std::string newTask = newTaskBuffer;
                 if (!newTask.empty())
@@ -2136,9 +2258,12 @@ void MainWindow::RenderPomodoroActivitySettings()
             ImGui::Separator();
             ImGui::Spacing();
 
+            // Close button
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110);
             if (ImGui::Button("Close", ImVec2(100, 0)))
             {
                 m_showEditTasksModal = false;
+                editingIndex = -1; // Reset editing state
             }
 
             ImGui::EndPopup();
