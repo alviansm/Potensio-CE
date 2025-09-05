@@ -445,7 +445,7 @@ void MainWindow::RenderContentArea()
     float menuBarHeight = ImGui::GetFrameHeight(); // Account for menubar
     
     ImVec2 contentPos = ImVec2(sidebarWidth, menuBarHeight);
-    ImVec2 contentSize = ImVec2(ImGui::GetContentRegionAvail().x, 
+    ImVec2 contentSize = ImVec2(ImGui::GetContentRegionAvail().x - sidebarWidth, 
                                ImGui::GetContentRegionAvail().y);
     
     // Set cursor position for content area
