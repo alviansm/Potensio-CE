@@ -20,7 +20,8 @@ public:
     bool Initialize(AppConfig* config);
     void Shutdown();
 
-    // Config for settings
+    // Config for settings (We'll implement later if needed)
+
 
 // Public method related to monitor opened window
 public:

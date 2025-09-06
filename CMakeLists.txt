@@ -133,7 +133,7 @@ set(APP_SOURCES
     src/app/AppConfig.cpp
     src/app/SystemTray.cpp
     src/core/Logger.cpp
-    src/core/Utils.cpp
+    src/core/Utils.cpp    
     
     src/core/Notify.cpp
     src/core/Timer/PomodoroTimer.cpp
@@ -178,7 +178,7 @@ add_subdirectory(src/implot)
 add_executable(Potensio 
     ${APP_SOURCES}
     ${IMGUI_SOURCES}
- "src/core/Timer/Messages.h" 
+ "src/core/Timer/Messages.h"
  "src/core/Database/KanbanDatabase.h" 
  "src/core/Database/KanbanDatabase.cpp"
  "src/core/Database/AMDatabase.h"
@@ -194,6 +194,7 @@ target_include_directories(Potensio PRIVATE
     ${SQLITE_DIR}
     ${WINTOAST_DIR}/include  # This is crucial for finding wintoastlib.h
     resources
+    ${CMAKE_SOURCE_DIR}/src/core/nlohmann
 )
 
 # Link libraries - IMPORTANT: Added sqlite3 library here

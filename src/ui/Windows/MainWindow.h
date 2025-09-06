@@ -22,6 +22,7 @@
 
 // Utilities
 #include "core/Utils.h"
+#include "nlohmann/json.hpp"
 
 // Forward declarations
 class Sidebar;
@@ -337,6 +338,72 @@ private:
         // Last updated timestamp
         std::chrono::system_clock::time_point lastUpdated;
     } m_activityData;
+
+    struct AMQuickSettingsInPomodoro
+    {
+        bool isAMActive = false;
+        AM::AMCategory selectedCategory = AM::AMCategory::Unidentified;
+        std::vector<std::shared_ptr<AM::AMTaskExecuted>> activeTasks;
+
+        void SaveToConfig(AppConfig* config) const
+        {
+            if (!config) return;
+
+            config->SetValue("Pomodoro.isAMActive", isAMActive);
+            config->SetValue("Pomodoro.selectedCategory", static_cast<int>(selectedCategory));
+
+            // Serialize activeTasks as JSON string (using nlohmann::json)
+            nlohmann::json tasksJson = nlohmann::json::array();
+            for (const auto& task : activeTasks)
+            {
+                if (task)
+                {
+                    nlohmann::json t;
+                    t["id"] = task->id;
+                    t["displayName"] = task->displayName;
+
+                    if (task->kanbanCardId.has_value())
+                        t["kanbanCardId"] = *task->kanbanCardId;
+
+                    tasksJson.push_back(t);
+                }
+            }
+            config->SetValue("Pomodoro.activeTasks", tasksJson.dump());
+        }
+
+        static AMQuickSettingsInPomodoro LoadFromConfig(const AppConfig* config)
+        {
+            AMQuickSettingsInPomodoro settings;
+            if (!config) return settings;
+
+            settings.isAMActive = config->GetValue("Pomodoro.isAMActive", false);
+            settings.selectedCategory = static_cast<AM::AMCategory>(
+                config->GetValue("Pomodoro.selectedCategory", static_cast<int>(AM::AMCategory::Unidentified))
+            );
+
+            std::string tasksStr = config->GetValue("Pomodoro.activeTasks", std::string("[]"));
+            try {
+                nlohmann::json tasksJson = nlohmann::json::parse(tasksStr);
+                for (auto& t : tasksJson)
+                {
+                    auto task = std::make_shared<AM::AMTaskExecuted>();
+                    task->id = t.value("id", "");
+                    task->displayName = t.value("displayName", "");
+
+                    if (t.contains("kanbanCardId") && !t["kanbanCardId"].is_null())
+                        task->kanbanCardId = t.value("kanbanCardId", "");
+
+                    settings.activeTasks.push_back(task);
+                }
+            }
+            catch (...) {
+                // fallback: ignore corrupted activeTasks data
+            }
+
+            return settings;
+        }
+    };
+
     
     // Settings dialog states
     bool m_showNotifySavePopup = false;
