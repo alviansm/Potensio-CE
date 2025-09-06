@@ -258,6 +258,14 @@ bool MainWindow::Initialize(AppConfig* config)
         m_fileConverterUIState.autoProcessJobs = config->GetValue("file_converter.auto_process", true);
     }
 
+    /**
+     * @note Activity Monitoring - Initializations
+     */ 
+    if (!m_amManager->Initialize(m_config))
+    {
+        Logger::Warning("Failed to initialize Activity Monitoring");
+    }
+
     // Initialize Settings UI State
     LoadSettingsFromConfig();
 
@@ -5985,15 +5993,14 @@ void MainWindow::RenderActivityFilterOptions()
     ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), "Task Categories");
     ImGui::Separator();
     
-    static bool showWork = true;
-    static bool showPersonal = true;
-    static bool showEntertainment = true;
-    static bool showOther = true;
-    
-    ImGui::Checkbox("Work", &showWork);
-    ImGui::Checkbox("Personal", &showPersonal);
-    ImGui::Checkbox("Entertainment", &showEntertainment);
-    ImGui::Checkbox("Other", &showOther);
+    for (int i = 0; i < static_cast<int>(AM::AMCategory::Count); ++i)
+    {
+        AM::AMCategory cat = static_cast<AM::AMCategory>(i);
+        bool checked = m_activityFilterState.showCategories[i];
+        if (ImGui::Checkbox(AM::ToString(cat), &checked)) {
+            m_activityFilterState.showCategories[i] = checked;
+        }
+    }
     
     ImGui::Spacing();
     if (ImGui::Button("Apply Filters", ImVec2(-1, 0)))
@@ -7379,6 +7386,15 @@ bool MainWindow::InitializeDatabase()
     }
 
     // Initialize Todos database
+
+    // Initialize Activity Monitoring database
+    m_amDatabase = std::make_shared<AMDatabase>(m_databaseManager);
+
+    if (!m_amDatabase->Initialize())
+    {
+        Logger::Error("Failed to initialize Activity Monitoring database");
+        return false;
+    }
     
     Logger::Info("Database initialized successfully");
     return true;

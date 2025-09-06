@@ -140,6 +140,7 @@ set(APP_SOURCES
     src/core/Kanban/KanbanManager.cpp
     src/core/Todo/TodoManager.cpp
     src/core/Clipboard/ClipboardManager.cpp
+    src/core/ActivityMonitoring/AMManager.cpp
     src/core/Database/DatabaseManager.cpp
     src/core/Database/PomodoroDatabase.cpp
     src/ui/UIManager.cpp
@@ -273,6 +274,10 @@ source_group("Source Files\\Core\\Kanban" FILES
     src/core/Kanban/KanbanManager.cpp
 )
 
+source_group("Source Files\\Core\\ActivityMonitoring" FILES 
+    src/core/ActivityMonitoring/AMManager.cpp
+)
+
 source_group("Source Files\\Core\\Todo" FILES 
     src/core/Todo/TodoManager.cpp
 )
@@ -315,6 +320,7 @@ source_group("Header Files\\App" FILES
 
 source_group("Header Files\\Core" FILES 
     src/core/Notify.h
+    src/core/uuid.h
 )
 
 source_group("Header Files\\Core\\Timer" FILES 
@@ -323,6 +329,10 @@ source_group("Header Files\\Core\\Timer" FILES
 
 source_group("Header Files\\Core\\Kanban" FILES 
     src/core/Kanban/KanbanManager.h
+)
+
+source_group("Header Files\\Core\\ActivityMonitoring" FILES 
+    src/core/ActivityMonitoring/AMManager.h
 )
 
 source_group("Header Files\\Core\\Todo" FILES 

@@ -1,6 +1,7 @@
 // MainWindow.h - Updated with Settings Module
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "core/Clipboard/ClipboardManager.h"
 #include "core/FileConverter/FileConverter.h"
 #include "core/Timer/PomodoroTimer.h"
+#include "core/ActivityMonitoring/AMManager.h"
 
 // Utilities
 #include "core/Utils.h"
@@ -36,6 +38,8 @@ class DatabaseManager;
 class PomodoroDatabase;
 class KanbanDatabase;
 class TodoDatabase;
+
+#include "core/Database/AMDatabase.h" // Can't forward declaration since we need struct inside the class' namespace
 
 enum class ModulePage
 {
@@ -176,7 +180,11 @@ private:
     std::unique_ptr<ClipboardManager> m_clipboardManager;
     std::unique_ptr<ClipboardWindow> m_clipboardSettingsWindow;
     bool m_showClipboardSettings = false;
-    
+
+    // Activity Monitoring Integration
+    std::unique_ptr<AMManager> m_amManager;
+
+private:
     // Card editing state (for Kanban)
     struct CardEditState
     {
@@ -303,10 +311,7 @@ private:
     struct ActivityFilterState
     {
         int timeFilter = 0; // 0=Today, 1=This Week, 2=This Month, 3=Custom
-        bool showWork = true;
-        bool showPersonal = true;
-        bool showEntertainment = true;
-        bool showOther = true;
+        std::vector<bool> showCategories = std::vector<bool>(static_cast<int>(AM::AMCategory::Count), true);
         std::string customStartDate = "";
         std::string customEndDate = "";
     } m_activityFilterState;
@@ -548,6 +553,7 @@ private:
     std::shared_ptr<DatabaseManager> m_databaseManager;
     std::shared_ptr<PomodoroDatabase> m_pomodoroDatabase;
     std::shared_ptr<KanbanDatabase> m_kanbanDatabase;
+    std::shared_ptr<AMDatabase> m_amDatabase;
 
     // Change listener
     bool m_kanbanChanged = false;
