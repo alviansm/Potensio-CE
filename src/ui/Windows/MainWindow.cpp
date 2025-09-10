@@ -2117,165 +2117,169 @@ void MainWindow::RenderPomodoroActivitySettings()
         if (m_showEditTasksModal)
             ImGui::OpenPopup("Edit Tasks");
 
-        ImVec2 modalSize(800, 600); // Consistent width and height
-        ImGui::SetNextWindowSize(modalSize, ImGuiCond_Always);
-        if (ImGui::BeginPopupModal("Edit Tasks", &m_showEditTasksModal, ImGuiWindowFlags_NoResize))
+        ImVec2 modalSize(700, 600); // Consistent width and height
+ImGui::SetNextWindowSize(modalSize, ImGuiCond_Always);
+
+if (ImGui::BeginPopupModal("Edit Tasks", &m_showEditTasksModal, ImGuiWindowFlags_NoResize))
+{
+    static char newTaskBuffer[64] = "";
+    static char editTaskBuffer[64] = "";
+    static int editingIndex = -1;
+    
+    ImGui::Text("Edit Tasks");
+    ImGui::Separator();
+
+    // Compact action buttons row
+    if (ImGui::Button("Clear All", ImVec2(80, 0)))
+    {
+        // TODO: Implement clear all functionality
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Load Kanban", ImVec2(100, 0)))
+    {
+        // TODO: Implement load from kanban functionality
+    }
+
+    ImGui::Separator();
+
+    // Compact tasks table
+    if (ImGui::BeginTable("TasksTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0, 430)))
+    {
+        // Optimized column widths
+        ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 25);
+        ImGui::TableSetupColumn("Task Name", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("Project", ImGuiTableColumnFlags_WidthFixed, 80);
+        ImGui::TableSetupColumn("Board", ImGuiTableColumnFlags_WidthFixed, 80);
+        ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 100);
+        ImGui::TableHeadersRow();
+
+        for (size_t i = 0; i < taskNames.size(); ++i)
         {
-            static char newTaskBuffer[64] = "";
-            static char editTaskBuffer[64] = "";
-            static int editingIndex = -1;
+            ImGui::TableNextRow();
+            ImGui::PushID(static_cast<int>(i));
             
-            ImGui::Text("Edit Tasks");
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            // Action buttons row
-            if (ImGui::Button("Clear All", ImVec2(100, 0)))
+            // Number column
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("%d", static_cast<int>(i + 1));
+            
+            // Task Name column
+            ImGui::TableSetColumnIndex(1);
+            if (editingIndex == static_cast<int>(i))
             {
-                // TODO: Implement clear all functionality
-                // This will clear all selected tasks
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Load from Kanban", ImVec2(150, 0)))
-            {
-                // TODO: Implement load from kanban functionality
-                // This will load tasks from kanban boards
-            }
-
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            // Tasks table
-            if (ImGui::BeginTable("TasksTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
-            {
-                // Table headers
-                ImGui::TableSetupColumn("No", ImGuiTableColumnFlags_WidthFixed, 40);
-                ImGui::TableSetupColumn("Task Name", ImGuiTableColumnFlags_WidthStretch);
-                ImGui::TableSetupColumn("Source Board", ImGuiTableColumnFlags_WidthFixed, 120);
-                ImGui::TableSetupColumn("Source Project", ImGuiTableColumnFlags_WidthFixed, 120);
-                ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 120);
-                ImGui::TableHeadersRow();
-
-                // Table content
-                for (size_t i = 0; i < taskNames.size(); ++i)
+                ImGui::SetNextItemWidth(-1);
+                if (ImGui::InputText("##edit", editTaskBuffer, sizeof(editTaskBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
                 {
-                    ImGui::TableNextRow();
-                    ImGui::PushID(static_cast<int>(i));
-                    
-                    // No column
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text("%d", static_cast<int>(i + 1));
-                    
-                    // Task Name column
-                    ImGui::TableSetColumnIndex(1);
+                    std::string editedTask = editTaskBuffer;
+                    if (!editedTask.empty())
+                    {
+                        taskNames[i] = editedTask;
+                    }
+                    editingIndex = -1;
+                }
+            }
+            else
+            {
+                ImGui::TextWrapped("%s", taskNames[i].c_str());
+            }
+
+            // Project column
+            ImGui::TableSetColumnIndex(2);
+            ImGui::Text("Default");
+            
+            // Compact Board column
+            ImGui::TableSetColumnIndex(3);
+            ImGui::Text("Default");
+            
+            // Compact Actions column - FIXED: Changed from index 4 to index 3
+            ImGui::TableSetColumnIndex(4);
+            if (editingIndex == static_cast<int>(i))
+            {
+                if (ImGui::Button("✓", ImVec2(20, 0)))
+                {
+                    std::string editedTask = editTaskBuffer;
+                    if (!editedTask.empty())
+                    {
+                        taskNames[i] = editedTask;
+                    }
+                    editingIndex = -1;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("✗", ImVec2(20, 0)))
+                {
+                    editingIndex = -1; // Cancel editing
+                }
+            }
+            else
+            {
+                if (ImGui::Button("✎", ImVec2(20, 0)))
+                {
+                    editingIndex = static_cast<int>(i);
+                    strncpy(editTaskBuffer, taskNames[i].c_str(), sizeof(editTaskBuffer) - 1);
+                    editTaskBuffer[sizeof(editTaskBuffer) - 1] = '\0';
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("✗", ImVec2(20, 0)))
+                {
+                    taskNames.erase(taskNames.begin() + i);
+                    selectedTasks.erase(selectedTasks.begin() + i);
                     if (editingIndex == static_cast<int>(i))
                     {
-                        ImGui::SetNextItemWidth(-1);
-                        if (ImGui::InputText("##edit_task", editTaskBuffer, sizeof(editTaskBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
-                        {
-                            std::string editedTask = editTaskBuffer;
-                            if (!editedTask.empty())
-                            {
-                                taskNames[i] = editedTask;
-                            }
-                            editingIndex = -1;
-                        }
+                        editingIndex = -1;
                     }
-                    else
+                    else if (editingIndex > static_cast<int>(i))
                     {
-                        ImGui::Text("%s", taskNames[i].c_str());
+                        editingIndex--;
                     }
-                    
-                    // Source Board column (placeholder for now)
-                    ImGui::TableSetColumnIndex(2);
-                    ImGui::Text("Default"); // TODO: Replace with actual source board
-                    
-                    // Source Project column (placeholder for now)
-                    ImGui::TableSetColumnIndex(3);
-                    ImGui::Text("Project 1"); // TODO: Replace with actual source project
-                    
-                    // Action column
-                    ImGui::TableSetColumnIndex(4);
-                    if (editingIndex == static_cast<int>(i))
-                    {
-                        if (ImGui::Button("Save", ImVec2(50, 0)))
-                        {
-                            std::string editedTask = editTaskBuffer;
-                            if (!editedTask.empty())
-                            {
-                                taskNames[i] = editedTask;
-                            }
-                            editingIndex = -1;
-                        }
-                    }
-                    else
-                    {
-                        if (ImGui::Button("Edit", ImVec2(40, 0)))
-                        {
-                            editingIndex = static_cast<int>(i);
-                            strncpy(editTaskBuffer, taskNames[i].c_str(), sizeof(editTaskBuffer) - 1);
-                            editTaskBuffer[sizeof(editTaskBuffer) - 1] = '\0';
-                        }
-                    }
-                    
-                    ImGui::SameLine();
-                    if (ImGui::Button("Remove", ImVec2(55, 0)))
-                    {
-                        taskNames.erase(taskNames.begin() + i);
-                        selectedTasks.erase(selectedTasks.begin() + i);
-                        if (editingIndex == static_cast<int>(i))
-                        {
-                            editingIndex = -1;
-                        }
-                        else if (editingIndex > static_cast<int>(i))
-                        {
-                            editingIndex--;
-                        }
-                        ImGui::PopID();
-                        break; // Avoid invalidating iterator
-                    }
-                    
                     ImGui::PopID();
-                }
-                
-                ImGui::EndTable();
-            }
-
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            // Add new task section
-            ImGui::Text("Add New Task:");
-            ImGui::SetNextItemWidth(200);
-            ImGui::InputText("##new_task", newTaskBuffer, sizeof(newTaskBuffer));
-            ImGui::SameLine();
-            if (ImGui::Button("Add", ImVec2(60, 0)))
-            {
-                std::string newTask = newTaskBuffer;
-                if (!newTask.empty())
-                {
-                    taskNames.push_back(newTask);
-                    selectedTasks.push_back(false);
-                    newTaskBuffer[0] = '\0';
+                    break; // Important: break after erasing to avoid iterator issues
                 }
             }
-
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            // Close button
-            ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110);
-            if (ImGui::Button("Close", ImVec2(100, 0)))
-            {
-                m_showEditTasksModal = false;
-                editingIndex = -1; // Reset editing state
-            }
-
-            ImGui::EndPopup();
+            
+            ImGui::PopID();
         }
+        
+        ImGui::EndTable();
+    }
+
+    ImGui::Separator();
+
+    // Compact add new task section
+    ImGui::Text("Add:");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(150);
+    if (ImGui::InputText("##new", newTaskBuffer, sizeof(newTaskBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
+    {
+        std::string newTask = newTaskBuffer;
+        if (!newTask.empty())
+        {
+            taskNames.push_back(newTask);
+            selectedTasks.push_back(false);
+            newTaskBuffer[0] = '\0';
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Add"))
+    {
+        std::string newTask = newTaskBuffer;
+        if (!newTask.empty())
+        {
+            taskNames.push_back(newTask);
+            selectedTasks.push_back(false);
+            newTaskBuffer[0] = '\0';
+        }
+    }
+
+    ImGui::Separator();
+
+    // Compact close button
+    if (ImGui::Button("Close", ImVec2(-1, 0)))
+    {
+        m_showEditTasksModal = false;
+        editingIndex = -1;
+    }
+
+    ImGui::EndPopup();
+}
     }
 }
 
@@ -5866,57 +5870,29 @@ void MainWindow::RenderActivityMonitoringModule()
     ImGui::Separator();
     ImGui::Spacing();
     
-    // Check screen size to determine layout
-    float availableWidth = ImGui::GetContentRegionAvail().x;
-    bool isLargeScreen = availableWidth > 1000.0f;
+    // Render the currently selected graph in full view
+    ImGui::BeginChild("##ActiveGraph", ImVec2(0, 0), true);
     
-    if (isLargeScreen)
+    switch (m_activeGraphType)
     {
-        // 2x2 grid layout for larger screens
-        float plotWidth = (availableWidth - 20.0f) * 0.5f;
-        float plotHeight = (ImGui::GetContentRegionAvail().y - 20.0f) * 0.5f;
-        
-        // Top row: Plot A and Plot B
-        ImGui::BeginChild("##PlotA", ImVec2(plotWidth, plotHeight), true);
-        RenderWindowTimeBarChart();
-        ImGui::EndChild();
-        
-        ImGui::SameLine();
-        
-        ImGui::BeginChild("##PlotB", ImVec2(plotWidth, plotHeight), true);
-        RenderTaskTimeBarChart();
-        ImGui::EndChild();
-        
-        ImGui::Spacing();
-        
-        // Bottom row: Plot C and Plot D
-        ImGui::BeginChild("##PlotC", ImVec2(plotWidth, plotHeight), true);
-        RenderTaskTagsPieChart();
-        ImGui::EndChild();
-        
-        ImGui::SameLine();
-        
-        ImGui::BeginChild("##PlotD", ImVec2(plotWidth, plotHeight), true);
-        RenderDigitalWellbeingInsights();
-        ImGui::EndChild();
+        case GraphType::WindowTime:
+            RenderWindowTimeBarChart();
+            break;
+        case GraphType::TaskTime:
+            RenderTaskTimeBarChart();
+            break;
+        case GraphType::TaskTags:
+            RenderTaskTagsPieChart();
+            break;
+        case GraphType::DigitalWellbeing:
+            RenderDigitalWellbeingInsights();
+            break;
+        default:
+            RenderWindowTimeBarChart();
+            break;
     }
-    else
-    {
-        // Vertical layout for smaller screens
-        float plotHeight = (ImGui::GetContentRegionAvail().y - 10.0f) * 0.5f;
-        
-        // Plot A on top
-        ImGui::BeginChild("##PlotA_Small", ImVec2(0, plotHeight), true);
-        RenderWindowTimeBarChart();
-        ImGui::EndChild();
-        
-        ImGui::Spacing();
-        
-        // Plot B on bottom
-        ImGui::BeginChild("##PlotB_Small", ImVec2(0, plotHeight), true);
-        RenderTaskTimeBarChart();
-        ImGui::EndChild();
-    }
+    
+    ImGui::EndChild();
     
     ImGui::PopStyleVar();
 }
@@ -5925,6 +5901,36 @@ void MainWindow::RenderActivityMonitoringHeader()
 {
     ImGui::Text("Activity Monitoring");
     ImGui::SameLine();
+    
+    // Graph selector dropdown
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 20.0f); // Add some spacing
+    
+    static const char* graphNames[] = {
+        "Window Usage Time",
+        "Task Time Analysis", 
+        "Time by Category",
+        "Digital Wellbeing"
+    };
+    
+    const char* currentGraphName = graphNames[static_cast<int>(m_activeGraphType)];
+    ImGui::SetNextItemWidth(200.0f);
+    
+    if (ImGui::BeginCombo("##GraphSelector", currentGraphName))
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            bool isSelected = (static_cast<int>(m_activeGraphType) == i);
+            if (ImGui::Selectable(graphNames[i], isSelected))
+            {
+                m_activeGraphType = static_cast<GraphType>(i);
+            }
+            
+            if (isSelected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
     
     // Right-aligned buttons
     float buttonWidth = 80.0f;

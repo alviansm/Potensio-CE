@@ -51,7 +51,8 @@ bool AMDatabase::CreateTables()
     return CreateAMWindowTable() &&
            CreateAMWindowOpenedTable() &&
            CreateAMTaskExecutedTable() &&
-           CreateAMSessionTable();
+           CreateAMSessionTable() &&
+           CreateAMSessionNormalizationTable();
 }
 
 bool AMDatabase::CreateAMWindowTable()
@@ -117,6 +118,24 @@ bool AMDatabase::CreateAMSessionTable()
             id TEXT PRIMARY KEY,
             pomodoro_session_id TEXT,        -- FK to pomodoro_session table
             category INTEGER NOT NULL,
+
+            is_deleted BOOLEAN NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            modified_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+    )";
+
+    return m_dbManager->ExecuteSQL(sql);
+}
+
+bool AMDatabase::CreateAMSessionNormalizationTable()
+{
+    const std::string sql = R"(
+        CREATE TABLE IF NOT EXISTS am_session_normalization (
+            id TEXT PRIMARY KEY,
+            am_session_id TEXT,
+            am_window_opened_id TEXT,
+            am_task_executed_id TEXT,
 
             is_deleted BOOLEAN NOT NULL DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -64,6 +64,14 @@ enum class SettingsCategory
     About
 };
 
+enum class GraphType
+{
+    WindowTime = 0,
+    TaskTime = 1,
+    TaskTags = 2,
+    DigitalWellbeing = 3
+};
+
 // File item structure for the dropover interface
 struct FileItem
 {
@@ -306,6 +314,10 @@ private:
         
         // Debug
         bool outputDebug = true;
+
+        // Activtiy Monitoring - Quick Settings in Pomodoro
+        bool isActivityMonitoringActivated = true;
+        int selectedAMCategory = static_cast<int>(AM::AMCategory::Productivity);  
     } m_settingsUIState;
 
     // Activity Monitoring
@@ -404,6 +416,8 @@ private:
         }
     };
 
+    
+    GraphType m_activeGraphType = GraphType::WindowTime;
     
     // Settings dialog states
     bool m_showNotifySavePopup = false;

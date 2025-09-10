@@ -48,7 +48,7 @@ namespace AM
     }
 
     struct AMWindow {
-        std::string id;          // Could be UUID or DB autoincrement
+        std::string id;        
         std::string binaryName;  // e.g. "chrome.exe"
         std::string displayName; // e.g. "Google Chrome"
         AMCategory category;
@@ -147,6 +147,7 @@ private:
     bool CreateAMWindowOpenedTable();
     bool CreateAMTaskExecutedTable();
     bool CreateAMSessionTable();
+    bool CreateAMSessionNormalizationTable();
 
     bool MigrateSchema(int fromVersion, int toVersion);
     
